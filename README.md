@@ -1,9 +1,9 @@
 
 # Muya 🌀
-Welcome to Muya – your new best friend for managing state in React applications! Making state management a breeze, focused on simplicity and scalability for real-world scenarios.
+Welcome to Muya - Making state management a breeze, focused on simplicity and scalability for real-world scenarios.
 
-[![Build](https://github.com/samuelgjabel/muya/actions/workflows/build.yml/badge.svg)](https://github.com/samuelgjabel/muya/actions/workflows/build.yml)
-[![Code quality check](https://github.com/samuelgjabel/muya/actions/workflows/code-check.yml/badge.svg)](https://github.com/samuelgjabel/muya/actions/workflows/code-check.yml)
+[![Build](https://github.com/samuelgja/muya/actions/workflows/build.yml/badge.svg)](https://github.com/samuelgja/muya/actions/workflows/build.yml)
+[![Code quality Check](https://github.com/samuelgja/muya/actions/workflows/code-check.yml/badge.svg)](https://github.com/samuelgja/muya/actions/workflows/code-check.yml)
 [![Build Size](https://img.shields.io/bundlephobia/minzip/muya?label=Bundle%20size)](https://bundlephobia.com/result?p=muya)
 
 
@@ -12,9 +12,9 @@ Welcome to Muya – your new best friend for managing state in React application
 - Easy State Creation: Kickstart your state management with simple and intuitive APIs.
 - Selectors & Merges: Grab exactly what you need from your state and combine multiple states seamlessly.
 - Deep Nesting Support: Handle complex state structures without breaking a sweat.
-- Optimized Rendering: Prevent unnecessary re-renders with smart equality checks.
-- Concurrency Handling: Stay cool under pressure with robust concurrency support.
+- Optimized Rendering: Prevent unnecessary re-renders
 - TypeScript Ready: Fully typed for maximum developer sanity.
+- Small Bundle Size: Lightweight and fast, no bloatware here.
 
 
 ## 📦 Installation
