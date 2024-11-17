@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-shadow */
 /* eslint-disable no-shadow */
 import { Suspense } from 'react'
-import { create } from './create'
+import { create } from '../create'
 import { renderHook, act, waitFor, render, screen } from '@testing-library/react'
-import { shallow } from './shallow'
+import { shallow } from '../shallow'
 describe('state', () => {
   it('should test state', () => {
     const appState = create({ count: 0 })
@@ -484,34 +484,6 @@ describe('state', () => {
       appState.setState({ count: { nested: { count: 10 } } })
     })
     expect(renderCount.current).toEqual(1)
-  })
-  it('should use merge states', () => {
-    const state1 = create(3)
-    const state2 = create(2)
-    const mergedState = state1.merge(state2, (s1, s2) => s1 + s2)
-    const result = renderHook(() => mergedState())
-    expect(result.result.current).toEqual(5)
-    act(() => {
-      state1.setState(5)
-    })
-    expect(result.result.current).toEqual(7)
-    act(() => {
-      state2.setState(3)
-    })
-    expect(result.result.current).toEqual(8)
-  })
-
-  it('should use merge states nested', () => {
-    const useName = create(() => 'John')
-    const useAge = create(() => 30)
-    const useUser = useName.merge(useAge, (name, age) => ({ name, age }), shallow)
-    const result = renderHook(() => useUser())
-    expect(result.result.current).toEqual({ name: 'John', age: 30 })
-
-    act(() => {
-      useName.setState('Jane')
-    })
-    expect(result.result.current).toEqual({ name: 'Jane', age: 30 })
   })
 
   it('should use slice with new reference', () => {

@@ -27,6 +27,7 @@ export type GetState<T> = () => T
 export interface StateDataInternal<T = unknown> {
   value?: T
   updateVersion: number
+  abortController?: AbortController
 }
 
 // eslint-disable-next-line no-shadow
@@ -46,7 +47,6 @@ export interface BaseState<T> {
   getState: GetState<T>
 
   select: <S>(selector: (value: T) => S, isEqual?: IsEqual<S>) => GetterState<S>
-  merge: <T2, S>(state2: GetterState<T2>, selector: (value1: T, value2: T2) => S, isEqual?: IsEqual<S>) => GetterState<S>
 
   /**
    * Internal state data

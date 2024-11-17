@@ -1,3 +1,4 @@
+import { Abort } from './common'
 import type { Ref, Setter, SetValue } from './types'
 
 export function isPromise(value: unknown): value is Promise<unknown> {
@@ -33,4 +34,12 @@ export function isEqualBase<T>(valueA: T, valueB: T): boolean {
     return true
   }
   return !!Object.is(valueA, valueB)
+}
+
+export function isAbortError(value: unknown): value is DOMException {
+  return value instanceof DOMException && value.name === Abort.Error
+}
+
+export function isAnyOtherError(value: unknown): value is Error {
+  return value instanceof Error && value.name !== Abort.Error
 }

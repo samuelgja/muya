@@ -13,7 +13,6 @@ export function createGetterState<T>(options: Options<T>): GetterState<T> {
   useSliceState.getState = baseState.getState
   useSliceState.reset = baseState.reset
   useSliceState.select = baseState.select
-  useSliceState.merge = baseState.merge
   useSliceState.subscribe = baseState.subscribe
   return useSliceState
 }

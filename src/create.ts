@@ -1,9 +1,10 @@
 import { createEmitter } from './create-emitter'
 import type { SetValue, SetterState, StateDataInternal, DefaultValue, GetterState, IsEqual, UpdateValue } from './types'
 import { getDefaultValue } from './types'
-import { isEqualBase, isObject, isPromise, isSetValueFunction } from './is'
+import { isAbortError, isEqualBase, isObject, isPromise, isSetValueFunction } from './is'
 import { createBaseState } from './create-base-state'
 import { createGetterState } from './create-getter-state'
+import { cancelablePromise } from './common'
 
 /**
  * Creates a basic atom state.
@@ -44,19 +45,34 @@ export function create<T>(defaultValue: DefaultValue<T>, isEqual: IsEqual<T> = i
     }
     return stateData.value
   }
+
   function get(): T {
     const stateValue = getValue()
     if (isPromise(stateValue)) {
-      stateValue.then((data) => {
-        stateData.value = data as Awaited<T>
-        emitter.emit()
-      })
+      const { controller, promise } = cancelablePromise(stateValue, stateData.abortController)
+      stateData.abortController = controller
+      promise
+        .then((data) => {
+          stateData.value = data as Awaited<T>
+          emitter.emit()
+        })
+        .catch((error) => {
+          if (isAbortError(error)) {
+            return
+          }
+          stateData.value = new Error(error) as T
+        })
     }
     return stateValue
   }
 
   function set(stateValue: SetValue<T>) {
     const stateValueData = getValue()
+    if (stateData.abortController) {
+      stateData.abortController.abort()
+      stateData.abortController = undefined
+    }
+
     const newState = resolveSetter(stateValueData, stateValue)
     const isEqualResult = isEqual?.(stateValueData, newState)
     if (isEqualResult || newState === stateValueData) {
@@ -85,9 +101,18 @@ export function create<T>(defaultValue: DefaultValue<T>, isEqual: IsEqual<T> = i
     reset() {
       const value = getDefaultValue(defaultValue)
       if (isPromise(value)) {
-        value.then((data) => {
-          set(data as T)
-        })
+        const { controller, promise } = cancelablePromise(value, stateData.abortController)
+        stateData.abortController = controller
+        promise
+          .then((data) => {
+            set(data as T)
+          })
+          .catch((error) => {
+            if (isAbortError(error)) {
+              return
+            }
+            stateData.value = new Error(error) as T
+          })
         return
       }
       set(value)

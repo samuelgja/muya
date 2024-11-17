@@ -1,12 +1,9 @@
-
 # Muya 🌀
 Welcome to Muya - Making state management a breeze, focused on simplicity and scalability for real-world scenarios.
 
 [![Build](https://github.com/samuelgja/muya/actions/workflows/build.yml/badge.svg)](https://github.com/samuelgja/muya/actions/workflows/build.yml)
 [![Code quality Check](https://github.com/samuelgja/muya/actions/workflows/code-check.yml/badge.svg)](https://github.com/samuelgja/muya/actions/workflows/code-check.yml)
 [![Build Size](https://img.shields.io/bundlephobia/minzip/muya?label=Bundle%20size)](https://bundlephobia.com/result?p=muya)
-
-
 
 ## 🚀 Features
 - Easy State Creation: Kickstart your state management with simple and intuitive APIs.
@@ -15,7 +12,6 @@ Welcome to Muya - Making state management a breeze, focused on simplicity and sc
 - Optimized Rendering: Prevent unnecessary re-renders
 - TypeScript Ready: Fully typed for maximum developer sanity.
 - Small Bundle Size: Lightweight and fast, no bloatware here.
-
 
 ## 📦 Installation
 
@@ -58,7 +54,6 @@ function App() {
 }
 ```
 
-
 ### Selecting parts of the state globally
 ```tsx
 import { create } from 'muya'
@@ -75,21 +70,20 @@ function App() {
 
 ```
 
-### Merge two states
+### Merge any states
 ```typescript
-import { create, shallow } from 'muya'
+import { create, shallow, merge } from 'muya'
 
 const useName = create(() => 'John')
 const useAge = create(() => 30)
 
-const useFullName = useName.merge(useAge, (name, age) => ` ${name} and ${age}`, shallow)
+const useFullName = merge([useName, useAge], (name, age) => `${name} and ${age}`)
 
 function App() {
   const fullName = useFullName()
   return <div onClick={() => useName.setState((prev) => 'Jane')}>{fullName}</div>
 }
 ```
-
 
 ### Promise based state and lifecycle management working with React Suspense
 This methods are useful for handling async data fetching and lazy loading via React Suspense.
@@ -126,7 +120,6 @@ function Counter() {
 }
 ```
 
-
 ## 🔍 API Reference
 
 ### `create`
@@ -155,13 +148,12 @@ const userAgeState = userState.select((user) => user.age);
 ```
 
 ### `merge`
-Merges two states into a single state. 
+Merges any number states into a single state. 
 ```typescript
 const useName = create(() => 'John');
 const useAge = create(() => 30);
-const useFullName = useName.merge(useAge, (name, age) => ` ${name} and ${age}`);
+const useFullName = merge([useName, useAge], (name, age) => `${name} and ${age}`);
 ```
-
 
 ### `setState`
 Sets the state to a new value or a function that returns a new value.
@@ -204,6 +196,100 @@ const userState = create({ name: 'John', age: 30 });
 const unsubscribe = userState.subscribe((state) => console.log(state));
 ```
 
+### Promise Handling
+
+#### Immediate Promise Resolution
+
+```typescript
+import { create } from 'muya';
+
+// State will try to resolve the promise immediately, can hit the suspense boundary
+const counterState = create(Promise.resolve(0));
+
+function Counter() {
+  const counter = counterState();
+  return (
+    <div onClick={() => counterState.setState((prev) => prev + 1)}>
+      {counter}
+    </div>
+  );
+}
+```
+
+#### Lazy Promise Resolution
+
+```typescript
+import { create } from 'muya';
+
+// State will lazy resolve the promise on first access, this will hit the suspense boundary if the first access is from component and via `counterState.getState()` method
+const counterState = create(() => Promise.resolve(0));
+
+function Counter() {
+  const counter = counterState();
+  return (
+    <div onClick={() => counterState.setState((prev) => prev + 1)}>
+      {counter}
+    </div>
+  );
+}
+```
+
+#### Promise Rejection Handling
+
+```typescript
+import { create } from 'muya';
+
+// State will reject the promise
+const counterState = create(Promise.reject('Error occurred'));
+
+function Counter() {
+  try {
+    const counter = counterState();
+    return <div>{counter}</div>;
+  } catch (error) {
+    return <div>Error: {error}</div>;
+  }
+}
+```
+
+#### Error Throwing
+
+```typescript
+import { create } from 'muya';
+
+// State will throw an error
+const counterState = create(() => {
+  throw new Error('Error occurred');
+});
+
+function Counter() {
+  try {
+    const counter = counterState();
+    return <div>{counter}</div>;
+  } catch (error) {
+    return <div>Error: {error.message}</div>;
+  }
+}
+```
+
+#### Setting a state during promise resolution
+
+```typescript
+import { create } from 'muya';
+
+// State will resolve the promise and set the state
+const counterState = create(Promise.resolve(0));
+// this will abort current promise and set the state to 10
+counterState.setState(10); 
+function Counter() {
+  const counter = counterState();
+  return (
+    <div onClick={() => counterState.setState((prev) => prev + 1)}>
+      {counter}
+    </div>
+  );
+}
+```
 
 
 ### Access from outside the component
@@ -213,7 +299,6 @@ const userState = create({ name: 'John', age: 30 });
 const user = userState.getState();
 ```
 ---
-
 
 ### Slicing new references
 :warning: Slicing data with new references can lead to maximum call stack exceeded error.

@@ -5,9 +5,6 @@ export function shallow<T>(valueA: T, valueB: T): boolean {
   if (valueA == valueB) {
     return true
   }
-  if (Object.is(valueA, valueB)) {
-    return true
-  }
 
   if (typeof valueA !== 'object' || valueA == null || typeof valueB !== 'object' || valueB == null) {
     return false

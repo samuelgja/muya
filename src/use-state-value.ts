@@ -1,6 +1,6 @@
 import type { IsEqual, State } from './types'
 import { useSyncExternalStore, toType } from './common'
-import { isPromise } from './is'
+import { isAnyOtherError, isPromise } from './is'
 
 /**
  * useCachedStateValue Hook.
@@ -23,6 +23,9 @@ export function useStateValue<T, S>(
     isEqual,
   )
   if (isPromise(data)) {
+    throw data
+  }
+  if (isAnyOtherError(data)) {
     throw data
   }
   return data

@@ -26,3 +26,35 @@ export function useSyncExternalStore<T, S>(
   useDebugValue(value)
   return value
 }
+// eslint-disable-next-line no-shadow
+export enum Abort {
+  Error = 'StateAbortError',
+}
+/**
+ * Cancelable promise function, return promise and controller
+ */
+export function cancelablePromise<T>(
+  promise: Promise<T>,
+  previousController?: AbortController,
+): {
+  promise: Promise<T>
+  controller: AbortController
+} {
+  if (previousController) {
+    previousController.abort()
+  }
+  const controller = new AbortController()
+  const { signal } = controller
+
+  const cancelable = new Promise<T>((resolve, reject) => {
+    // Listen for the abort event
+    signal.addEventListener('abort', () => {
+      reject(new DOMException('Promise was aborted', Abort.Error))
+    })
+
+    // When the original promise settles, resolve or reject accordingly
+    promise.then(resolve).catch(reject)
+  })
+
+  return { promise: cancelable, controller }
+}

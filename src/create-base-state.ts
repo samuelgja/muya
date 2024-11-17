@@ -1,5 +1,4 @@
 import type { Emitter } from './create-emitter'
-import { merge } from './merge'
 import { select } from './select'
 import type { BaseState, GetterState } from './types'
 
@@ -18,10 +17,7 @@ export function createBaseState<T>(options: Options<T>): BaseState<T> {
       const state = getGetterState()
       return select(state, selector, isSame)
     },
-    merge(state2, selector, isEqualHook) {
-      const state = getGetterState()
-      return merge(state, state2, selector, isEqualHook)
-    },
+
     __internal: {
       emitter,
     },
