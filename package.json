@@ -1,6 +1,6 @@
 {
   "name": "muya",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "author": "samuel.gjabel@gmail.com",
   "description": "👀 Another React state management library",
   "license": "MIT",
@@ -67,6 +67,9 @@
     "react-test-renderer": "18.2.0",
     "typescript": "5.6.3",
     "typescript-eslint": "^7.17.0",
+    "use-sync-external-store": "1.2.2"
+  },
+  "dependencies": {
     "use-sync-external-store": "1.2.2"
   },
   "peerDependencies": {
