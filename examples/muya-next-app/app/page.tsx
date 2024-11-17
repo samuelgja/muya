@@ -1,18 +1,14 @@
-'use client'
-import Image from 'next/image'
-
 import styles from './page.module.css'
 import { useAppState } from './state'
+import { PageClient } from './page-client'
 
+console.log('State subscribe from the server')
 export default function Home() {
-  const appState = useAppState()
+  const appState = useAppState.getState()
   return (
     <div className={styles.page}>
-      <main className={styles.main}>
-        <Image className={styles.logo} src="/next.svg" alt="Next.js logo" width={180} height={38} priority />
-        <b>{appState.greeting}</b>
-        <button onClick={() => useAppState.updateState({ greeting: 'Hello, Next.js!' })}>Change</button>
-      </main>
+      {`${appState.greeting} From the server`}
+      <PageClient />
     </div>
   )
 }
