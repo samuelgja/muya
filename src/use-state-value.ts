@@ -2,6 +2,7 @@ import type { IsEqual } from './types'
 import { useSyncExternalStore, toType } from './common'
 import { isAnyOtherError, isPromise } from './is'
 import type { GetState } from './create'
+import { useEffect } from 'react'
 
 /**
  * useCachedStateValue Hook.
@@ -11,11 +12,12 @@ import type { GetState } from './create'
  * @param isEqual - equality check function for selector
  * @returns StateValue from selector if provided, otherwise whole state
  */
-export function useCreate<T, S>(
+export function use<T, S>(
   state: GetState<T>,
   selector: (stateValue: T) => S = (stateValue) => toType<S>(stateValue),
   isEqual?: IsEqual<S>,
 ): undefined extends S ? T : S {
+  // eslint-disable-next-line react-hooks/rules-of-hooks, sonarjs/rules-of-hooks
   const data = useSyncExternalStore(
     state.emitter,
     (stateValue) => {

@@ -12,6 +12,7 @@
     "test": "bun test --timeout 10000"
   },
   "dependencies": {
-    "jotai": "^2.10.2"
+    "jotai": "^2.10.2",
+    "zustand": "^5.0.1"
   }
 }

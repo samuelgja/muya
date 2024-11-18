@@ -1,4 +1,4 @@
-import { create, use } from '../create'
+import { create, use } from '..'
 import { renderHook, act } from '@testing-library/react-hooks'
 import { waitFor } from '@testing-library/react'
 import { longPromise } from './test-utils'

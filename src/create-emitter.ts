@@ -4,11 +4,15 @@ export interface Emitter<T, R = T, P = undefined> {
   getSnapshot: () => R
   emit: (...params: P[]) => void
   size: number
+  clear: () => void
 }
 
 export function createEmitter<T, R = T, P = undefined>(getSnapshot: () => R): Emitter<T, R, P> {
   const listeners = new Set<(...params: P[]) => void>()
   return {
+    clear: () => {
+      listeners.clear()
+    },
     subscribe: (listener) => {
       listeners.add(listener)
       return () => {

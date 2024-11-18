@@ -1,8 +1,9 @@
 import { renderHook, act } from '@testing-library/react-hooks'
 import { waitFor } from '@testing-library/react'
 import { atom, useAtom, useAtomValue } from 'jotai'
-import { create, use } from '../src/create'
+import { create, use } from '../src'
 import { Suspense, useLayoutEffect } from 'react'
+import { create as zustandCreate } from 'zustand'
 
 describe('should count re-renders', () => {
   const jotaiReRendersBefore = jest.fn()
@@ -273,24 +274,14 @@ describe('should count re-renders', () => {
     const muyaCounter = create(0)
     const muyaSum = create(() => muyaCounter() + 1)
 
-    const count = 500
-    const startTime = Date.now()
-    for (let i = 0; i < count; i++) {
-      const result = renderHook(() => {
-        useAtom(jotaiSum)
-        return useAtom(jotaiCounter)
-      })
-      act(() => {
-        result.result.current[1]((c) => c + 1)
-      })
-      await waitFor(() => {
-        expect(result.result.current[0]).toBe(i + 1)
-      })
-    }
-    const endTime = Date.now()
-    const totalTime = endTime - startTime
+    const zustandCounter = zustandCreate((set) => ({
+      bears: 0,
+      increasePopulation: () => set((state) => ({ bears: state.bears + 1 })),
+      removeAllBears: () => set({ bears: 0 }),
+    }))
+    const count = 1000
 
-    const startTimeMuya = Date.now()
+    const startTimeMuya = performance.now()
     for (let i = 0; i < count; i++) {
       const result = renderHook(() => {
         use(muyaSum)
@@ -299,12 +290,64 @@ describe('should count re-renders', () => {
       act(() => {
         muyaCounter.set((c) => c + 1)
       })
-      await waitFor(() => {
-        expect(result.result.current).toBe(i + 1)
+    }
+    const resultMuya = renderHook(() => {
+      use(muyaSum)
+      return use(muyaCounter)
+    })
+    await waitFor(() => {
+      expect(resultMuya.result.current).toBe(count)
+    })
+
+    const endTimeMuya = performance.now()
+    const totalTimeMuya = endTimeMuya - startTimeMuya
+
+    const startTime = performance.now()
+    for (let i = 0; i < count; i++) {
+      const result = renderHook(() => {
+        useAtom(jotaiSum)
+        return useAtom(jotaiCounter)
+      })
+      act(() => {
+        result.result.current[1]((c) => c + 1)
       })
     }
-    const endTimeMuya = Date.now()
-    const totalTimeMuya = endTimeMuya - startTimeMuya
+    const result = renderHook(() => {
+      useAtom(jotaiSum)
+      return useAtom(jotaiCounter)
+    })
+    await waitFor(() => {
+      expect(result.result.current[0]).toBe(count)
+    })
+    const endTime = performance.now()
+    const totalTime = endTime - startTime
+
+    const startTimeZustand = performance.now()
+    for (let i = 0; i < count; i++) {
+      const result = renderHook(() => {
+        const counter = zustandCounter()
+        return counter
+      })
+      act(() => {
+        result.result.current.increasePopulation()
+      })
+    }
+    const resultZustand = renderHook(() => {
+      const counter = zustandCounter()
+      return counter
+    })
+    await waitFor(() => {
+      expect(resultZustand.result.current.bears).toBe(count)
+    })
+
+    const endTimeZustand = performance.now()
+    const totalTimeZustand = endTimeZustand - startTimeZustand
+
+    console.log('Zustand render time:', totalTimeZustand)
+    console.log('Jotai render time:', totalTime)
+    console.log('Muya render time:', totalTimeMuya)
+
     expect(totalTimeMuya).toBeLessThan(totalTime)
+    expect(totalTimeMuya).toBeLessThan(totalTimeZustand)
   })
 })

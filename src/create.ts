@@ -4,7 +4,7 @@ import { createEmitter } from './create-emitter'
 import { isAbortError, isFunction, isPromise, isSetValueFunction } from './is'
 import { cancelablePromise } from './common'
 import type { IsEqual, PromiseAndValue, Set, SetValue } from './types'
-import { useCreate } from './use-state-value'
+import { createBatcher } from './batch'
 
 const context = createContext<StateNotGeneric | undefined>(undefined)
 
@@ -17,6 +17,7 @@ interface StateNotGeneric {
   id: string
   subscribe: (listener: (value: unknown) => void) => () => void
   abortController?: AbortController
+  remove: () => void
 }
 export interface GetState<T> extends StateNotGeneric {
   <S>(selector?: (stateValue: T) => S, isEqual?: IsEqual<S>): undefined extends S ? T : S
@@ -42,15 +43,10 @@ function getId() {
   return id.toString(36)
 }
 
-export function use<T, S>(state: GetState<T>, selector?: (stateValue: T) => S, isEqual?: IsEqual<S>) {
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  return useCreate(state, selector, isEqual)
-}
-
 export function create<T extends () => T>(defaultValue: DefaultValue<T>): GetState<ReturnType<T>>
 export function create<T>(defaultValue: DefaultValue<T>): State<T>
 export function create<T>(defaultValue: DefaultValue<T>): GetState<T> | State<T> {
-  const currentStack = new Set<string>()
+  const contextSubscriptions = new Map<string, () => void>()
   let previousData: unknown
   const state: State<T> = <S>(
     selector: (stateValue: T) => S = (stateValue) => stateValue as unknown as S,
@@ -62,11 +58,11 @@ export function create<T>(defaultValue: DefaultValue<T>): GetState<T> | State<T>
       throw new Error(`calling states must be only inside of a running context.`)
     }
 
-    if (!currentStack.has(ctx.id)) {
-      currentStack.add(ctx.id)
-      state.emitter.subscribe(() => {
-        ctx?.reset()
+    if (!contextSubscriptions.has(ctx.id)) {
+      const unsubscribe = state.emitter.subscribe(() => {
+        ctx.reset()
       })
+      contextSubscriptions.set(ctx.id, unsubscribe)
     }
     const selectedValue = selector(getValue())
 
@@ -124,6 +120,13 @@ export function create<T>(defaultValue: DefaultValue<T>): GetState<T> | State<T>
 
   state.get = getValue
   state.id = getId()
+  state.remove = function remove() {
+    for (const [, unsubscribe] of contextSubscriptions) {
+      unsubscribe()
+    }
+    contextSubscriptions.clear()
+    state.emitter.clear()
+  }
 
   if (isFunction(defaultValue)) {
     return state
@@ -134,7 +137,7 @@ export function create<T>(defaultValue: DefaultValue<T>): GetState<T> | State<T>
     })
   }
 
-  state.set = function setState(value: SetValue<T>) {
+  function setState(value: SetValue<T>) {
     if (state.value === undefined) {
       state.value = resolveValue()
     }
@@ -170,6 +173,16 @@ export function create<T>(defaultValue: DefaultValue<T>): GetState<T> | State<T>
         }
       })
   }
+
+  const batch = createBatcher<T>(setState)
+  function setStateBatch(value: SetValue<T>) {
+    // setState(value)
+    // console.log(value)
+    batch.addValue(value)
+    // state.value = value
+  }
+
+  state.set = setStateBatch
 
   return state
 }
