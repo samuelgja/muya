@@ -50,21 +50,23 @@ export function createBatcher<T>(options: Options<T>) {
       })
   }
 
+  let frame = performance.now()
+
   function scheduler() {
-    const frameSize = batches.length
-    queueMicrotask(() => {
-      const frameSizeDiff = batches.length - frameSize
-      if (frameSizeDiff < 1 && batch.batches.length > 0) {
+    const startFrame = performance.now()
+
+    const frameSizeDiffIn = startFrame - frame
+    if (frameSizeDiffIn > 0.53 && batch.batches.length > 0 && batch.batches.length < 10) {
+      frame = startFrame
+      batch.flush()
+    }
+
+    setImmediate(() => {
+      if (batch.batches.length > 0) {
+        frame = startFrame
         batch.flush()
       }
     })
-    // requestAnimationFrame(() => {
-    //   const frameSizeDiff = batches.length - frameSize
-    //   console.log({ frameSizeDiff })
-    //   if (frameSizeDiff < 1 && batch.batches.length > 0) {
-    //     batch.flush()
-    //   }
-    // })
   }
 
   async function flush() {

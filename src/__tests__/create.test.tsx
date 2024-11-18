@@ -2,7 +2,6 @@ import { create, use } from '..'
 import { renderHook, act } from '@testing-library/react-hooks'
 import { waitFor } from '@testing-library/react'
 import { longPromise } from './test-utils'
-import { Suspense } from 'react'
 
 describe('create', () => {
   it('should throw error when calling states outside of context', () => {
@@ -273,10 +272,8 @@ describe('create', () => {
       () => {
         renderBefore()
         const counterValue = use(counter)
-
         const asyncCounter = use(asyncMuya)
         renderAfter()
-        console.log({ counterValue, asyncCounter })
         return { counterValue, asyncCounter }
       },
       // { wrapper: ({ children }) => <Suspense fallback="loading">{children}</Suspense> },
@@ -290,15 +287,48 @@ describe('create', () => {
     expect(renderAfter).toHaveBeenCalledTimes(1)
 
     act(() => {
-      counter.set(2)
+      counter.set(3)
     })
 
     await waitFor(() => {
-      expect(result.result.current.counterValue).toBe(2)
-      expect(result.result.current.asyncCounter).toBe(10)
+      expect(result.result.current.counterValue).toBe(3)
+      expect(result.result.current.asyncCounter).toBe(15)
     })
 
-    expect(renderBefore).toHaveBeenCalledTimes(3)
-    expect(renderAfter).toHaveBeenCalledTimes(3)
+    expect(renderBefore).toHaveBeenCalledTimes(2)
+    expect(renderAfter).toHaveBeenCalledTimes(2)
+  })
+
+  it('should re-render only based on deriver state async ', async () => {
+    const counter = create(1)
+    const asyncMuya = create(async () => counter() * 5)
+    const renderBefore = jest.fn()
+    const renderAfter = jest.fn()
+    const result = renderHook(() => {
+      renderBefore()
+      const counterValue = use(counter)
+      const asyncCounter = use(asyncMuya)
+      renderAfter()
+      return { counterValue, asyncCounter }
+    })
+
+    await waitFor(() => {
+      expect(result.result.current.counterValue).toBe(1)
+      expect(result.result.current.asyncCounter).toBe(5)
+    })
+    expect(renderBefore).toHaveBeenCalledTimes(2)
+    expect(renderAfter).toHaveBeenCalledTimes(1)
+
+    act(() => {
+      counter.set(3)
+    })
+
+    await waitFor(() => {
+      expect(result.result.current.counterValue).toBe(3)
+      expect(result.result.current.asyncCounter).toBe(15)
+    })
+
+    expect(renderBefore).toHaveBeenCalledTimes(4)
+    expect(renderAfter).toHaveBeenCalledTimes(2)
   })
 })

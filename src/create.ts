@@ -23,7 +23,6 @@ export interface GetState<T> extends StateNotGeneric {
   emitter: Emitter<T>
   get: () => T
   reset: () => void
-  value?: T
   id: string
   subscribe: (listener: (value: T) => void) => () => void
 }
@@ -59,8 +58,6 @@ export function create<T>(defaultValue: DefaultValue<T>): GetState<T> | State<T>
 
     if (!contextSubscriptions.has(ctx.id)) {
       const unsubscribe = state.emitter.subscribe(() => {
-        console.log('Calling reset from ', state.id)
-        console.log('For derive context: ', ctx.id)
         ctx.reset()
       })
       contextSubscriptions.set(ctx.id, unsubscribe)
@@ -79,8 +76,7 @@ export function create<T>(defaultValue: DefaultValue<T>): GetState<T> | State<T>
     getValue,
     setValue: setValueRaw,
     onFlush: (current) => {
-      console.log('flush', state.id, current)
-      state.value = current
+      batch.current = current
       state.emitter.emit()
     },
   })
@@ -90,7 +86,7 @@ export function create<T>(defaultValue: DefaultValue<T>): GetState<T> | State<T>
   let isResolving = false
   function resolveValue(): T {
     if (isResolving) {
-      return state.value as T
+      return batch.current as T
     }
     const value = getDefaultValue(state, defaultValue)
     if (!isPromise<T>(value)) {
@@ -103,7 +99,7 @@ export function create<T>(defaultValue: DefaultValue<T>): GetState<T> | State<T>
     promise
       .then((resolvedValue) => {
         isResolving = false
-        state.value = resolvedValue
+        batch.current = resolvedValue
         state.emitter.emit()
       })
       .catch((error) => {
@@ -118,14 +114,14 @@ export function create<T>(defaultValue: DefaultValue<T>): GetState<T> | State<T>
   }
 
   function getValue() {
-    if (state.value === undefined) {
-      state.value = resolveValue()
+    if (batch.current === undefined) {
+      batch.current = resolveValue()
     }
-    return state.value
+    return batch.current
   }
 
   state.reset = function call() {
-    state.value = resolveValue()
+    batch.current = resolveValue()
     state.emitter.emit()
   }
 
@@ -148,45 +144,8 @@ export function create<T>(defaultValue: DefaultValue<T>): GetState<T> | State<T>
     })
   }
 
-  // function setState(value: SetValue<T>) {
-  //   if (state.value === undefined) {
-  //     state.value = resolveValue()
-  //   }
-
-  //   if (!isSetValueFunction(value)) {
-  //     if (batch.abortController) {
-  //       batch.abortController.abort()
-  //     }
-
-  //     state.value = value
-  //     state.emitter.emit()
-  //     return
-  //   }
-
-  //   const result = value(state.value as PromiseAndValue<T>)
-  //   if (!isPromise(result)) {
-  //     state.value = result as T
-  //     state.emitter.emit()
-  //     return
-  //   }
-  //   result
-  //     .then((resolvedValue) => {
-  //       // check if state.value is resolved value
-  //       if (isPromise(state.value) && batch.abortController) {
-  //         batch.abortController.abort()
-  //       }
-  //       state.value = resolvedValue as T
-  //       state.emitter.emit()
-  //     })
-  //     .catch((error) => {
-  //       if (isAbortError(error)) {
-  //         return
-  //       }
-  //     })
-  // }
-
   function setValueRaw(value: T) {
-    state.value = value
+    batch.current = value
     state.emitter.emit()
   }
 
