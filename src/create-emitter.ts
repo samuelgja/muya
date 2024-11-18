@@ -3,6 +3,7 @@ export interface Emitter<T, R = T, P = undefined> {
   subscribe: EmitterSubscribe<P>
   getSnapshot: () => R
   emit: (...params: P[]) => void
+  size: number
 }
 
 export function createEmitter<T, R = T, P = undefined>(getSnapshot: () => R): Emitter<T, R, P> {
@@ -20,5 +21,6 @@ export function createEmitter<T, R = T, P = undefined>(getSnapshot: () => R): Em
       }
     },
     getSnapshot,
+    size: listeners.size,
   }
 }

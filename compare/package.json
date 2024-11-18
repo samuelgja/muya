@@ -1,0 +1,17 @@
+{
+  "name": "compare",
+  "module": "index.ts",
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "scripts": {
+    "test": "bun test --timeout 10000"
+  },
+  "dependencies": {
+    "jotai": "^2.10.2"
+  }
+}

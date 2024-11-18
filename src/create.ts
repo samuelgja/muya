@@ -1,127 +1,175 @@
+import { createContext } from './create-context'
+import type { Emitter } from './create-emitter'
 import { createEmitter } from './create-emitter'
-import type { SetValue, SetterState, StateDataInternal, DefaultValue, GetterState, IsEqual, UpdateValue } from './types'
-import { getDefaultValue } from './types'
-import { isAbortError, isEqualBase, isObject, isPromise, isSetValueFunction } from './is'
-import { createBaseState } from './create-base-state'
-import { createGetterState } from './create-getter-state'
+import { isAbortError, isFunction, isPromise, isSetValueFunction } from './is'
 import { cancelablePromise } from './common'
+import type { IsEqual, PromiseAndValue, Set, SetValue } from './types'
+import { useCreate } from './use-state-value'
 
-/**
- * Creates a basic atom state.
- * @param defaultValue - The initial state value.
- * @param options - Optional settings for the state (e.g., isEqual, onSet).
- * @returns A state object that can be used as a hook and provides state management methods.
- * @example
- * ```typescript
- * // Global scope
- * const counterState = state(0);
- * const userState = state({ name: 'John', age: 20 });
- *
- * // React component
- * const counter = counterState(); // Use as a hook
- * const user = userState();
- *
- * // Access partial data from the state using slice
- * const userAge = userState.slice((state) => state.age)();
- * ```
- */
+const context = createContext<StateNotGeneric | undefined>(undefined)
 
-export function create<T>(defaultValue: DefaultValue<T>, isEqual: IsEqual<T> = isEqualBase): SetterState<Awaited<T>> {
-  function resolveSetter(value: T, stateSetter: SetValue<T>): T {
-    if (isSetValueFunction(stateSetter)) {
-      return stateSetter(value)
-    }
-    return stateSetter
-  }
+type DefaultValue<T> = T | (() => T)
 
-  const stateData: StateDataInternal<T> = {
-    updateVersion: 0,
-    value: undefined,
-  }
+interface StateNotGeneric {
+  get: () => unknown
+  reset: () => void
+  value?: unknown
+  id: string
+  subscribe: (listener: (value: unknown) => void) => () => void
+  abortController?: AbortController
+}
+export interface GetState<T> extends StateNotGeneric {
+  <S>(selector?: (stateValue: T) => S, isEqual?: IsEqual<S>): undefined extends S ? T : S
+  emitter: Emitter<T>
+  get: () => T
+  reset: () => void
+  value?: T
+  id: string
+  subscribe: (listener: (value: T) => void) => () => void
+}
+interface State<T> extends GetState<T> {
+  set: Set<T>
+}
 
-  function getValue(): T {
-    if (stateData.value === undefined) {
-      stateData.value = getDefaultValue(defaultValue)
-    }
-    return stateData.value
-  }
+// it still can be promise, this just handle if defaultValue is function
+export function getDefaultValue<T>(state: State<T>, defaultValue: DefaultValue<T>): T {
+  const value = isFunction(defaultValue) ? context.run(state, defaultValue) : defaultValue
+  return value as T
+}
+let id = 0
+function getId() {
+  id++
+  return id.toString(36)
+}
 
-  function get(): T {
-    const stateValue = getValue()
-    if (isPromise(stateValue)) {
-      const { controller, promise } = cancelablePromise(stateValue, stateData.abortController)
-      stateData.abortController = controller
-      promise
-        .then((data) => {
-          stateData.value = data as Awaited<T>
-          emitter.emit()
-        })
-        .catch((error) => {
-          if (isAbortError(error)) {
-            return
-          }
-          stateData.value = new Error(error) as T
-        })
-    }
-    return stateValue
-  }
+export function use<T, S>(state: GetState<T>, selector?: (stateValue: T) => S, isEqual?: IsEqual<S>) {
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  return useCreate(state, selector, isEqual)
+}
 
-  function set(stateValue: SetValue<T>) {
-    const stateValueData = getValue()
-    if (stateData.abortController) {
-      stateData.abortController.abort()
-      stateData.abortController = undefined
+export function create<T extends () => T>(defaultValue: DefaultValue<T>): GetState<ReturnType<T>>
+export function create<T>(defaultValue: DefaultValue<T>): State<T>
+export function create<T>(defaultValue: DefaultValue<T>): GetState<T> | State<T> {
+  const currentStack = new Set<string>()
+  let previousData: unknown
+  const state: State<T> = <S>(
+    selector: (stateValue: T) => S = (stateValue) => stateValue as unknown as S,
+    isEqual: IsEqual<S> = (a, b) => a === b,
+  ): undefined extends S ? T : S => {
+    const ctx = context.use()
+    const hasCtx = !!ctx
+    if (!hasCtx) {
+      throw new Error(`calling states must be only inside of a running context.`)
     }
 
-    const newState = resolveSetter(stateValueData, stateValue)
-    const isEqualResult = isEqual?.(stateValueData, newState)
-    if (isEqualResult || newState === stateValueData) {
-      return
-    }
-    stateData.updateVersion++
-    stateData.value = newState
-    emitter.emit()
-  }
-
-  function update(stateValue: UpdateValue<T>) {
-    if (isObject(stateValue)) {
-      return set((previousState) => {
-        return { ...previousState, ...stateValue }
+    if (!currentStack.has(ctx.id)) {
+      currentStack.add(ctx.id)
+      state.emitter.subscribe(() => {
+        ctx?.reset()
       })
     }
-    set(stateValue as T)
+    const selectedValue = selector(getValue())
+
+    if (previousData !== undefined && isEqual(previousData as S, selectedValue)) {
+      return previousData as undefined extends S ? T : S
+    }
+    previousData = selectedValue as undefined
+    return selectedValue as undefined extends S ? T : S
   }
 
-  const emitter = createEmitter<T>(get)
+  state.emitter = createEmitter(getValue)
 
-  const baseState = createBaseState({
-    emitter,
-    getGetterState: () => setterState,
-    getState: get,
-    reset() {
-      const value = getDefaultValue(defaultValue)
-      if (isPromise(value)) {
-        const { controller, promise } = cancelablePromise(value, stateData.abortController)
-        stateData.abortController = controller
-        promise
-          .then((data) => {
-            set(data as T)
-          })
-          .catch((error) => {
-            if (isAbortError(error)) {
-              return
-            }
-            stateData.value = new Error(error) as T
-          })
-        return
+  let isResolving = false
+  function resolveValue(): T {
+    if (isResolving) {
+      return state.value as T
+    }
+    const value = getDefaultValue(state, defaultValue)
+    if (!isPromise<T>(value)) {
+      return value
+    }
+
+    isResolving = true
+    const { promise, controller } = cancelablePromise<T>(value, state.abortController)
+    state.abortController = controller
+    promise
+      .then((resolvedValue) => {
+        isResolving = false
+        state.value = resolvedValue
+        state.emitter.emit()
+      })
+      .catch((error) => {
+        isResolving = false
+
+        if (isAbortError(error)) {
+          return
+        }
+      })
+    // switch Promise to cancelable promise
+    return promise as unknown as T
+  }
+
+  function getValue() {
+    if (state.value === undefined) {
+      state.value = resolveValue()
+    }
+    return state.value
+  }
+
+  state.reset = function call() {
+    state.value = resolveValue()
+
+    state.emitter.emit()
+  }
+
+  state.get = getValue
+  state.id = getId()
+
+  if (isFunction(defaultValue)) {
+    return state
+  }
+  state.subscribe = function subscribe(listener: (value: T) => void) {
+    return state.emitter.subscribe(() => {
+      listener(state.get())
+    })
+  }
+
+  state.set = function setState(value: SetValue<T>) {
+    if (state.value === undefined) {
+      state.value = resolveValue()
+    }
+
+    if (!isSetValueFunction(value)) {
+      if (state.abortController) {
+        state.abortController.abort()
       }
-      set(value)
-    },
-  })
 
-  const getterState: GetterState<T> = createGetterState<T>({ baseState })
-  const setterState: SetterState<T> = getterState as SetterState<T>
-  setterState.setState = set
-  setterState.updateState = update
-  return setterState as SetterState<Awaited<T>>
+      state.value = value
+      state.emitter.emit()
+      return
+    }
+
+    const result = value(state.value as PromiseAndValue<T>)
+    if (!isPromise(result)) {
+      state.value = result as T
+      state.emitter.emit()
+      return
+    }
+    result
+      .then((resolvedValue) => {
+        // check if state.value is resolved value
+        if (isPromise(state.value) && state.abortController) {
+          state.abortController.abort()
+        }
+        state.value = resolvedValue as T
+        state.emitter.emit()
+      })
+      .catch((error) => {
+        if (isAbortError(error)) {
+          return
+        }
+      })
+  }
+
+  return state
 }

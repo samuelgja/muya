@@ -1,4 +1,4 @@
-import { useSyncExternalStoreWithSelector as useSync } from 'use-sync-external-store/shim/with-selector'
+import { useSyncExternalStoreWithSelector as useSync } from 'use-sync-external-store/with-selector'
 import type { Emitter } from './create-emitter'
 import type { IsEqual } from './types'
 import { useDebugValue } from 'react'

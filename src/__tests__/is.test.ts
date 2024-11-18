@@ -1,16 +1,5 @@
 import { Abort } from '../common'
-import {
-  isPromise,
-  isFunction,
-  isSetValueFunction,
-  isObject,
-  isRef,
-  isMap,
-  isSet,
-  isArray,
-  isEqualBase,
-  isAbortError,
-} from '../is'
+import { isPromise, isFunction, isSetValueFunction, isObject, isMap, isSet, isArray, isEqualBase, isAbortError } from '../is'
 
 describe('isPromise', () => {
   it('should return true for a Promise', () => {
@@ -45,15 +34,6 @@ describe('isObject', () => {
   })
   it('should return false for a non-object', () => {
     expect(isObject(123)).toBe(false)
-  })
-})
-
-describe('isRef', () => {
-  it('should return true for a ref object', () => {
-    expect(isRef({ isRef: true })).toBe(true)
-  })
-  it('should return false for a non-ref object', () => {
-    expect(isRef({})).toBe(false)
   })
 })
 
