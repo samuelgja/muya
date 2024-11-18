@@ -2,7 +2,6 @@ import type { IsEqual } from './types'
 import { useSyncExternalStore, toType } from './common'
 import { isAnyOtherError, isPromise } from './is'
 import type { GetState } from './create'
-import { useEffect } from 'react'
 
 /**
  * useCachedStateValue Hook.

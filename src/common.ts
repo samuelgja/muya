@@ -22,7 +22,7 @@ export function useSyncExternalStore<T, S>(
     selector ? (stateValue) => selector(stateValue) : toType,
     isEqual,
   ) as undefined extends S ? T : S
-
+  console.log('useSyncExternalStore', value)
   useDebugValue(value)
   return value
 }
@@ -30,6 +30,8 @@ export function useSyncExternalStore<T, S>(
 export enum Abort {
   Error = 'StateAbortError',
 }
+
+type CancelablePromise<T> = Promise<T> & { isCancelable: boolean }
 /**
  * Cancelable promise function, return promise and controller
  */
@@ -46,7 +48,7 @@ export function cancelablePromise<T>(
   const controller = new AbortController()
   const { signal } = controller
 
-  const cancelable = new Promise<T>((resolve, reject) => {
+  const cancelable: CancelablePromise<T> = new Promise<T>((resolve, reject) => {
     // Listen for the abort event
     signal.addEventListener('abort', () => {
       reject(new DOMException('Promise was aborted', Abort.Error))
@@ -55,6 +57,6 @@ export function cancelablePromise<T>(
     // When the original promise settles, resolve or reject accordingly
     promise.then(resolve).catch(reject)
   })
-
+  cancelable.isCancelable = true
   return { promise: cancelable, controller }
 }

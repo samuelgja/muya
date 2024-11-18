@@ -4,6 +4,9 @@ import type { Setter, SetValue } from './types'
 export function isPromise<T>(value: unknown): value is Promise<T> {
   return value instanceof Promise
 }
+export function isAsyncFunction(value: unknown): value is (...args: unknown[]) => Promise<unknown> {
+  return isFunction(value) && value.constructor.name === 'AsyncFunction'
+}
 export function isFunction(value: unknown): value is (...args: unknown[]) => unknown {
   return typeof value === 'function'
 }
@@ -39,4 +42,8 @@ export function isAbortError(value: unknown): value is DOMException {
 
 export function isAnyOtherError(value: unknown): value is Error {
   return value instanceof Error && value.name !== Abort.Error
+}
+
+export function isCancelablePromise<T>(value: unknown): value is Promise<T> & { isCancelable: boolean } {
+  return isPromise(value) && (value as Promise<T> & { isCancelable: boolean }).isCancelable
 }

@@ -1,5 +1,17 @@
 import { Abort } from '../common'
-import { isPromise, isFunction, isSetValueFunction, isObject, isMap, isSet, isArray, isEqualBase, isAbortError } from '../is'
+import {
+  isPromise,
+  isFunction,
+  isSetValueFunction,
+  isObject,
+  isMap,
+  isSet,
+  isArray,
+  isEqualBase,
+  isAbortError,
+  isAsyncFunction,
+  isCancelablePromise,
+} from '../is'
 
 describe('isPromise', () => {
   it('should return true for a Promise', () => {
@@ -79,5 +91,38 @@ describe('isAbortError', () => {
   })
   it('should return false for a non-AbortError', () => {
     expect(isAbortError(new DOMException('', 'Error'))).toBe(false)
+  })
+})
+
+describe('isAsyncFunction', () => {
+  it('should return true for an async function', () => {
+    expect(isAsyncFunction(async () => {})).toBe(true)
+  })
+  it('should return false for a non-async function', () => {
+    expect(isAsyncFunction(() => {})).toBe(false)
+  })
+  it('should return false for a non-async function', () => {
+    expect(isAsyncFunction(async function () {})).toBe(true)
+  })
+  it('should return false for a non-function', () => {
+    expect(isAsyncFunction(() => {})).toBe(false)
+  })
+  it('should return false for a non-function', () => {
+    expect(isAsyncFunction(function () {})).toBe(false)
+  })
+})
+
+describe('isCancelablePromise', () => {
+  it('should return true for a cancelable promise', () => {
+    const promise = Promise.resolve() as Promise<unknown> & { isCancelable: boolean }
+    promise.isCancelable = true
+    expect(isCancelablePromise(promise)).toBe(true)
+  })
+  it('should return false for a non-cancelable promise', () => {
+    const promise = Promise.resolve()
+    expect(isCancelablePromise(promise)).toBe(false)
+  })
+  it('should return false for a non-promise', () => {
+    expect(isCancelablePromise(123)).toBe(false)
   })
 })

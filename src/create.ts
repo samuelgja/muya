@@ -1,9 +1,9 @@
 import { createContext } from './create-context'
 import type { Emitter } from './create-emitter'
 import { createEmitter } from './create-emitter'
-import { isAbortError, isFunction, isPromise, isSetValueFunction } from './is'
+import { isAbortError, isFunction, isPromise } from './is'
 import { cancelablePromise } from './common'
-import type { IsEqual, PromiseAndValue, Set, SetValue } from './types'
+import type { IsEqual, Set, SetValue } from './types'
 import { createBatcher } from './batch'
 
 const context = createContext<StateNotGeneric | undefined>(undefined)
@@ -16,7 +16,6 @@ interface StateNotGeneric {
   value?: unknown
   id: string
   subscribe: (listener: (value: unknown) => void) => () => void
-  abortController?: AbortController
   remove: () => void
 }
 export interface GetState<T> extends StateNotGeneric {
@@ -73,6 +72,15 @@ export function create<T>(defaultValue: DefaultValue<T>): GetState<T> | State<T>
     return selectedValue as undefined extends S ? T : S
   }
 
+  const batch = createBatcher<T>({
+    getValue,
+    setValue: setValueRaw,
+    onFlush: (current) => {
+      state.value = current
+      state.emitter.emit()
+    },
+  })
+
   state.emitter = createEmitter(getValue)
 
   let isResolving = false
@@ -86,8 +94,8 @@ export function create<T>(defaultValue: DefaultValue<T>): GetState<T> | State<T>
     }
 
     isResolving = true
-    const { promise, controller } = cancelablePromise<T>(value, state.abortController)
-    state.abortController = controller
+    const { promise, controller } = cancelablePromise<T>(value, batch.abortController)
+    batch.abortController = controller
     promise
       .then((resolvedValue) => {
         isResolving = false
@@ -137,49 +145,52 @@ export function create<T>(defaultValue: DefaultValue<T>): GetState<T> | State<T>
     })
   }
 
-  function setState(value: SetValue<T>) {
-    if (state.value === undefined) {
-      state.value = resolveValue()
-    }
+  // function setState(value: SetValue<T>) {
+  //   if (state.value === undefined) {
+  //     state.value = resolveValue()
+  //   }
 
-    if (!isSetValueFunction(value)) {
-      if (state.abortController) {
-        state.abortController.abort()
-      }
+  //   if (!isSetValueFunction(value)) {
+  //     if (batch.abortController) {
+  //       batch.abortController.abort()
+  //     }
 
-      state.value = value
-      state.emitter.emit()
-      return
-    }
+  //     state.value = value
+  //     state.emitter.emit()
+  //     return
+  //   }
 
-    const result = value(state.value as PromiseAndValue<T>)
-    if (!isPromise(result)) {
-      state.value = result as T
-      state.emitter.emit()
-      return
-    }
-    result
-      .then((resolvedValue) => {
-        // check if state.value is resolved value
-        if (isPromise(state.value) && state.abortController) {
-          state.abortController.abort()
-        }
-        state.value = resolvedValue as T
-        state.emitter.emit()
-      })
-      .catch((error) => {
-        if (isAbortError(error)) {
-          return
-        }
-      })
+  //   const result = value(state.value as PromiseAndValue<T>)
+  //   if (!isPromise(result)) {
+  //     state.value = result as T
+  //     state.emitter.emit()
+  //     return
+  //   }
+  //   result
+  //     .then((resolvedValue) => {
+  //       // check if state.value is resolved value
+  //       if (isPromise(state.value) && batch.abortController) {
+  //         batch.abortController.abort()
+  //       }
+  //       state.value = resolvedValue as T
+  //       state.emitter.emit()
+  //     })
+  //     .catch((error) => {
+  //       if (isAbortError(error)) {
+  //         return
+  //       }
+  //     })
+  // }
+
+  function setValueRaw(value: T) {
+    state.value = value
+    state.emitter.emit()
   }
 
-  const batch = createBatcher<T>(setState)
   function setStateBatch(value: SetValue<T>) {
     // setState(value)
     // console.log(value)
     batch.addValue(value)
-    // state.value = value
   }
 
   state.set = setStateBatch

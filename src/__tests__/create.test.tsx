@@ -12,7 +12,7 @@ describe('create', () => {
     const state = create(1)
     expect(() => state((value) => value)).toThrow()
   })
-  it('should derive state within the context on', () => {
+  it('should derive state within the context on', async () => {
     const state1 = create(1)
     const state3 = create(10)
     const state2 = create(() => {
@@ -24,19 +24,26 @@ describe('create', () => {
 
     state1.set(2)
 
-    expect(state1.get()).toBe(2)
-    expect(state2.get()).toBe(18)
+    await waitFor(() => {
+      expect(state1.get()).toBe(2)
+      expect(state2.get()).toBe(18)
+    })
 
     const result = renderHook(() => use(state2, (value) => value + 1))
-    expect(result.result.current).toBe(19)
+
+    await waitFor(() => {
+      expect(result.result.current).toBe(19)
+    })
 
     act(() => {
       state1.set(3)
     })
 
-    expect(result.result.current).toBe(23)
+    await waitFor(() => {
+      expect(result.result.current).toBe(23)
+    })
   })
-  it('should derive state within the context via another functions', () => {
+  it('should derive state within the context via another functions', async () => {
     const state1 = create(1)
     const state3 = create(10)
 
@@ -46,13 +53,17 @@ describe('create', () => {
     }
     const state2 = create(sum)
 
-    expect(state1.get()).toBe(1)
-    expect(state2.get()).toBe(14)
+    await waitFor(() => {
+      expect(state1.get()).toBe(1)
+      expect(state2.get()).toBe(14)
+    })
 
     state1.set(2)
 
-    expect(state1.get()).toBe(2)
-    expect(state2.get()).toBe(18)
+    await waitFor(() => {
+      expect(state1.get()).toBe(2)
+      expect(state2.get()).toBe(18)
+    })
 
     const result = renderHook(() => use(state2, (value) => value + 1))
     expect(result.result.current).toBe(19)
@@ -61,9 +72,11 @@ describe('create', () => {
       state1.set(3)
     })
 
-    expect(result.result.current).toBe(23)
+    await waitFor(() => {
+      expect(result.result.current).toBe(23)
+    })
   })
-  it('should have only 2 re-renders when updating state via batch', () => {
+  it('should have only 2 re-renders when updating state via batch', async () => {
     const reRenders = jest.fn()
     const state = create(1)
 
@@ -79,11 +92,13 @@ describe('create', () => {
       state.set(3)
       state.set(4)
     })
-    expect(result.result.current).toBe(4)
+    await waitFor(() => {
+      expect(result.result.current).toBe(4)
+    })
     expect(reRenders).toHaveBeenCalledTimes(2)
   })
 
-  it('should have only 2 re-renders when updating state via derived', () => {
+  it('should have only 2 re-renders when updating state via derived', async () => {
     const reRenders = jest.fn()
     const state1 = create(1)
     const state2 = create(() => state1() + 1)
@@ -101,7 +116,9 @@ describe('create', () => {
       state1.set(3)
       state1.set((_previous) => 4)
     })
-    expect(result.result.current).toBe(6)
+    await waitFor(() => {
+      expect(result.result.current).toBe(6)
+    })
     expect(reRenders).toHaveBeenCalledTimes(2)
   })
 
@@ -117,12 +134,13 @@ describe('create', () => {
   })
 
   it('should render value properly with promise and cancel it', async () => {
-    const state1 = create(longPromise(50_000))
+    const state1 = create(longPromise(20))
     const reRender = jest.fn()
     const result = renderHook(() => {
       reRender()
       return use(state1)
     })
+
     expect(result.result.current).toBe(undefined)
     expect(reRender).toHaveBeenCalledTimes(1)
 
@@ -130,8 +148,9 @@ describe('create', () => {
       // this will cancel promise and set new value for 10 immediately
       state1.set(10)
     })
-
+    await longPromise(100)
     await waitFor(() => {
+      expect(state1.get()).toBe(10)
       expect(result.result.current).toBe(10)
     })
     expect(result.result.current).toBe(10)
