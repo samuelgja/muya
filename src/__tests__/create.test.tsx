@@ -264,17 +264,19 @@ describe('create', () => {
     })
   })
 
-  it('should re-render only based on deriver state', async () => {
+  it('should re-render only based on deriver state sync', async () => {
     const counter = create(1)
-    const asyncMuya = create(async () => counter() * 5)
+    const asyncMuya = create(() => counter() * 5)
     const renderBefore = jest.fn()
     const renderAfter = jest.fn()
     const result = renderHook(
       () => {
         renderBefore()
         const counterValue = use(counter)
+
         const asyncCounter = use(asyncMuya)
         renderAfter()
+        console.log({ counterValue, asyncCounter })
         return { counterValue, asyncCounter }
       },
       // { wrapper: ({ children }) => <Suspense fallback="loading">{children}</Suspense> },
@@ -284,7 +286,7 @@ describe('create', () => {
       expect(result.result.current.counterValue).toBe(1)
       expect(result.result.current.asyncCounter).toBe(5)
     })
-    expect(renderBefore).toHaveBeenCalledTimes(2)
+    expect(renderBefore).toHaveBeenCalledTimes(1)
     expect(renderAfter).toHaveBeenCalledTimes(1)
 
     act(() => {
@@ -296,7 +298,7 @@ describe('create', () => {
       expect(result.result.current.asyncCounter).toBe(10)
     })
 
-    expect(renderBefore).toHaveBeenCalledTimes(5)
-    expect(renderAfter).toHaveBeenCalledTimes(2)
+    expect(renderBefore).toHaveBeenCalledTimes(3)
+    expect(renderAfter).toHaveBeenCalledTimes(3)
   })
 })

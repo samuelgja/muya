@@ -14,7 +14,7 @@ import type { GetState } from './create'
 export function use<T, S>(
   state: GetState<T>,
   selector: (stateValue: T) => S = (stateValue) => toType<S>(stateValue),
-  isEqual?: IsEqual<S>,
+  isEqual: IsEqual<S> = (a, b) => a === b,
 ): undefined extends S ? T : S {
   // eslint-disable-next-line react-hooks/rules-of-hooks, sonarjs/rules-of-hooks
   const data = useSyncExternalStore(

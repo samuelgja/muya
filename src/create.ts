@@ -59,6 +59,8 @@ export function create<T>(defaultValue: DefaultValue<T>): GetState<T> | State<T>
 
     if (!contextSubscriptions.has(ctx.id)) {
       const unsubscribe = state.emitter.subscribe(() => {
+        console.log('Calling reset from ', state.id)
+        console.log('For derive context: ', ctx.id)
         ctx.reset()
       })
       contextSubscriptions.set(ctx.id, unsubscribe)
@@ -69,6 +71,7 @@ export function create<T>(defaultValue: DefaultValue<T>): GetState<T> | State<T>
       return previousData as undefined extends S ? T : S
     }
     previousData = selectedValue as undefined
+
     return selectedValue as undefined extends S ? T : S
   }
 
@@ -76,6 +79,7 @@ export function create<T>(defaultValue: DefaultValue<T>): GetState<T> | State<T>
     getValue,
     setValue: setValueRaw,
     onFlush: (current) => {
+      console.log('flush', state.id, current)
       state.value = current
       state.emitter.emit()
     },
@@ -122,7 +126,6 @@ export function create<T>(defaultValue: DefaultValue<T>): GetState<T> | State<T>
 
   state.reset = function call() {
     state.value = resolveValue()
-
     state.emitter.emit()
   }
 
