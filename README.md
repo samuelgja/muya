@@ -70,14 +70,28 @@ function App() {
 
 ```
 
+### Selecting parts of the state via selectors in components
+```tsx
+import { create } from 'muya'
+
+const useUser = create({ name: 'John', age: 30 })
+
+function App() {
+  const name = useUser((user) => user.name)
+  return <div onClick={() => useUser.setState((prev) => ({ ...prev, name: 'Jane' }))}>{name}</div>
+}
+
+```
+
 ### Merge any states
 ```typescript
 import { create, shallow, merge } from 'muya'
 
 const useName = create(() => 'John')
 const useAge = create(() => 30)
+const useSomeData = create(() => ({ data: 'some data' }))
 
-const useFullName = merge([useName, useAge], (name, age) => `${name} and ${age}`)
+const useFullName = merge([useName, useAge, useSomeData], (name, age) => `${name} and ${age}`)
 
 function App() {
   const fullName = useFullName()
