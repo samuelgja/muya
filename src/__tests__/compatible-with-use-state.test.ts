@@ -1,7 +1,8 @@
-import { renderHook } from '@testing-library/react-hooks'
+import { renderHook, act } from '@testing-library/react-hooks'
 import { create } from '../create'
 import { use } from '../use'
 import { useState } from 'react'
+import { waitFor } from '@testing-library/react'
 
 describe('compatible with useState', () => {
   const reactRenderBefore = jest.fn()
@@ -34,5 +35,116 @@ describe('compatible with useState', () => {
     expect(stateAfter).toHaveBeenCalledTimes(1)
     expect(reactRenderBefore).toHaveBeenCalledTimes(1)
     expect(reactRenderAfter).toHaveBeenCalledTimes(1)
+  })
+
+  it('should not re-render when setting the same state value', () => {
+    const state = create(1)
+    const before = jest.fn()
+    const after = jest.fn()
+
+    const result = renderHook(() => {
+      before()
+      const value = use(state)
+      after()
+      return value
+    })
+
+    expect(result.result.current).toBe(1)
+    expect(before).toHaveBeenCalledTimes(1)
+    expect(after).toHaveBeenCalledTimes(1)
+
+    act(() => {
+      state.set(1)
+    })
+
+    expect(result.result.current).toBe(1)
+    expect(before).toHaveBeenCalledTimes(1)
+    expect(after).toHaveBeenCalledTimes(1)
+  })
+
+  it('should re-render once when multiple different state values are set in a single act', async () => {
+    const state = create(1)
+    const before = jest.fn()
+    const after = jest.fn()
+
+    const result = renderHook(() => {
+      before()
+      const value = use(state)
+      after()
+      return value
+    })
+
+    expect(result.result.current).toBe(1)
+    expect(before).toHaveBeenCalledTimes(1)
+    expect(after).toHaveBeenCalledTimes(1)
+
+    act(() => {
+      state.set(2)
+      state.set(3)
+      state.set(4)
+      state.set(5)
+      state.set(2)
+      state.set(3)
+      state.set(4)
+      state.set(8)
+    })
+    await waitFor(() => {
+      expect(before).toHaveBeenCalledTimes(2)
+      expect(after).toHaveBeenCalledTimes(2)
+      expect(result.result.current).toBe(8)
+    })
+  })
+
+  it('should re-render correctly when using functional updates', async () => {
+    const state = create(1)
+    const before = jest.fn()
+    const after = jest.fn()
+
+    const result = renderHook(() => {
+      before()
+      const value = use(state)
+      after()
+      return value
+    })
+
+    expect(result.result.current).toBe(1)
+    expect(before).toHaveBeenCalledTimes(1)
+    expect(after).toHaveBeenCalledTimes(1)
+
+    act(() => {
+      state.set((previous) => previous + 1)
+    })
+
+    await waitFor(() => {
+      expect(result.result.current).toBe(2)
+      expect(before).toHaveBeenCalledTimes(2)
+      expect(after).toHaveBeenCalledTimes(2)
+    })
+  })
+
+  it('should handle setting state to undefined without unnecessary re-renders', () => {
+    // eslint-disable-next-line unicorn/no-useless-undefined
+    const state = create<number | undefined>(undefined)
+    const before = jest.fn()
+    const after = jest.fn()
+
+    const result = renderHook(() => {
+      before()
+      const value = use(state)
+      after()
+      return value
+    })
+
+    expect(result.result.current).toBe(undefined)
+    expect(before).toHaveBeenCalledTimes(1)
+    expect(after).toHaveBeenCalledTimes(1)
+
+    act(() => {
+      state.set(undefined)
+    })
+
+    expect(result.result.current).toBe(undefined)
+    expect(before).toHaveBeenCalledTimes(1)
+    expect(after).toHaveBeenCalledTimes(1)
   })
 })

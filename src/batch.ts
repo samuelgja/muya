@@ -1,5 +1,7 @@
 import { isAbortError, isAsyncFunction, isPromise, isSetValueFunction } from './is'
 import type { PromiseAndValue, SetValue } from './types'
+import { unstable_batchedUpdates } from 'react-dom'
+// import { unstable_batchedUpdates } from 'react-native'
 
 interface Options<T> {
   setValue: (value: T) => void
@@ -7,15 +9,19 @@ interface Options<T> {
 
   onFlush: (current: Awaited<T>) => void
 }
+
+const THRESHOLD = 0.55
+const THRESHOLD_ITEMS = 10
+
 interface BatchResult<T> {
   current?: T
-  batches: SetValue<T>[]
+  batches: Set<SetValue<T>>
   addValue: (value: SetValue<T>) => void
   flush: () => void
   abortController?: AbortController
 }
 export function createBatcher<T>(options: Options<T>) {
-  const batches: SetValue<T>[] = []
+  const batches = new Set<SetValue<T>>()
 
   function setState(value: SetValue<T>) {
     if (batch.current == undefined) {
@@ -52,24 +58,31 @@ export function createBatcher<T>(options: Options<T>) {
 
   let frame = performance.now()
 
+  // Use MessageChannel for high-priority scheduling
+  const channel = new MessageChannel()
+  const flushFromChannel = () => {
+    frame = performance.now()
+    flushReact()
+  }
+  channel.port1.onmessage = flushFromChannel
+
   function scheduler() {
     const startFrame = performance.now()
-
     const frameSizeDiffIn = startFrame - frame
-    if (frameSizeDiffIn > 0.53 && batch.batches.length > 0 && batch.batches.length < 10) {
+    channel.port2.postMessage(null)
+    if (frameSizeDiffIn > THRESHOLD && batch.batches.size > 0 && batch.batches.size < THRESHOLD_ITEMS) {
       frame = startFrame
-      batch.flush()
+      flushReact()
     }
+  }
 
-    setImmediate(() => {
-      if (batch.batches.length > 0) {
-        frame = startFrame
-        batch.flush()
-      }
-    })
+  function flushReact() {
+    unstable_batchedUpdates(flush)
   }
 
   async function flush() {
+    // Create a copy to prevent mutations during iteration
+    let prevValue = batch.current
     for (const batchItem of batch.batches) {
       if (isAsyncFunction(batchItem)) {
         // eslint-disable-next-line sonarjs/no-invalid-await
@@ -77,13 +90,18 @@ export function createBatcher<T>(options: Options<T>) {
       } else {
         setState(batchItem)
       }
+      batch.batches.delete(batchItem)
     }
-    batch.batches = []
+    if (prevValue === batch.current) {
+      prevValue = undefined
+      return
+    }
+    batches.clear()
     options.onFlush(batch.current as Awaited<T>)
   }
 
   function addValue(value: SetValue<T>) {
-    batch.batches.push(value)
+    batch.batches.add(value)
     scheduler()
   }
   const batch: BatchResult<T> = {

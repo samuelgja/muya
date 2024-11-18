@@ -1,9 +1,5 @@
 // Bun Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`should count re-renders should measure render times in loop of N count: Jotai render time for 300 loops 1`] = `473`;
-
-exports[`should count re-renders should measure render times in loop of N count: Muya render time for 300 loops 1`] = `505`;
-
 exports[`should count re-renders should compare counter: Jotai's counter 1`] = `0`;
 
 exports[`should count re-renders should compare counter: Jotai's re-renders 1`] = `

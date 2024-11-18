@@ -1,11 +1,11 @@
 import { createContext } from './create-context'
 import type { Emitter } from './create-emitter'
 import { createEmitter } from './create-emitter'
-import { isAbortError, isFunction, isPromise } from './is'
+import { isAbortError, isFunction, isPromise, isSetValueFunction } from './is'
 import { cancelablePromise } from './common'
-import type { IsEqual, Set, SetValue } from './types'
+import type { IsEqual, PromiseAndValue, Set, SetValue } from './types'
 import { createBatcher } from './batch'
-
+import { unstable_batchedUpdates } from 'react-dom'
 const context = createContext<StateNotGeneric | undefined>(undefined)
 
 type DefaultValue<T> = T | (() => T)
@@ -142,6 +142,43 @@ export function create<T>(defaultValue: DefaultValue<T>): GetState<T> | State<T>
     return state.emitter.subscribe(() => {
       listener(state.get())
     })
+  }
+
+  function setState(value: SetValue<T>) {
+    if (batch.current === undefined) {
+      batch.current = resolveValue()
+    }
+
+    if (!isSetValueFunction(value)) {
+      if (batch.abortController) {
+        batch.abortController.abort()
+      }
+
+      batch.current = value
+      state.emitter.emit()
+      return
+    }
+
+    const result = value(batch.current as PromiseAndValue<T>)
+    if (!isPromise(result)) {
+      batch.current = result as T
+      state.emitter.emit()
+      return
+    }
+    result
+      .then((resolvedValue) => {
+        // check if batch.current is resolved value
+        if (isPromise(batch.current) && batch.abortController) {
+          batch.abortController.abort()
+        }
+        batch.current = resolvedValue as T
+        state.emitter.emit()
+      })
+      .catch((error) => {
+        if (isAbortError(error)) {
+          return
+        }
+      })
   }
 
   function setValueRaw(value: T) {

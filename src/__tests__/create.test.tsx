@@ -66,7 +66,11 @@ describe('create', () => {
     })
 
     const result = renderHook(() => use(state2, (value) => value + 1))
-    expect(result.result.current).toBe(19)
+
+    await waitFor(() => {
+      // expect()
+      expect(result.result.current).toBe(19)
+    })
 
     act(() => {
       state1.set(3)

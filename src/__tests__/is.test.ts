@@ -10,7 +10,6 @@ import {
   isEqualBase,
   isAbortError,
   isAsyncFunction,
-  isCancelablePromise,
 } from '../is'
 
 describe('isPromise', () => {
@@ -109,20 +108,5 @@ describe('isAsyncFunction', () => {
   })
   it('should return false for a non-function', () => {
     expect(isAsyncFunction(function () {})).toBe(false)
-  })
-})
-
-describe('isCancelablePromise', () => {
-  it('should return true for a cancelable promise', () => {
-    const promise = Promise.resolve() as Promise<unknown> & { isCancelable: boolean }
-    promise.isCancelable = true
-    expect(isCancelablePromise(promise)).toBe(true)
-  })
-  it('should return false for a non-cancelable promise', () => {
-    const promise = Promise.resolve()
-    expect(isCancelablePromise(promise)).toBe(false)
-  })
-  it('should return false for a non-promise', () => {
-    expect(isCancelablePromise(123)).toBe(false)
   })
 })

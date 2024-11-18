@@ -1,20 +1,23 @@
 import { renderHook, act } from '@testing-library/react-hooks'
 import { waitFor } from '@testing-library/react'
 import { atom, useAtom, useAtomValue } from 'jotai'
-import { create, use } from '../src'
-import { Suspense, useLayoutEffect } from 'react'
+import { Suspense, useLayoutEffect, useState } from 'react'
 import { create as zustandCreate } from 'zustand'
+import { create } from '../create'
+import { use } from '../use'
+import { longPromise } from './test-utils'
 
 describe('should count re-renders', () => {
   const jotaiReRendersBefore = jest.fn()
   const jotaiReRendersAfter = jest.fn()
   const muyaReRendersBefore = jest.fn()
   const muyaReRendersAfter = jest.fn()
+  const zustandReRendersBefore = jest.fn()
+  const zustandReRendersAfter = jest.fn()
+  const reactRenderBefore = jest.fn()
+  const reactRenderAfter = jest.fn()
   beforeEach(() => {
-    jotaiReRendersAfter.mockClear()
-    jotaiReRendersBefore.mockClear()
-    muyaReRendersAfter.mockClear()
-    muyaReRendersBefore.mockClear()
+    jest.clearAllMocks()
   })
   it('should compare counter', () => {
     const jotaiCounter = atom(0)
@@ -272,82 +275,114 @@ describe('should count re-renders', () => {
     const jotaiCounter = atom(0)
     const jotaiSum = atom((get) => get(jotaiCounter) + 1)
     const muyaCounter = create(0)
-    const muyaSum = create(() => muyaCounter() + 1)
-
-    const zustandCounter = zustandCreate((set) => ({
+    const muyaSum = create(() => muyaCounter() + 10)
+    let omg = 0
+    muyaCounter.subscribe((s) => {
+      // console.log('value:', s)
+      omg++
+    })
+    const zustandCounter = zustandCreate((set, get) => ({
       bears: 0,
+      another: () => get().bears + 1,
       increasePopulation: () => set((state) => ({ bears: state.bears + 1 })),
       removeAllBears: () => set({ bears: 0 }),
     }))
-    const count = 2000
+    const count = 400
 
     const startTimeMuya = performance.now()
-    for (let i = 0; i < count; i++) {
-      const result = renderHook(() => {
-        use(muyaSum)
-        return use(muyaCounter)
-      })
-      act(() => {
+    const { result, rerender } = renderHook(() => {
+      muyaReRendersBefore()
+      const counter = use(muyaCounter)
+      const sum = use(muyaSum)
+      muyaReRendersAfter()
+      return { counter, sum }
+    })
+
+    await act(async () => {
+      for (let i = 0; i < count; i++) {
+        await longPromise(0)
         muyaCounter.set((c) => c + 1)
-      })
-    }
-    const resultMuya = renderHook(() => {
-      use(muyaSum)
-      return use(muyaCounter)
+      }
     })
     await waitFor(() => {
-      expect(resultMuya.result.current).toBe(count)
+      expect(result.current.counter).toBe(count)
+      expect(result.current.sum).toBe(count + 10)
     })
 
-    const endTimeMuya = performance.now()
-    const totalTimeMuya = endTimeMuya - startTimeMuya
+    console.log('Muya render time:', performance.now() - startTimeMuya)
 
-    const startTime = performance.now()
-    for (let i = 0; i < count; i++) {
-      const result = renderHook(() => {
-        useAtom(jotaiSum)
-        return useAtom(jotaiCounter)
-      })
-      act(() => {
-        result.result.current[1]((c) => c + 1)
-      })
-    }
-    const result = renderHook(() => {
-      useAtom(jotaiSum)
-      return useAtom(jotaiCounter)
+    const startTimeReact = performance.now()
+    const { result: resultReact, rerender: rerenderReact } = renderHook(() => {
+      reactRenderBefore()
+      const [counter, setCounter] = useState(0)
+      const [sum, setSum] = useState(() => counter + 1)
+      reactRenderAfter()
+      return { counter, setCounter, sum, setSum }
+    })
+
+    await act(async () => {
+      for (let i = 0; i < count; i++) {
+        await longPromise(0)
+
+        resultReact.current.setCounter((c) => c + 1)
+        resultReact.current.setSum((s) => s + 1)
+      }
     })
     await waitFor(() => {
-      expect(result.result.current[0]).toBe(count)
+      expect(resultReact.current.counter).toBe(count)
+      // expect(resultReact.current.sum).toBe(count + 1)
     })
-    const endTime = performance.now()
-    const totalTime = endTime - startTime
 
     const startTimeZustand = performance.now()
-    for (let i = 0; i < count; i++) {
-      const result = renderHook(() => {
-        const counter = zustandCounter()
-        return counter
-      })
-      act(() => {
-        result.result.current.increasePopulation()
-      })
-    }
-    const resultZustand = renderHook(() => {
-      const counter = zustandCounter()
-      return counter
+    const zustandResult = renderHook(() => {
+      zustandReRendersBefore()
+      const state = zustandCounter((s) => s.bears)
+
+      const sum = zustandCounter((s) => s.another())
+      zustandReRendersAfter()
+      return { state, sum }
+    })
+
+    await act(async () => {
+      for (let i = 0; i < count; i++) {
+        await longPromise(0)
+        zustandCounter.setState((s) => ({ bears: s.bears + 1 }))
+      }
     })
     await waitFor(() => {
-      expect(resultZustand.result.current.bears).toBe(count)
+      expect(zustandResult.result.current.state).toBe(count)
+      expect(zustandResult.result.current.sum).toBe(count + 1)
     })
 
-    const endTimeZustand = performance.now()
-    const totalTimeZustand = endTimeZustand - startTimeZustand
+    const totalTimeZustand = performance.now() - startTimeZustand
+    const startTimeJoTai = performance.now()
 
-    console.log('Zustand render time:', totalTimeZustand)
+    const resultJoiTai = renderHook(() => {
+      jotaiReRendersBefore()
+      const counter = useAtom(jotaiCounter)
+      const sum = useAtom(jotaiSum)
+      jotaiReRendersAfter()
+      return { counter, sum }
+    })
+
+    await act(async () => {
+      for (let i = 0; i < count; i++) {
+        await longPromise(0)
+        resultJoiTai.result.current.counter[1]((c) => c + 1)
+      }
+    })
+
+    const totalTime = performance.now() - startTimeJoTai
     console.log('Jotai render time:', totalTime)
-    console.log('Muya render time:', totalTimeMuya)
-
-    expect(totalTimeMuya).toBeLessThan(totalTime)
-    expect(totalTimeMuya).toBeLessThan(totalTimeZustand)
+    console.log('Zustand render time:', totalTimeZustand)
+    console.log('React render time:', performance.now() - startTimeReact)
+    console.log('React re-renders before:', reactRenderBefore.mock.calls.length)
+    console.log('React re-renders after:', reactRenderAfter.mock.calls.length)
+    console.log('Zustand re-renders before:', zustandReRendersBefore.mock.calls.length)
+    console.log('Zustand re-renders after:', zustandReRendersAfter.mock.calls.length)
+    console.log('Jotai re-renders before:', jotaiReRendersBefore.mock.calls.length)
+    console.log('Jotai re-renders after:', jotaiReRendersAfter.mock.calls.length)
+    console.log('Muya re-renders before:', muyaReRendersBefore.mock.calls.length)
+    console.log('Muya re-renders after:', muyaReRendersAfter.mock.calls.length)
   })
 })

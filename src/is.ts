@@ -43,7 +43,3 @@ export function isAbortError(value: unknown): value is DOMException {
 export function isAnyOtherError(value: unknown): value is Error {
   return value instanceof Error && value.name !== Abort.Error
 }
-
-export function isCancelablePromise<T>(value: unknown): value is Promise<T> & { isCancelable: boolean } {
-  return isPromise(value) && (value as Promise<T> & { isCancelable: boolean }).isCancelable
-}

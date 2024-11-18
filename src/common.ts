@@ -1,7 +1,7 @@
-import { useSyncExternalStoreWithSelector as useSync } from 'use-sync-external-store/with-selector'
+import { useDebugValue } from 'react'
 import type { Emitter } from './create-emitter'
 import type { IsEqual } from './types'
-import { useDebugValue } from 'react'
+import { useSyncExternalStoreWithSelector } from 'use-sync-external-store/with-selector'
 
 /**
  * Todo need to remove this
@@ -10,12 +10,12 @@ export function toType<T>(object?: unknown): T {
   return object as T
 }
 
-export function useSyncExternalStore<T, S>(
+export function useSync<T, S>(
   emitter: Emitter<T>,
   selector: (stateValue: T) => S,
   isEqual?: IsEqual<S>,
 ): undefined extends S ? T : S {
-  const value = useSync<T, S>(
+  const value = useSyncExternalStoreWithSelector<T, S>(
     emitter.subscribe,
     emitter.getSnapshot,
     emitter.getSnapshot,
@@ -30,7 +30,6 @@ export enum Abort {
   Error = 'StateAbortError',
 }
 
-type CancelablePromise<T> = Promise<T> & { isCancelable: boolean }
 /**
  * Cancelable promise function, return promise and controller
  */
@@ -47,7 +46,7 @@ export function cancelablePromise<T>(
   const controller = new AbortController()
   const { signal } = controller
 
-  const cancelable: CancelablePromise<T> = new Promise<T>((resolve, reject) => {
+  const cancelable = new Promise<T>((resolve, reject) => {
     // Listen for the abort event
     signal.addEventListener('abort', () => {
       reject(new DOMException('Promise was aborted', Abort.Error))
@@ -56,6 +55,5 @@ export function cancelablePromise<T>(
     // When the original promise settles, resolve or reject accordingly
     promise.then(resolve).catch(reject)
   })
-  cancelable.isCancelable = true
   return { promise: cancelable, controller }
 }

@@ -1,17 +1,18 @@
 import reactLogo from './assets/react.svg'
 import viteLogo from '/vite.svg'
 import './App.css'
-import { create, useCreate } from '../../src'
+import { create, useIt } from './src'
 
 const userState = create({ userName: 'John', age: 25 })
 const ageState = create(() => userState((data) => data.age))
 const userName = create(() => userState((data) => data.userName))
 
 function App() {
-  const username = useCreate(userName)
-  const age = useCreate(ageState)
+  // const username = useIt(userState)
+  const age = useIt(ageState)
   // const full = useCreate(userState)
-  console.log({ age })
+
+  console.log('RENDER', performance.now())
   return (
     <>
       <div>
@@ -22,7 +23,7 @@ function App() {
           <img src={reactLogo} className="logo react" alt="React logo" />
         </a>
       </div>
-      <h1>Username: {username}</h1>
+      {/* <h1>Username: {username}</h1> */}
       <button onClick={() => userState.set((prev) => ({ ...prev, userName: 'Jane' }))}>Change name</button>
       <div className="card">
         <button onClick={() => userState.set((prev) => ({ ...prev, age: prev.age + 1 }))}>age is: {age}</button>
