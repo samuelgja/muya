@@ -22,7 +22,6 @@ export function useSyncExternalStore<T, S>(
     selector ? (stateValue) => selector(stateValue) : toType,
     isEqual,
   ) as undefined extends S ? T : S
-  console.log('useSyncExternalStore', value)
   useDebugValue(value)
   return value
 }

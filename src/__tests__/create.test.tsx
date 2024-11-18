@@ -2,6 +2,7 @@ import { create, use } from '..'
 import { renderHook, act } from '@testing-library/react-hooks'
 import { waitFor } from '@testing-library/react'
 import { longPromise } from './test-utils'
+import { Suspense } from 'react'
 
 describe('create', () => {
   it('should throw error when calling states outside of context', () => {
@@ -261,5 +262,41 @@ describe('create', () => {
     await waitFor(() => {
       expect(result.result.current).toBe(1000)
     })
+  })
+
+  it('should re-render only based on deriver state', async () => {
+    const counter = create(1)
+    const asyncMuya = create(async () => counter() * 5)
+    const renderBefore = jest.fn()
+    const renderAfter = jest.fn()
+    const result = renderHook(
+      () => {
+        renderBefore()
+        const counterValue = use(counter)
+        const asyncCounter = use(asyncMuya)
+        renderAfter()
+        return { counterValue, asyncCounter }
+      },
+      // { wrapper: ({ children }) => <Suspense fallback="loading">{children}</Suspense> },
+    )
+
+    await waitFor(() => {
+      expect(result.result.current.counterValue).toBe(1)
+      expect(result.result.current.asyncCounter).toBe(5)
+    })
+    expect(renderBefore).toHaveBeenCalledTimes(2)
+    expect(renderAfter).toHaveBeenCalledTimes(1)
+
+    act(() => {
+      counter.set(2)
+    })
+
+    await waitFor(() => {
+      expect(result.result.current.counterValue).toBe(2)
+      expect(result.result.current.asyncCounter).toBe(10)
+    })
+
+    expect(renderBefore).toHaveBeenCalledTimes(5)
+    expect(renderAfter).toHaveBeenCalledTimes(2)
   })
 })

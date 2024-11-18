@@ -279,7 +279,7 @@ describe('should count re-renders', () => {
       increasePopulation: () => set((state) => ({ bears: state.bears + 1 })),
       removeAllBears: () => set({ bears: 0 }),
     }))
-    const count = 1000
+    const count = 2000
 
     const startTimeMuya = performance.now()
     for (let i = 0; i < count; i++) {
