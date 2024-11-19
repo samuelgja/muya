@@ -33,6 +33,7 @@ export enum Abort {
 export interface CancelablePromise<T> {
   promise?: Promise<T>
   controller?: AbortController
+  resolveInitialPromise?: (value: T) => void
 }
 /**
  * Cancelable promise function, return promise and controller

@@ -1,6 +1,7 @@
 import { create, subscribe } from '../create'
 import { waitFor } from '@testing-library/react'
 import { longPromise } from './test-utils'
+import { isPromise } from '../utils/is'
 
 describe('create', () => {
   it('should get basic value states', async () => {
@@ -99,21 +100,30 @@ describe('create', () => {
     function derivedNested() {
       return state1() + state2()
     }
-    function derived(plus: number) {
-      return state1() + state2() + derivedNested()
+    async function derived(plus: number) {
+      return state1() + state2() + derivedNested() + plus
     }
 
     let updatesCounter = 0
-    const sub = subscribe(derived)
-
-    sub.listen((value) => {
+    const sub = subscribe(derived, async (ab) => await ab)
+    expect(isPromise(sub.emitter.getSnapshot())).toBe(true)
+    sub.listen(async (value) => {
       updatesCounter++
-      console.log('SUB VALUE', value)
+      console.log('SUB VALUE', await value)
     })
 
     // check if there is not maximum call stack
-    sub(1)
-    sub(1)
+    expect(await sub(1)).toBe(7)
+    expect(await sub(2)).toBe(8)
+    expect(await sub(3)).toBe(9)
+
+    state1.set(2)
+
+    await waitFor(async () => {
+      expect(await sub(1)).toBe(9)
+      expect(await sub(2)).toBe(10)
+      expect(updatesCounter).toBe(1)
+    })
   })
 
   it('should async subscribe to context and notified it', async () => {

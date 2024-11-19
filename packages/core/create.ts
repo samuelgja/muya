@@ -1,7 +1,7 @@
 import { CancelablePromise, cancelablePromise, generateId } from './utils/common'
 import { createContext } from './utils/create-context'
 import { createEmitter, Emitter } from './utils/create-emitter'
-import { isFunction, isPromise, isSetValueFunction, isUndefined } from './utils/is'
+import { isAsyncFunction, isFunction, isPromise, isSetValueFunction, isUndefined } from './utils/is'
 import { createMicroDebounce } from './utils/micro-debounce'
 import { AnyFunction, DefaultValue, IsEqual, SetValue } from './types'
 
@@ -12,7 +12,8 @@ interface SubscribeContext<T = unknown> {
 }
 interface Subscribe<F extends AnyFunction, T extends ReturnType<F>> {
   (...args: Parameters<F>): T
-  emitter: Emitter<T>
+
+  emitter: Emitter<T | undefined>
   destroy: () => void
   id: number
   listen: (listener: (value: T) => void) => () => void
@@ -20,20 +21,46 @@ interface Subscribe<F extends AnyFunction, T extends ReturnType<F>> {
 }
 const subscribeContext = createContext<SubscribeContext | undefined>(undefined)
 
-export function subscribe<F extends AnyFunction, T extends ReturnType<F>, S>(
-  value: (...args: Parameters<F>) => T,
+export function subscribe<F extends AnyFunction, T extends ReturnType<F>, S extends ReturnType<F>>(
+  anyFn: (...args: Parameters<F>) => T,
   selector: (stateValue: T) => S = (stateValue) => stateValue,
   isEqual: IsEqual<S> = (prev, next) => prev === next,
-): Subscribe<F, T> {
+): Subscribe<F, undefined extends S ? T : S> {
   const cleaners: Array<() => void> = []
   const promiseData: CancelablePromise<T> = {}
+  const emitter = createEmitter(() => {
+    const final = cache.current
+    return final
+  })
+
+  function resolveInitialPromise(value: T) {
+    if (promiseData.resolveInitialPromise) {
+      promiseData.resolveInitialPromise(value)
+      promiseData.resolveInitialPromise = undefined
+    }
+  }
+  function getInitialPromise(): S | undefined {
+    if (isAsyncFunction(anyFn)) {
+      const promise = new Promise<T>((resolve) => {
+        promiseData.resolveInitialPromise = resolve
+      })
+      return promise as any
+    }
+    return undefined
+  }
+
+  const cache: Cache<S> = {
+    current: getInitialPromise(),
+  }
   function sub() {
+    if (!canUpdate(cache, isEqual)) {
+      return
+    }
     if (promiseData.controller) {
       promiseData.controller.abort()
     }
-    result.emitter.emit()
+    emitter.emit()
   }
-  const cache: Cache<T> = {}
   const result = function (...params: Parameters<F>): T {
     const ctx: SubscribeContext = {
       addEmitter(stateEmitter) {
@@ -43,32 +70,31 @@ export function subscribe<F extends AnyFunction, T extends ReturnType<F>, S>(
       id: result.id,
       sub,
     }
-    const resultValue = subscribeContext.run(ctx, () => value(...params))
-    cache.current = resultValue
-    return resultValue
+    const resultValue = subscribeContext.run(ctx, () => anyFn(...params))
+    const withSelector = selector(resultValue)
+
+    if (isPromise(withSelector)) {
+      resolveInitialPromise(withSelector)
+      const { controller, promise: promiseWithSelector } = cancelablePromise<T>(withSelector, promiseData.controller)
+      promiseData.controller = controller
+      const promiseResult = promiseWithSelector as T
+      cache.current = promiseResult
+      return promiseWithSelector as any
+    }
+    cache.current = withSelector
+    return withSelector
   }
 
-  result.emitter = createEmitter<T>(() => {
-    const final = cache.current
-    if (isUndefined(final)) {
-      throw new Error('The value is undefined')
-    }
-    if (isPromise(final)) {
-      const { controller, promise } = cancelablePromise(final, promiseData.controller)
-      promiseData.controller = controller
-      return promise as T
-    }
-    return final
-  })
+  result.emitter = emitter
   result.destroy = function () {
     for (const cleaner of cleaners) {
       cleaner()
     }
-    result.emitter.clear()
+    emitter.clear()
   }
   result.id = generateId()
   result.listen = function (listener: (value: T) => void) {
-    return result.emitter.subscribe(() => {
+    return emitter.subscribe(() => {
       const final = cache.current
       if (isUndefined(final)) {
         throw new Error('The value is undefined')
