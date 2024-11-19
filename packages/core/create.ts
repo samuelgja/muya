@@ -1,31 +1,40 @@
-import { generateId } from './utils/common'
+import { CancelablePromise, cancelablePromise, generateId } from './utils/common'
 import { createContext } from './utils/create-context'
 import { createEmitter, Emitter } from './utils/create-emitter'
-import { isFunction, isSetValueFunction, isUndefined } from './utils/is'
+import { isFunction, isPromise, isSetValueFunction, isUndefined } from './utils/is'
 import { createMicroDebounce } from './utils/micro-debounce'
-import { DefaultValue, SetValue } from './types'
+import { AnyFunction, DefaultValue, IsEqual, SetValue } from './types'
 
 interface SubscribeContext<T = unknown> {
   addEmitter(emitter: Emitter<T>): void
   id: number
   sub: () => void
 }
-interface Subscribe<T = unknown> {
-  (): T
+interface Subscribe<F extends AnyFunction, T extends ReturnType<F>> {
+  (...args: Parameters<F>): T
   emitter: Emitter<T>
   destroy: () => void
   id: number
   listen: (listener: (value: T) => void) => () => void
+  abort: () => void
 }
 const subscribeContext = createContext<SubscribeContext | undefined>(undefined)
 
-export function subscribe<T>(value: () => T): Subscribe<T> {
+export function subscribe<F extends AnyFunction, T extends ReturnType<F>, S>(
+  value: (...args: Parameters<F>) => T,
+  selector: (stateValue: T) => S = (stateValue) => stateValue,
+  isEqual: IsEqual<S> = (prev, next) => prev === next,
+): Subscribe<F, T> {
   const cleaners: Array<() => void> = []
-
+  const promiseData: CancelablePromise<T> = {}
   function sub() {
+    if (promiseData.controller) {
+      promiseData.controller.abort()
+    }
     result.emitter.emit()
   }
-  const result = function (): T {
+  const cache: Cache<T> = {}
+  const result = function (...params: Parameters<F>): T {
     const ctx: SubscribeContext = {
       addEmitter(stateEmitter) {
         const clean = stateEmitter.subscribe(sub)
@@ -34,20 +43,43 @@ export function subscribe<T>(value: () => T): Subscribe<T> {
       id: result.id,
       sub,
     }
-    return subscribeContext.run(ctx, value)
+    const resultValue = subscribeContext.run(ctx, () => value(...params))
+    cache.current = resultValue
+    return resultValue
   }
-  result.emitter = createEmitter<T>(() => result())
-  result.destroy = () => {
+
+  result.emitter = createEmitter<T>(() => {
+    const final = cache.current
+    if (isUndefined(final)) {
+      throw new Error('The value is undefined')
+    }
+    if (isPromise(final)) {
+      const { controller, promise } = cancelablePromise(final, promiseData.controller)
+      promiseData.controller = controller
+      return promise as T
+    }
+    return final
+  })
+  result.destroy = function () {
     for (const cleaner of cleaners) {
       cleaner()
     }
     result.emitter.clear()
   }
   result.id = generateId()
-  result.listen = (listener: (value: T) => void) => {
+  result.listen = function (listener: (value: T) => void) {
     return result.emitter.subscribe(() => {
-      listener(result())
+      const final = cache.current
+      if (isUndefined(final)) {
+        throw new Error('The value is undefined')
+      }
+      listener(final)
     })
+  }
+  result.abort = function () {
+    if (promiseData.controller) {
+      promiseData.controller.abort()
+    }
   }
   return result
 }
@@ -64,9 +96,20 @@ export type State<T> = {
 } & Callable<T>
 interface Cache<T> {
   current?: T
+  previous?: T
 }
 
-export function create<T>(initialValue: DefaultValue<T>): State<T> {
+function canUpdate<T>(cache: Cache<T>, isEqual: IsEqual<T> = (prev, next) => prev === next): boolean {
+  if (!isUndefined(cache.current)) {
+    if (!isUndefined(cache.previous) && isEqual(cache.current, cache.previous)) {
+      return false
+    }
+    cache.previous = cache.current
+  }
+  return true
+}
+
+export function create<T>(initialValue: DefaultValue<T>, isEqual: IsEqual<T> = (prev, next) => prev === next): State<T> {
   const cache: Cache<T> = {}
 
   function getValue(): T {
@@ -82,6 +125,10 @@ export function create<T>(initialValue: DefaultValue<T>): State<T> {
 
   const scheduler = createMicroDebounce<SetValue<T>>({
     onFinish() {
+      cache.current = getValue()
+      if (!canUpdate(cache, isEqual)) {
+        return
+      }
       state.emitter.emit()
       console.log('Emitting from state: ', state.id)
     },
@@ -89,12 +136,12 @@ export function create<T>(initialValue: DefaultValue<T>): State<T> {
   })
 
   const state: RawState<T> = function () {
+    const stateValue = getValue()
     const ctx = subscribeContext.use()
     if (ctx && !state.emitter.contains(ctx.sub)) {
-      console.log('Adding emitter from state: ', state.id)
       ctx.addEmitter(state.emitter)
     }
-    return getValue()
+    return stateValue
   }
   state.emitter = createEmitter<T>(() => state())
   state.id = generateId()

@@ -1,7 +1,6 @@
 import type { IsEqual } from './types'
 import { useSync, toType } from './utils/common'
 import { isAnyOtherError, isPromise } from './utils/is'
-import { GetState } from './create'
 
 /**
  * useCachedStateValue Hook.

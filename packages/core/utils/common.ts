@@ -30,16 +30,14 @@ export enum Abort {
   Error = 'StateAbortError',
 }
 
+export interface CancelablePromise<T> {
+  promise?: Promise<T>
+  controller?: AbortController
+}
 /**
  * Cancelable promise function, return promise and controller
  */
-export function cancelablePromise<T>(
-  promise: Promise<T>,
-  previousController?: AbortController,
-): {
-  promise: Promise<T>
-  controller: AbortController
-} {
+export function cancelablePromise<T>(promise: Promise<T>, previousController?: AbortController): CancelablePromise<T> {
   if (previousController) {
     previousController.abort()
   }
