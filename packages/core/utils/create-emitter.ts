@@ -4,7 +4,7 @@ export interface Emitter<T, P = undefined> {
   subscribeToOtherEmitter: (emitter: Emitter<unknown>) => void
   getSnapshot: () => T
   emit: (...params: P[]) => void
-  size: number
+  getSize: () => number
   clear: () => void
   contains: (listener: (...params: P[]) => void) => boolean
 }
@@ -40,7 +40,7 @@ export function createEmitter<T, P = undefined>(getSnapshot: () => T): Emitter<T
     },
     contains: (listener) => listeners.has(listener),
     getSnapshot,
-    size: listeners.size,
+    getSize: () => listeners.size,
     subscribeToOtherEmitter(emitter) {
       const clean = emitter.subscribe(() => {
         this.emit()

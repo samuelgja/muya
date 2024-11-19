@@ -1,4 +1,3 @@
-import { act } from '@testing-library/react-hooks'
 import { create, subscribe } from '../create'
 import { waitFor } from '@testing-library/react'
 
@@ -40,17 +39,49 @@ describe('create', () => {
   })
   it('should subscribe to context and notified it', async () => {
     const state1 = create(1)
+    const state2 = create(2)
 
-    const sub = subscribe(() => state1())
+    function derivedNested() {
+      return state1() + state2()
+    }
+    function derived() {
+      return state1() + state2() + derivedNested()
+    }
 
+    let updatesCounter = 0
+
+    const sub = subscribe(derived)
+
+    sub.listen((value) => {
+      updatesCounter++
+      console.log('SUB VALUE', value)
+    })
+
+    // check if there is not maximum call stack
     sub()
     sub()
     sub()
 
+    // check if not assigned multiple times, but only once
+    expect(state1.emitter.getSize()).toBe(1)
+    expect(state2.emitter.getSize()).toBe(1)
+    expect(sub.emitter.getSize()).toBe(1)
     state1.set(2)
 
     await waitFor(() => {
-      expect(sub()).toBe(2)
+      expect(sub()).toBe(8)
+      expect(updatesCounter).toBe(1)
     })
+
+    state2.set(3)
+
+    await waitFor(() => {
+      expect(sub()).toBe(10)
+      expect(updatesCounter).toBe(2)
+    })
+
+    expect(state1.emitter.getSize()).toBe(1)
+    expect(state2.emitter.getSize()).toBe(1)
+    expect(sub.emitter.getSize()).toBe(1)
   })
 })

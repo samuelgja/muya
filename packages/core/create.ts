@@ -15,7 +15,7 @@ interface Subscribe<T = unknown> {
   emitter: Emitter<T>
   destroy: () => void
   id: number
-  subscribe:
+  listen: (listener: (value: T) => void) => () => void
 }
 const subscribeContext = createContext<SubscribeContext | undefined>(undefined)
 
@@ -44,6 +44,11 @@ export function subscribe<T>(value: () => T): Subscribe<T> {
     result.emitter.clear()
   }
   result.id = generateId()
+  result.listen = (listener: (value: T) => void) => {
+    return result.emitter.subscribe(() => {
+      listener(result())
+    })
+  }
   return result
 }
 
@@ -77,20 +82,16 @@ export function create<T>(initialValue: DefaultValue<T>): State<T> {
 
   const scheduler = createMicroDebounce<SetValue<T>>({
     onFinish() {
-      console.log('onFinish', state.id)
       state.emitter.emit()
+      console.log('Emitting from state: ', state.id)
     },
     onResolveItem: resolveValue,
   })
 
-  interface EmitItem {
-    emit: () => void
-    remove: () => void
-  }
-
   const state: RawState<T> = function () {
     const ctx = subscribeContext.use()
     if (ctx && !state.emitter.contains(ctx.sub)) {
+      console.log('Adding emitter from state: ', state.id)
       ctx.addEmitter(state.emitter)
     }
     return getValue()
