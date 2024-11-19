@@ -20,16 +20,17 @@ async function getAllFiles(dir: string): Promise<string[]> {
   return Array.prototype.concat(...files)
 }
 const execAsync = promisify(exec)
-const entry = 'src/index.ts'
+const entryDir = 'packages/core'
+const entry = path.join(entryDir, 'index.ts')
 const outDir = 'lib'
 const external = ['react', 'react-native', 'use-sync-external-store/shim/with-selector']
 // Ensure output directories
 await fs.mkdir(path.join(outDir, 'cjs'), { recursive: true })
 await fs.mkdir(path.join(outDir, 'esm'), { recursive: true })
-await fs.mkdir(path.join(outDir, 'src'), { recursive: true })
+await fs.mkdir(path.join(outDir, entryDir), { recursive: true })
 
 // Copy source files for react-native compatibility
-await fs.cp('src', path.join(outDir, 'src'), { recursive: true })
+await fs.cp(entryDir, path.join(outDir, entryDir), { recursive: true })
 
 // CommonJS build (single file)
 await esbuild.build({
@@ -44,7 +45,7 @@ await esbuild.build({
 
 // ESM build (files as they are)
 await esbuild.build({
-  entryPoints: await getAllFiles('src'),
+  entryPoints: await getAllFiles(entryDir),
   bundle: false,
   format: 'esm',
   outdir: path.join(outDir, 'esm'),

@@ -1,7 +1,7 @@
 import { isAbortError, isAsyncFunction, isPromise, isSetValueFunction } from './is'
 import type { PromiseAndValue, SetValue } from './types'
-import { unstable_batchedUpdates } from 'react-dom'
-// import { unstable_batchedUpdates } from 'react-native'
+// import { unstable_batchedUpdates } from 'react-dom'
+// // import { unstable_batchedUpdates } from 'react-native'
 
 interface Options<T> {
   setValue: (value: T) => void
@@ -77,7 +77,7 @@ export function createBatcher<T>(options: Options<T>) {
   }
 
   function flushReact() {
-    unstable_batchedUpdates(flush)
+    flush()
   }
 
   async function flush() {

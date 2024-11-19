@@ -1,4 +1,8 @@
 {
+  "workspaces": [
+    "packages/*"
+  ],
+  "private": true,
   "name": "muya",
   "version": "1.0.3",
   "author": "samuel.gjabel@gmail.com",
@@ -23,6 +27,7 @@
     "zustand"
   ],
   "scripts": {
+    "clean": "sudo rm -rf node_modules && sudo rm -rf packages/*/node_modules && bun install",
     "build": "bun run build.ts",
     "code-check": "bun run typecheck && bun run lint && bun run test && bun run format",
     "typecheck": "tsc --noEmit",

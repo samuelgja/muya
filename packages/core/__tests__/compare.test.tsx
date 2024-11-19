@@ -276,18 +276,14 @@ describe('should count re-renders', () => {
     const jotaiSum = atom((get) => get(jotaiCounter) + 1)
     const muyaCounter = create(0)
     const muyaSum = create(() => muyaCounter() + 10)
-    let omg = 0
-    muyaCounter.subscribe((s) => {
-      // console.log('value:', s)
-      omg++
-    })
+
     const zustandCounter = zustandCreate((set, get) => ({
       bears: 0,
       another: () => get().bears + 1,
       increasePopulation: () => set((state) => ({ bears: state.bears + 1 })),
       removeAllBears: () => set({ bears: 0 }),
     }))
-    const count = 400
+    const count = 500
 
     const startTimeMuya = performance.now()
     const { result, rerender } = renderHook(() => {

@@ -5,7 +5,6 @@ import { isAbortError, isFunction, isPromise, isSetValueFunction } from './is'
 import { cancelablePromise } from './common'
 import type { IsEqual, PromiseAndValue, Set, SetValue } from './types'
 import { createBatcher } from './batch'
-import { unstable_batchedUpdates } from 'react-dom'
 const context = createContext<StateNotGeneric | undefined>(undefined)
 
 type DefaultValue<T> = T | (() => T)
@@ -46,6 +45,7 @@ export function create<T>(defaultValue: DefaultValue<T>): State<T>
 export function create<T>(defaultValue: DefaultValue<T>): GetState<T> | State<T> {
   const contextSubscriptions = new Map<string, () => void>()
   let previousData: unknown
+
   const state: State<T> = <S>(
     selector: (stateValue: T) => S = (stateValue) => stateValue as unknown as S,
     isEqual: IsEqual<S> = (a, b) => a === b,
@@ -58,15 +58,17 @@ export function create<T>(defaultValue: DefaultValue<T>): GetState<T> | State<T>
 
     if (!contextSubscriptions.has(ctx.id)) {
       const unsubscribe = state.emitter.subscribe(() => {
+        console.log('SJNSS', state.id, ctx.id)
         ctx.reset()
       })
       contextSubscriptions.set(ctx.id, unsubscribe)
     }
     const selectedValue = selector(getValue())
-
+    console.log('selectedValue', selectedValue)
     if (previousData !== undefined && isEqual(previousData as S, selectedValue)) {
       return previousData as undefined extends S ? T : S
     }
+
     previousData = selectedValue as undefined
 
     return selectedValue as undefined extends S ? T : S
@@ -192,7 +194,7 @@ export function create<T>(defaultValue: DefaultValue<T>): GetState<T> | State<T>
     batch.addValue(value)
   }
 
-  state.set = setStateBatch
+  state.set = setState
 
   return state
 }

@@ -7,7 +7,7 @@
     "emitDeclarationOnly": false, // Generate only declaration files
     "skipLibCheck": true
   },
-  "include": ["src"],
+  "include": ["packages/core"],
   // exclude tests
   "exclude": ["**/*.test.ts", "**/*.test.tsx"]
 }
