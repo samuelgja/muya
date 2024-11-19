@@ -1,14 +1,10 @@
 import { waitFor } from '@testing-library/react'
-import { createBatcher } from '../batch'
+import { createBatch } from '../batch'
 import { longPromise } from './test-utils'
 
 describe('batch', () => {
   it('should have similar batch sync', async () => {
-    const batch = createBatcher({
-      getValue: () => 1,
-      setValue: () => {
-        throw new Error('Not implemented')
-      },
+    const batch = createBatch({
       onFlush: (value) => {
         expect(value).toBe(9999)
       },
@@ -26,15 +22,12 @@ describe('batch', () => {
   })
 
   it('should have similar batch with update method still sync', async () => {
-    const batch = createBatcher({
-      getValue: () => ({ count: 0 }),
-      setValue: () => {
-        throw new Error('Not implemented')
-      },
+    const batch = createBatch<{ count: number }>({
       onFlush: () => {
         expect(batch.current?.count).toBe(count)
       },
     })
+    batch.current = { count: 0 }
 
     const count = 10_000
     for (let index = 0; index < count; index++) {
@@ -48,15 +41,12 @@ describe('batch', () => {
   })
 
   it('should have similar batch with update method return promise', async () => {
-    const batch = createBatcher({
-      getValue: () => Promise.resolve({ count: 0 }),
-      setValue: () => {
-        // throw new Error('Not implemented')
-      },
+    const batch = createBatch<Promise<{ count: number }>>({
       onFlush: (value) => {
         // expect(value.count).toBe(count - 1)
       },
     })
+    batch.current = Promise.resolve({ count: 0 })
 
     const count = 10_000
     for (let index = 0; index < count; index++) {

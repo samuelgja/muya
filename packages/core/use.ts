@@ -18,7 +18,7 @@ export function use<T, S>(
 ): undefined extends S ? T : S {
   // eslint-disable-next-line react-hooks/rules-of-hooks, sonarjs/rules-of-hooks
   const data = useSync(
-    state.emitter,
+    state.valueEmitter,
     (stateValue) => {
       return selector(stateValue)
     },

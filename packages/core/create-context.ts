@@ -21,7 +21,7 @@ export function createContext<T>(defaultContextValue: T) {
    * @param ctxValue The new context value.
    * @param cb The callback to execute.
    */
-  function run<R>(ctxValue: T, cb: () => R): R | Promise<R> {
+  function run<R>(ctxValue: T, cb: () => R | Promise<R>): Promise<R> | R {
     const previousContext = currentContext
     currentContext = ctxValue
 

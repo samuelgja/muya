@@ -1,13 +1,8 @@
 import { isAbortError, isAsyncFunction, isPromise, isSetValueFunction } from './is'
 import type { PromiseAndValue, SetValue } from './types'
-// import { unstable_batchedUpdates } from 'react-dom'
-// // import { unstable_batchedUpdates } from 'react-native'
-
 interface Options<T> {
-  setValue: (value: T) => void
-  getValue: () => T
-
-  onFlush: (current: Awaited<T>) => void
+  readonly onFlush: (current: Awaited<T>) => void
+  readonly getDefault?: () => T | Promise<T>
 }
 
 const THRESHOLD = 0.55
@@ -19,13 +14,14 @@ interface BatchResult<T> {
   addValue: (value: SetValue<T>) => void
   flush: () => void
   abortController?: AbortController
+  getValue: () => T
 }
-export function createBatcher<T>(options: Options<T>) {
+export function createBatch<T>(options: Options<T>) {
   const batches = new Set<SetValue<T>>()
 
   function setState(value: SetValue<T>) {
-    if (batch.current == undefined) {
-      batch.current = options.getValue()
+    if (batch.current === undefined && options.getDefault) {
+      batch.current = options.getDefault()
     }
     if (!isSetValueFunction(value)) {
       if (batch.abortController) {
@@ -57,12 +53,10 @@ export function createBatcher<T>(options: Options<T>) {
   }
 
   let frame = performance.now()
-
-  // Use MessageChannel for high-priority scheduling
   const channel = new MessageChannel()
   const flushFromChannel = () => {
     frame = performance.now()
-    flushReact()
+    flush()
   }
   channel.port1.onmessage = flushFromChannel
 
@@ -72,12 +66,8 @@ export function createBatcher<T>(options: Options<T>) {
     channel.port2.postMessage(null)
     if (frameSizeDiffIn > THRESHOLD && batch.batches.size > 0 && batch.batches.size < THRESHOLD_ITEMS) {
       frame = startFrame
-      flushReact()
+      flush()
     }
-  }
-
-  function flushReact() {
-    flush()
   }
 
   async function flush() {
@@ -104,11 +94,18 @@ export function createBatcher<T>(options: Options<T>) {
     batch.batches.add(value)
     scheduler()
   }
+  function getValue() {
+    if (batch.current === undefined && options.getDefault) {
+      batch.current = options.getDefault()
+    }
+    return batch.current
+  }
   const batch: BatchResult<T> = {
     current: undefined,
     batches,
     addValue,
     flush,
+    getValue,
   }
   return batch
 }

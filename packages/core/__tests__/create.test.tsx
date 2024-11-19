@@ -8,10 +8,133 @@ describe('create', () => {
     const state = create(1)
     expect(() => state()).toThrow()
   })
-  it('should throw error when calling useStates outside of component', () => {
+
+  it('should render basic state async', async () => {
     const state = create(1)
-    expect(() => state((value) => value)).toThrow()
+    expect(state.get()).toBe(1)
+
+    state.set(2)
+    await waitFor(() => {
+      expect(state.get()).toBe(2)
+    })
+
+    const statePromise = create(Promise.resolve(1))
+    expect(await statePromise.get()).toBe(1)
+    expect(await statePromise.get()).toBe(1)
   })
+
+  it('should render basic state with derived sync', async () => {
+    const state1 = create(1)
+    const derived2 = create(() => state1() + 1)
+    const derived3 = create(() => state1() + derived2() + 1)
+
+    let totalValueChange = 0
+    let totalDerivedChange = 0
+    let totalDerived2Change = 0
+    state1.subscribe((value) => {
+      // console.log('STATE#1', value)
+      totalValueChange++
+    })
+    derived2.subscribe((value) => {
+      // console.log('DERIVE#2', value)
+      totalDerivedChange++
+    })
+    derived3.subscribe((value) => {
+      console.log('DERIVE#3', value)
+      totalDerived2Change++
+    })
+    expect(state1.get()).toBe(1)
+    expect(derived2.get()).toBe(2)
+    expect(derived3.get()).toBe(4)
+
+    expect(totalValueChange).toBe(1)
+    expect(totalDerivedChange).toBe(1)
+    expect(totalDerived2Change).toBe(1)
+
+    act(() => {
+      state1.set(2)
+    })
+
+    await waitFor(() => {})
+    expect(state1.get()).toBe(2)
+    expect(derived2.get()).toBe(3)
+    expect(derived3.get()).toBe(6)
+
+    expect(totalValueChange).toBe(2)
+    expect(totalDerivedChange).toBe(2)
+    expect(totalDerived2Change).toBe(2)
+  })
+
+  it('should render basic state with async derived without nested', async () => {
+    const state = create(1)
+    const derived = create(async () => state() + 1)
+
+    let totalValueChange = 0
+    let totalDerivedChange = 0
+    state.subscribe(() => {
+      totalValueChange++
+    })
+    derived.subscribe(() => {
+      totalDerivedChange++
+    })
+    expect(state.get()).toBe(1)
+    expect(await derived.get()).toBe(2)
+
+    act(() => {
+      state.set(2)
+    })
+
+    await waitFor(() => {})
+    expect(state.get()).toBe(2)
+    expect(derived.get()).toBe(3)
+
+    expect(totalValueChange).toBe(2)
+    // called 4 times, because on load it return promise, then it resolve to 2 and then again promise which resolve to 3
+    expect(totalDerivedChange).toBe(4)
+  })
+
+  it('should render basic state with async derived and async parent', async () => {
+    const state = create(Promise.resolve(1))
+    const derived = create(async () => (await state()) + 1)
+    const derived3 = create(async () => {
+      const stateValue = await state()
+      const derivedValue = await derived()
+      return stateValue + derivedValue + 1
+    })
+
+    let totalValueChange = 0
+    let totalDerivedChange = 0
+    let totalDerived3Change = 0
+    state.subscribe(() => {
+      totalValueChange++
+    })
+    derived.subscribe(() => {
+      totalDerivedChange++
+    })
+    derived3.subscribe((state) => {
+      console.log('DERIVE#3', state)
+      totalDerived3Change++
+    })
+
+    expect(await state.get()).toBe(1)
+    expect(await derived.get()).toBe(2)
+    expect(await derived3.get()).toBe(4)
+
+    act(() => {
+      state.set(2)
+    })
+
+    await waitFor(() => {})
+    expect(state.get()).toBe(2)
+    expect(derived.get()).toBe(3)
+    expect(derived3.get()).toBe(6)
+
+    expect(totalValueChange).toBe(3)
+    // called 4 times, because on load it return promise, then it resolve to 2 and then again promise which resolve to 3
+    expect(totalDerivedChange).toBe(4)
+    expect(totalDerived3Change).toBe(4)
+  })
+
   it('should derive state within the context on', async () => {
     const state1 = create(1)
     const state3 = create(10)
