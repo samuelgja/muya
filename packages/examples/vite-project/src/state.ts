@@ -1,4 +1,4 @@
-import { create } from '../../../core/index'
+import { create } from '../../../core/create'
 
 async function GetState() {
   const result = await fetch('https://jsonplaceholder.typicode.com/todos/1')
@@ -16,11 +16,12 @@ export const derivedCounter = create(() => {
   return result.counter
 })
 
-export const derivedCounterFetch = create(async () => {
-  const result = await fetch('https://jsonplaceholder.typicode.com/todos/1')
-  const json = await result.json()
+export const derivedCounterFetch = create(() => {
+  // const result = await fetch('https://jsonplaceholder.typicode.com/todos/1')
+  // const json = await result.json()
   return {
-    ...json,
-    userId: await derivedCounter(),
+    greeting: 'Hello, Muya!',
+    // ...json,
+    userId: derivedCounter(),
   }
 })

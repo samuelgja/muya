@@ -1,4 +1,3 @@
-import { cancelablePromise } from './common'
 import { createContext } from './create-context'
 import { createEmitter, Emitter } from './create-emitter'
 import { isFunction, isPromise } from './is'
@@ -122,12 +121,12 @@ export function create<T>(defaultValue: DefaultValue<T>, isEqual?: IsEqual<Await
   }
 
   function getState() {
-    if (scheduler.current === undefined) {
+    if (scheduler.getCurrent() === undefined) {
       const defaultValueResolved = getDefaultWithContext(state, defaultValue)
-      scheduler.current = undefined
+      scheduler.setCurrent(undefined)
       return scheduler.getValue(defaultValueResolved)
     }
-    return scheduler.current
+    return scheduler.getCurrent() as T
   }
   state.subscribe = (listener) => {
     return state.valueEmitter.subscribe(() => {
@@ -136,7 +135,7 @@ export function create<T>(defaultValue: DefaultValue<T>, isEqual?: IsEqual<Await
   }
 
   state.call = () => {
-    scheduler.current = undefined
+    scheduler.setCurrent(undefined)
     state()
   }
   state.ctxEmitter = ctxEmitter

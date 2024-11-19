@@ -2,16 +2,7 @@ import { renderHook, act } from '@testing-library/react-hooks'
 import { waitFor } from '@testing-library/react'
 import { longPromise } from './test-utils'
 import { create } from '../create'
-
-// const state1 = create(1)
-
-// function sum() {
-//   return state1() + 1
-// }
-
-// function otherSum() {
-//   return state1() + sum()
-// }
+import { use } from '../use'
 
 describe('create', () => {
   it('should render basic state async', async () => {
@@ -115,10 +106,13 @@ describe('create', () => {
     let totalDerivedChange = 0
     let totalDerived3Change = 0
     let totalDerived4Change = 0
-    state.subscribe(() => {
+    state.subscribe((state) => {
+      console.log('STATE#1', state)
       totalValueChange++
     })
-    derived.subscribe(() => {
+    derived.subscribe((state) => {
+      console.log('DERIVE#2', state)
+
       totalDerivedChange++
     })
     derived3.subscribe((state) => {
@@ -169,10 +163,10 @@ describe('create', () => {
       expect(state2()).toBe(18)
     })
 
-    const result = renderHook(() => use(state2, (value) => value + 1))
+    const result = renderHook(() => use(state2))
 
     await waitFor(() => {
-      expect(result.result.current).toBe(19)
+      expect(result.result.current).toBe(18)
     })
 
     act(() => {
@@ -180,7 +174,7 @@ describe('create', () => {
     })
 
     await waitFor(() => {
-      expect(result.result.current).toBe(23)
+      expect(result.result.current).toBe(22)
     })
   })
   it('should derive state within the context via another functions', async () => {

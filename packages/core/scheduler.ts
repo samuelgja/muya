@@ -9,10 +9,15 @@ interface Scheduler<T> {
 }
 
 interface SchedulerResult<T> {
-  current?: T
+  // current?: T
+  // statePromise?: StatePromise
   addState: (value: SetValue<T>) => void
   abortController?: AbortController
+  // statePromiseController?: AbortController
+  // statePromiseReject?: (reason?: any) => void
   getValue: (defaultValue: T) => T | Awaited<T>
+  getCurrent: () => T | undefined
+  setCurrent: (value: T | undefined) => void
 }
 
 interface StatePromise extends Promise<unknown> {
@@ -21,24 +26,29 @@ interface StatePromise extends Promise<unknown> {
 function crateCancelableStatePromise(controller?: AbortController): {
   promise: StatePromise
   controller: AbortController
+  reject: (reason?: any) => void
 } {
-  const newPromise = new Promise<unknown>(() => null)
+  let rejectPromise: (reason?: any) => void = () => null
+  const newPromise = new Promise<unknown>((_, reject) => {
+    reject = rejectPromise
+  })
+
   const result = cancelablePromise(newPromise, controller)
   const statePromise = result.promise as StatePromise
   statePromise.isStatePromise = true
-  return { promise: statePromise, controller: result.controller }
+  return { promise: statePromise, reject: rejectPromise, controller: result.controller }
 }
 
 export function createScheduler<T>(options: Scheduler<T>): SchedulerResult<T> {
   // const batches = new Set<SetValue<T>>()
-
+  let current: T | undefined
   const addState = createMicroDebounce<SetValue<T>>({
     // getSize: () => batches.size,
     onFinish: function () {
-      if (result.current === undefined) {
+      if (current === undefined) {
         throw new Error('Current state is not defined in flush method')
       }
-      options.onFlush(result.current)
+      options.onFlush(current)
     },
     onResolveItem: async function (value) {
       await setState(value)
@@ -46,7 +56,7 @@ export function createScheduler<T>(options: Scheduler<T>): SchedulerResult<T> {
   })
 
   function setState(set: SetValue<T>): Promise<void> | void {
-    if (result.current === undefined) {
+    if (current === undefined) {
       resolveValue(options.getDefault())
     }
     // If set state is not a function, but direct value, we just update
@@ -54,26 +64,27 @@ export function createScheduler<T>(options: Scheduler<T>): SchedulerResult<T> {
       if (result.abortController) {
         result.abortController.abort()
       }
-      result.current = set
+      current = set
       return
     }
-    if (!result.current) {
+    if (!current) {
       throw new Error('Current state is not defined')
     }
-    const setResult = set(result.current as PromiseAndValue<T>)
+    const setResult = set(current as PromiseAndValue<T>)
     // If value is not promise, we just update the value
     if (!isPromise(setResult)) {
-      result.current = setResult as Awaited<T>
+      current = setResult as Awaited<T>
       return
     }
 
+    // createStatePromise()
     return setResult
       .then((resolved) => {
         // If current value is promise, we abort the current promise
-        if (isPromise(result.current) && result.abortController) {
+        if (isPromise(current) && result.abortController) {
           result.abortController.abort()
         }
-        result.current = resolved as Awaited<T>
+        current = resolved as Awaited<T>
       })
       .catch((error) => {
         if (isAbortError(error)) {
@@ -85,43 +96,50 @@ export function createScheduler<T>(options: Scheduler<T>): SchedulerResult<T> {
 
   // we do not know if T is a promise or not, so we need to check it
   function resolveValue(defaultValue: T): T {
-    if (isPromise(result.current) && result.abortController) {
+    if (isPromise(current) && result.abortController) {
       result.abortController.abort()
     }
-    result.current = defaultValue
-    options.onFlush(result.current)
-    if (!isPromise(result.current)) {
-      return result.current
+    current = defaultValue
+    options.onFlush(current)
+    if (!isPromise(current)) {
+      return current
     }
-    const cancelable = cancelablePromise(result.current as Promise<T>)
+
+    const cancelable = cancelablePromise(current as Promise<T>)
     result.abortController = cancelable.controller
     cancelable.promise
       .then((resolved) => {
-        if (isPromise(result.current) && result.abortController) {
+        if (isPromise(current) && result.abortController) {
           result.abortController.abort()
         }
-        result.current = resolved
-        options.onFlush(result.current)
+        current = resolved
+
+        options.onFlush(current)
       })
       .catch((error) => {
         if (isAbortError(error)) {
           return
         }
-        throw error
       })
 
     return cancelable.promise as T
   }
 
   function getValue(defaultValue: T): T | Awaited<T> {
-    if (result.current === undefined) {
+    if (current === undefined) {
       return resolveValue(defaultValue)
     }
-    return result.current
+    return current
   }
   const result: SchedulerResult<T> = {
     addState,
     getValue,
+    getCurrent: () => {
+      return current
+    },
+    setCurrent: (value) => {
+      current = value
+    },
   }
 
   return result
