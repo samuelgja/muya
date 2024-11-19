@@ -1,5 +1,5 @@
 import { createContext } from './create-context'
-import { createEmitter, Emitter } from './create-emitter'
+import { Emitter } from './create-emitter'
 import { isFunction } from './is'
 import { createScheduler } from './scheduler'
 import type { SetIt } from './types'
@@ -20,10 +20,9 @@ interface StateNotGeneric {
 export interface GetState<T> extends StateNotGeneric {
   (): T
   valueEmitter: Emitter<Awaited<T> | Promise<Awaited<T>>>
-  ctxEmitter: ParentEmitter
+  //   ctxEmitter: ParentEmitter
 
-  get: () => T | Awaited<T>
-  subscribe: (listener: (value: T) => void) => () => void
+  //   subscribe: (listener: (value: T) => void) => () => void
 }
 interface State<T> extends GetState<T> {
   set: SetIt<T>
@@ -38,7 +37,7 @@ interface State<T> extends GetState<T> {
 export function getDefaultWithContext<T>(state: State<T>, defaultValue: DefaultValue<T>) {
   if (isFunction(defaultValue)) {
     const runContext = () => stateContext.run(state, defaultValue)
-    return pathContext.run(new Set([state.id]), runContext)
+    return pathContext.run(new Set([state.id]), runContext) as T
   }
   return defaultValue
 }
@@ -71,9 +70,7 @@ function createCtxEmitter(): ParentEmitter {
   }
 }
 
-export function create<T extends () => T>(defaultValue: DefaultValue<T>): GetState<ReturnType<T>>
-export function create<T>(defaultValue: DefaultValue<T>): State<T>
-export function create<T>(defaultValue: DefaultValue<T>): GetState<T> | State<T> {
+export function create2<T>(defaultValue: DefaultValue<T>): State<T> {
   const ctxEmitter = createCtxEmitter()
   const scheduler = createScheduler<T>({
     onFlush: (current) => {
@@ -83,50 +80,26 @@ export function create<T>(defaultValue: DefaultValue<T>): GetState<T> | State<T>
     },
     getDefault: () => getDefaultWithContext(state, defaultValue),
   })
+
   const state: State<T> = function (): T {
     const ctx = stateContext.use()
     if (!ctx) {
       throw new Error('Calling a state can only be used inside muya context')
     }
-
-    console.log(pathContext.use())
-
     const isAssigned = ctxEmitter.isThere(ctx.id)
-    // const hasParentMe = ctx.assignedIds.has(state.id)
-    const OMG = ctx.ctxEmitter.isThere(state.id)
-    console.log('OMG', OMG)
-
-    // const parentCtx = ctx.getParentCtx()
-    // console.log(parentCtx)
-    console.log(`CALLED STATE ${state.id} FROM ${ctx.id}`)
-    // console.log('has parent me', hasParentMe)
-
+    const parentContext = pathContext.use()
+    console.log(parentContext)
     if (!isAssigned) {
       // ctx.assignedIds.add(state.id)
       ctxEmitter.add(ctx.id, (current) => {
         ctx.call(state.id, current)
       })
     }
-    // console.log('assigned ids', ctx.assignedIds)
 
-    return scheduler.getValue()
+    if (scheduler.current === undefined) {
+      scheduler.current = undefined
+      return scheduler.getValue()
+    }
+    return scheduler.current
   }
-  state.id = getId()
-  state.valueEmitter = createEmitter(scheduler.getValue) as Emitter<Awaited<T> | Promise<Awaited<T>>>
-
-  state.ctxEmitter = ctxEmitter
-
-  state.call = (fromId, current) => {
-    scheduler.current = undefined
-    scheduler.getValue()
-  }
-  state.get = () => {
-    const result = scheduler.getValue()
-    return result
-  }
-  state.set = scheduler.addState
-  state.subscribe = (listener) => {
-    return state.valueEmitter.subscribe(() => listener(state.get()))
-  }
-  return state
 }

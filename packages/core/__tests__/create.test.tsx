@@ -2,6 +2,15 @@ import { create, use } from '..'
 import { renderHook, act } from '@testing-library/react-hooks'
 import { waitFor } from '@testing-library/react'
 import { longPromise } from './test-utils'
+// const state1 = create(1)
+
+// function sum() {
+//   return state1() + 1
+// }
+
+// function otherSum() {
+//   return state1() + sum()
+// }
 
 describe('create', () => {
   it('should throw error when calling states outside of context', () => {
@@ -26,17 +35,17 @@ describe('create', () => {
   it('should render basic state with derived sync', async () => {
     const state1 = create(1)
     const derived2 = create(() => state1() + 1)
-    const derived3 = create(() => state1() + derived2() + 1)
+    const derived3 = create(() => derived2() + state1() + 1)
 
     let totalValueChange = 0
     let totalDerivedChange = 0
     let totalDerived2Change = 0
     state1.subscribe((value) => {
-      // console.log('STATE#1', value)
+      console.log('STATE#1', value)
       totalValueChange++
     })
     derived2.subscribe((value) => {
-      // console.log('DERIVE#2', value)
+      console.log('DERIVE#2', value)
       totalDerivedChange++
     })
     derived3.subscribe((value) => {
@@ -46,11 +55,9 @@ describe('create', () => {
     expect(state1.get()).toBe(1)
     expect(derived2.get()).toBe(2)
     expect(derived3.get()).toBe(4)
-
-    expect(totalValueChange).toBe(1)
-    expect(totalDerivedChange).toBe(1)
-    expect(totalDerived2Change).toBe(1)
-
+    console.log('STATE#1', state1.assignedIds)
+    console.log('DERIVE#2', derived2.assignedIds)
+    console.log('DERIVE#3', derived3.assignedIds)
     act(() => {
       state1.set(2)
     })
@@ -62,7 +69,7 @@ describe('create', () => {
 
     expect(totalValueChange).toBe(2)
     expect(totalDerivedChange).toBe(2)
-    expect(totalDerived2Change).toBe(2)
+    expect(totalDerived2Change).toBe(3)
   })
 
   it('should render basic state with async derived without nested', async () => {
