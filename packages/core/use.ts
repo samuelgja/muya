@@ -1,79 +1,31 @@
-import type { IsEqual } from './types'
-import { useSync, toType } from './utils/common'
+import { useDebugValue, useEffect, useRef } from 'react'
+import type { AnyFunction, IsEqual } from './types'
 import { isAnyOtherError, isPromise } from './utils/is'
+import { subscriber } from './subscriber'
+import { useSyncExternalStore } from 'react'
 
-/**
- * useCachedStateValue Hook.
- * Hook for use state inside react scope. If the state is async - component need to be wrapped with Suspense.
- * @param state - state value
- * @param selector - selector function (useStateValue(state, (state) => state.value)) - it return only selected value, selector don't need to be memoized.
- * @param isEqual - equality check function for selector
- * @returns StateValue from selector if provided, otherwise whole state
- */
-export function use<T, S>(
-  state: GetState<T>,
-  selector: (stateValue: T) => S = (stateValue) => toType<S>(stateValue),
-  isEqual: IsEqual<S> = (a, b) => a === b,
+export function use<F extends AnyFunction, T extends ReturnType<F>, S extends ReturnType<F>>(
+  anyFn: () => T,
+  selector: (stateValue: T) => S = (stateValue) => stateValue,
+  isEqual: IsEqual<S> = (prev, next) => prev === next,
 ): undefined extends S ? T : S {
-  // eslint-disable-next-line react-hooks/rules-of-hooks, sonarjs/rules-of-hooks
-  const data = useSync(
-    state.valueEmitter,
-    (stateValue) => {
-      return selector(stateValue)
-    },
-    isEqual,
+  const sub = useRef(subscriber(anyFn, selector, isEqual))
+  const { destroy, emitter } = sub.current
+  const initialSnapshot = emitter.getInitialSnapshot ?? emitter.getSnapshot
+  useEffect(() => {
+    return destroy
+  }, [])
+  const value = useSyncExternalStore<S>(
+    emitter.subscribe,
+    () => selector(emitter.getSnapshot() as T),
+    () => selector(initialSnapshot() as T),
   )
-
-  if (isPromise(data)) {
-    throw data
+  useDebugValue(value)
+  if (isPromise(value)) {
+    throw value
   }
-
-  if (isAnyOtherError(data)) {
-    throw data
+  if (isAnyOtherError(value)) {
+    throw value
   }
-  return data
+  return value
 }
-
-// import type { IsEqual } from './types'
-// import { useSync, toType } from './common'
-// import { isAnyOtherError, isPromise } from './is'
-// import type { GetState } from './create'
-// import { useEffect, useLayoutEffect, useReducer, useState } from 'react'
-
-// /**
-//  * useCachedStateValue Hook.
-//  * Hook for use state inside react scope. If the state is async - component need to be wrapped with Suspense.
-//  * @param state - state value
-//  * @param selector - selector function (useStateValue(state, (state) => state.value)) - it return only selected value, selector don't need to be memoized.
-//  * @param isEqual - equality check function for selector
-//  * @returns StateValue from selector if provided, otherwise whole state
-//  */
-// export function use<T, S>(
-//   state: GetState<T>,
-//   selector: (stateValue: T) => S = (stateValue) => toType<S>(stateValue),
-//   isEqual: IsEqual<S> = (a, b) => a === b,
-// ): undefined extends S ? T : S {
-//   function select() {
-//     return selector(state.get())
-//   }
-//   const reRender = useReducer((s) => s + 1, 0)[1]
-
-//   const data = select()
-//   useLayoutEffect(() => {
-//     const listener = () => {
-//       if (!isEqual(select(), data)) {
-//         reRender()
-//       }
-//     }
-//     return state.emitter.subscribe(listener)
-//   }, [])
-
-//   if (isPromise(data)) {
-//     throw data
-//   }
-
-//   if (isAnyOtherError(data)) {
-//     throw data
-//   }
-//   return data
-// }

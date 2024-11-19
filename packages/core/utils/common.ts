@@ -1,7 +1,8 @@
 import { useDebugValue } from 'react'
 import type { Emitter } from './create-emitter'
-import type { IsEqual } from '../types'
+import type { Cache, IsEqual } from '../types'
 import { useSyncExternalStoreWithSelector } from 'use-sync-external-store/with-selector'
+import { isUndefined } from './is'
 
 /**
  * Todo need to remove this
@@ -60,4 +61,14 @@ export function cancelablePromise<T>(promise: Promise<T>, previousController?: A
 let id = 0
 export function generateId() {
   return id++
+}
+
+export function canUpdate<T>(cache: Cache<T>, isEqual: IsEqual<T> = (prev, next) => prev === next): boolean {
+  if (!isUndefined(cache.current)) {
+    if (!isUndefined(cache.previous) && isEqual(cache.current, cache.previous)) {
+      return false
+    }
+    cache.previous = cache.current
+  }
+  return true
 }

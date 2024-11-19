@@ -3,6 +3,7 @@ export interface Emitter<T, P = undefined> {
   subscribe: EmitterSubscribe<P>
   subscribeToOtherEmitter: (emitter: Emitter<unknown>) => void
   getSnapshot: () => T
+  getInitialSnapshot?: () => T
   emit: (...params: P[]) => void
   getSize: () => number
   clear: () => void
@@ -17,7 +18,7 @@ export interface Emitter<T, P = undefined> {
  * @param getSnapshot
  * @returns
  */
-export function createEmitter<T, P = undefined>(getSnapshot: () => T): Emitter<T, P> {
+export function createEmitter<T, P = undefined>(getSnapshot: () => T, getInitialSnapshot?: () => T): Emitter<T, P> {
   const listeners = new Set<(...params: P[]) => void>()
   const otherCleaners: Array<() => void> = []
   return {
@@ -40,6 +41,7 @@ export function createEmitter<T, P = undefined>(getSnapshot: () => T): Emitter<T
     },
     contains: (listener) => listeners.has(listener),
     getSnapshot,
+    getInitialSnapshot,
     getSize: () => listeners.size,
     subscribeToOtherEmitter(emitter) {
       const clean = emitter.subscribe(() => {
