@@ -1,7 +1,8 @@
-import { create, use } from '..'
 import { renderHook, act } from '@testing-library/react-hooks'
 import { waitFor } from '@testing-library/react'
 import { longPromise } from './test-utils'
+import { create } from '../create'
+
 // const state1 = create(1)
 
 // function sum() {
@@ -13,33 +14,30 @@ import { longPromise } from './test-utils'
 // }
 
 describe('create', () => {
-  it('should throw error when calling states outside of context', () => {
-    const state = create(1)
-    expect(() => state()).toThrow()
-  })
-
   it('should render basic state async', async () => {
     const state = create(1)
-    expect(state.get()).toBe(1)
+    expect(state()).toBe(1)
 
     state.set(2)
     await waitFor(() => {
-      expect(state.get()).toBe(2)
+      expect(state()).toBe(2)
     })
 
     const statePromise = create(Promise.resolve(1))
-    expect(await statePromise.get()).toBe(1)
-    expect(await statePromise.get()).toBe(1)
+    expect(await statePromise()).toBe(1)
+    expect(await statePromise()).toBe(1)
   })
 
   it('should render basic state with derived sync', async () => {
     const state1 = create(1)
     const derived2 = create(() => state1() + 1)
     const derived3 = create(() => derived2() + state1() + 1)
-
+    const derived10 = create(() => state1())
+    const another = create(123)
     let totalValueChange = 0
     let totalDerivedChange = 0
     let totalDerived2Change = 0
+
     state1.subscribe((value) => {
       console.log('STATE#1', value)
       totalValueChange++
@@ -52,24 +50,23 @@ describe('create', () => {
       console.log('DERIVE#3', value)
       totalDerived2Change++
     })
-    expect(state1.get()).toBe(1)
-    expect(derived2.get()).toBe(2)
-    expect(derived3.get()).toBe(4)
-    console.log('STATE#1', state1.assignedIds)
-    console.log('DERIVE#2', derived2.assignedIds)
-    console.log('DERIVE#3', derived3.assignedIds)
+    expect(state1()).toBe(1)
+    expect(derived2()).toBe(2)
+
+    expect(derived3()).toBe(4)
+
     act(() => {
       state1.set(2)
     })
 
     await waitFor(() => {})
-    expect(state1.get()).toBe(2)
-    expect(derived2.get()).toBe(3)
-    expect(derived3.get()).toBe(6)
+    expect(state1()).toBe(2)
+    expect(derived2()).toBe(3)
+    expect(derived3()).toBe(6)
 
     expect(totalValueChange).toBe(2)
     expect(totalDerivedChange).toBe(2)
-    expect(totalDerived2Change).toBe(3)
+    expect(totalDerived2Change).toBe(2)
   })
 
   it('should render basic state with async derived without nested', async () => {
@@ -84,16 +81,16 @@ describe('create', () => {
     derived.subscribe(() => {
       totalDerivedChange++
     })
-    expect(state.get()).toBe(1)
-    expect(await derived.get()).toBe(2)
+    expect(state()).toBe(1)
+    expect(await derived()).toBe(2)
 
     act(() => {
       state.set(2)
     })
 
     await waitFor(() => {})
-    expect(state.get()).toBe(2)
-    expect(derived.get()).toBe(3)
+    expect(state()).toBe(2)
+    expect(derived()).toBe(3)
 
     expect(totalValueChange).toBe(2)
     // called 4 times, because on load it return promise, then it resolve to 2 and then again promise which resolve to 3
@@ -108,10 +105,16 @@ describe('create', () => {
       const derivedValue = await derived()
       return stateValue + derivedValue + 1
     })
+    const derived4 = create(async () => {
+      const stateValue = await state()
+      const derivedValue = await derived()
+      return stateValue + derivedValue + (await derived3()) + 1
+    })
 
     let totalValueChange = 0
     let totalDerivedChange = 0
     let totalDerived3Change = 0
+    let totalDerived4Change = 0
     state.subscribe(() => {
       totalValueChange++
     })
@@ -122,24 +125,31 @@ describe('create', () => {
       console.log('DERIVE#3', state)
       totalDerived3Change++
     })
+    derived4.subscribe((state) => {
+      console.log('DERIVE#4', state)
+      totalDerived4Change++
+    })
 
-    expect(await state.get()).toBe(1)
-    expect(await derived.get()).toBe(2)
-    expect(await derived3.get()).toBe(4)
+    expect(await state()).toBe(1)
+    expect(await derived()).toBe(2)
+    expect(await derived3()).toBe(4)
+    expect(await derived4()).toBe(8)
 
     act(() => {
       state.set(2)
     })
 
-    await waitFor(() => {})
-    expect(state.get()).toBe(2)
-    expect(derived.get()).toBe(3)
-    expect(derived3.get()).toBe(6)
+    await waitFor(() => {
+      expect(state()).toBe(2)
+      expect(derived()).toBe(3)
+      expect(derived3()).toBe(6)
+      expect(derived4()).toBe(12)
+    })
 
     expect(totalValueChange).toBe(3)
-    // called 4 times, because on load it return promise, then it resolve to 2 and then again promise which resolve to 3
-    expect(totalDerivedChange).toBe(4)
-    expect(totalDerived3Change).toBe(4)
+    expect(totalDerivedChange).toBe(6)
+    expect(totalDerived3Change).toBe(6)
+    expect(totalDerived4Change).toBe(6)
   })
 
   it('should derive state within the context on', async () => {
@@ -149,14 +159,14 @@ describe('create', () => {
       return state1() + state1() + state1() + state1() + state3()
     })
 
-    expect(state1.get()).toBe(1)
-    expect(state2.get()).toBe(14)
+    expect(state1()).toBe(1)
+    expect(state2()).toBe(14)
 
     state1.set(2)
 
     await waitFor(() => {
-      expect(state1.get()).toBe(2)
-      expect(state2.get()).toBe(18)
+      expect(state1()).toBe(2)
+      expect(state2()).toBe(18)
     })
 
     const result = renderHook(() => use(state2, (value) => value + 1))
@@ -184,15 +194,15 @@ describe('create', () => {
     const state2 = create(sum)
 
     await waitFor(() => {
-      expect(state1.get()).toBe(1)
-      expect(state2.get()).toBe(14)
+      expect(state1()).toBe(1)
+      expect(state2()).toBe(14)
     })
 
     state1.set(2)
 
     await waitFor(() => {
-      expect(state1.get()).toBe(2)
-      expect(state2.get()).toBe(18)
+      expect(state1()).toBe(2)
+      expect(state2()).toBe(18)
     })
 
     const result = renderHook(() => use(state2, (value) => value + 1))
@@ -284,7 +294,7 @@ describe('create', () => {
     })
     await longPromise(100)
     await waitFor(() => {
-      expect(state1.get()).toBe(10)
+      expect(state1()).toBe(10)
       expect(result.result.current).toBe(10)
     })
     expect(result.result.current).toBe(10)
@@ -369,7 +379,7 @@ describe('create', () => {
     })
     await waitFor(() => {
       expect(result.result.current).toBe(2)
-      expect(computed.get()).toBe(2)
+      expect(computed()).toBe(2)
     })
     expect(result.result.current).toBe(2)
     expect(beforeRenders).toHaveBeenCalledTimes(4)

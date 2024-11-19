@@ -157,4 +157,23 @@ describe('context', () => {
       expect(ctx.use().counter).toBe(12)
     })
   })
+  it('should test nested context', () => {
+    let currentCount = 0
+    const context = createContext({ count: 0 })
+    function container() {
+      const isIn = context.use()
+      expect(isIn.count).toBe(currentCount)
+      context.run({ count: currentCount + 1 }, () => {
+        const inner = context.use()
+        expect(inner.count).toBe(currentCount + 1)
+        context.run({ count: currentCount + 2 }, () => {
+          const innerInner = context.use()
+          expect(innerInner.count).toBe(currentCount + 2)
+        })
+      })
+    }
+
+    container()
+    container()
+  })
 })

@@ -12,8 +12,23 @@ interface SchedulerResult<T> {
   current?: T
   addState: (value: SetValue<T>) => void
   abortController?: AbortController
-  getValue: () => T | Awaited<T>
+  getValue: (defaultValue: T) => T | Awaited<T>
 }
+
+interface StatePromise extends Promise<unknown> {
+  isStatePromise: true
+}
+function crateCancelableStatePromise(controller?: AbortController): {
+  promise: StatePromise
+  controller: AbortController
+} {
+  const newPromise = new Promise<unknown>(() => null)
+  const result = cancelablePromise(newPromise, controller)
+  const statePromise = result.promise as StatePromise
+  statePromise.isStatePromise = true
+  return { promise: statePromise, controller: result.controller }
+}
+
 export function createScheduler<T>(options: Scheduler<T>): SchedulerResult<T> {
   // const batches = new Set<SetValue<T>>()
 
@@ -32,7 +47,7 @@ export function createScheduler<T>(options: Scheduler<T>): SchedulerResult<T> {
 
   function setState(set: SetValue<T>): Promise<void> | void {
     if (result.current === undefined) {
-      resolveValue()
+      resolveValue(options.getDefault())
     }
     // If set state is not a function, but direct value, we just update
     if (!isSetValueFunction(set)) {
@@ -69,11 +84,11 @@ export function createScheduler<T>(options: Scheduler<T>): SchedulerResult<T> {
   }
 
   // we do not know if T is a promise or not, so we need to check it
-  function resolveValue(): T {
+  function resolveValue(defaultValue: T): T {
     if (isPromise(result.current) && result.abortController) {
       result.abortController.abort()
     }
-    result.current = options.getDefault()
+    result.current = defaultValue
     options.onFlush(result.current)
     if (!isPromise(result.current)) {
       return result.current
@@ -98,9 +113,9 @@ export function createScheduler<T>(options: Scheduler<T>): SchedulerResult<T> {
     return cancelable.promise as T
   }
 
-  function getValue(): T | Awaited<T> {
+  function getValue(defaultValue: T): T | Awaited<T> {
     if (result.current === undefined) {
-      return resolveValue()
+      return resolveValue(defaultValue)
     }
     return result.current
   }
