@@ -28,18 +28,19 @@ export function createMicroDebounce<T>(options: Options<T>) {
     }
   }
 
-  async function flush() {
+  function flush() {
     if (batches.size === 0) {
       return
     }
     for (const value of batches) {
       if (onResolveItem) {
-        await onResolveItem(value)
+        onResolveItem(value)
       }
       batches.delete(value)
     }
     onFinish()
   }
+
   function addValue(value: T) {
     batches.add(value)
     schedule()

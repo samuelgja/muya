@@ -1,146 +1,102 @@
-import { createContext } from './create-context'
-import { createEmitter, Emitter } from './create-emitter'
-import { isFunction, isPromise } from './is'
-import { createScheduler } from './scheduler'
-import type { IsEqual, SetIt } from './types'
+import { generateId } from './utils/common'
+import { createContext } from './utils/create-context'
+import { createEmitter, Emitter } from './utils/create-emitter'
+import { isFunction, isSetValueFunction, isUndefined } from './utils/is'
+import { createMicroDebounce } from './utils/micro-debounce'
+import { DefaultValue, SetValue } from './types'
 
-const pathContext = createContext<Set<string> | undefined>(undefined)
-interface StateContext {
-  id: string
-  call: (id: string, current: unknown) => void
-  ctxEmitter: ParentEmitter
+interface SubscribeContext<T = unknown> {
+  addEmitter(emitter: Emitter<T>): void
+  id: number
+  sub: () => void
 }
-const stateContext = createContext<StateContext | undefined>(undefined)
-type DefaultValue<T> = T | (() => T)
-
-interface StateNotGeneric {
-  // reset: () => void
-  id: string
-  subscribe: (listener: (value: unknown) => void) => () => void
-  ctxEmitter: ParentEmitter
-  call: (id: string, current: unknown) => void
-  // remove: () => void
-}
-export interface GetState<T> extends StateNotGeneric {
+interface Subscribe<T = unknown> {
   (): T
-  valueEmitter: Emitter<T>
-  //   ctxEmitter: ParentEmitter
+  emitter: Emitter<T>
+  destroy: () => void
+  id: number
+  subscribe:
+}
+const subscribeContext = createContext<SubscribeContext | undefined>(undefined)
 
-  subscribe: (listener: (value: T) => void) => () => void
-}
-interface State<T> extends GetState<T> {
-  set: SetIt<T>
-}
-/**
- * Return default value or default value with promise value.
- * Wrap also the default value with context.
- * @param state
- * @param defaultValue
- * @returns
- */
-export function getDefaultWithContext<T>(state: State<T>, defaultValue: DefaultValue<T>) {
-  if (isFunction(defaultValue)) {
-    // const runContext = () => stateContext.run({ call: state.call, id: state.id }, defaultValue)
-    // const pathCtx = pathContext.use()
-    // if (pathCtx) {
-    //   return runContext() as T
-    // }
-    // return pathContext.run(new Set(), runContext) as T
-    return stateContext.run({ call: state.call, id: state.id, ctxEmitter: state.ctxEmitter }, defaultValue) as T
+export function subscribe<T>(value: () => T): Subscribe<T> {
+  const cleaners: Array<() => void> = []
+
+  function sub() {
+    result.emitter.emit()
   }
-  return defaultValue
-}
-
-let id = 0
-function getId() {
-  id++
-  return id.toString(36)
-}
-
-interface ParentEmitter {
-  map: Map<string, (current: unknown) => void>
-  informParents: (current: unknown) => void
-  add: (id: string, cb: (current: unknown) => void) => void
-  isThere: (id: string) => boolean
-}
-function createCtxEmitter(): ParentEmitter {
-  const map = new Map()
-  return {
-    isThere: (id) => map.has(id),
-    add: (id, cb) => {
-      map.set(id, cb)
-    },
-    map,
-    informParents(current) {
-      for (const cb of map.values()) {
-        cb(current)
-      }
-    },
+  const result = function (): T {
+    const ctx: SubscribeContext = {
+      addEmitter(stateEmitter) {
+        const clean = stateEmitter.subscribe(sub)
+        cleaners.push(clean)
+      },
+      id: result.id,
+      sub,
+    }
+    return subscribeContext.run(ctx, value)
   }
+  result.emitter = createEmitter<T>(() => result())
+  result.destroy = () => {
+    for (const cleaner of cleaners) {
+      cleaner()
+    }
+    result.emitter.clear()
+  }
+  result.id = generateId()
+  return result
 }
 
-export function create<T extends () => T>(defaultValue: DefaultValue<T>, isEqual?: IsEqual<Awaited<T>>): GetState<ReturnType<T>>
-export function create<T>(defaultValue: DefaultValue<T>, isEqual?: IsEqual<Awaited<T>>): State<T>
-export function create<T>(defaultValue: DefaultValue<T>, isEqual?: IsEqual<Awaited<T>>): GetState<T> | State<T> {
-  const ctxEmitter = createCtxEmitter()
-  let previousValue: Awaited<T> | undefined
-  const defaultIsEqual = isEqual ?? ((a, b) => a === b)
-  const scheduler = createScheduler<T>({
-    onFlush: (current) => {
-      const isCurrentPromise = isPromise(current)
+type Callable<T> = () => T
+interface RawState<T> {
+  (): T
+  id: number
+  set: (value: SetValue<T>) => void
+  emitter: Emitter<T>
+}
+export type State<T> = {
+  readonly [K in keyof RawState<T>]: RawState<T>[K]
+} & Callable<T>
+interface Cache<T> {
+  current?: T
+}
 
-      if (!isCurrentPromise && previousValue !== undefined && defaultIsEqual(previousValue, current as Awaited<T>)) {
-        return
-      }
-      if (!isCurrentPromise) {
-        previousValue = current as Awaited<T>
-      }
-      state.valueEmitter.emit()
-      if (isCurrentPromise) {
-        return
-      }
-      ctxEmitter.informParents(current)
+export function create<T>(initialValue: DefaultValue<T>): State<T> {
+  const cache: Cache<T> = {}
+
+  function getValue(): T {
+    if (isUndefined(cache.current)) {
+      cache.current = isFunction(initialValue) ? initialValue() : initialValue
+    }
+    return cache.current
+  }
+  function resolveValue(value: SetValue<T>) {
+    const previous = getValue()
+    cache.current = isSetValueFunction(value) ? value(previous) : value
+  }
+
+  const scheduler = createMicroDebounce<SetValue<T>>({
+    onFinish() {
+      console.log('onFinish', state.id)
+      state.emitter.emit()
     },
-    getDefault: () => getDefaultWithContext(state, defaultValue),
+    onResolveItem: resolveValue,
   })
 
-  const state: State<T> = function (): T {
-    const ctx = stateContext.use()
-    if (!ctx) {
-      return getState()
-    }
-    const isAssigned = ctxEmitter.isThere(ctx.id)
-    if (!isAssigned) {
-      // pathCtx?.add(state.id)
-      ctxEmitter.add(ctx.id, (current) => {
-        ctx.call(state.id, current)
-      })
-    }
-
-    return getState()
+  interface EmitItem {
+    emit: () => void
+    remove: () => void
   }
 
-  function getState() {
-    if (scheduler.getCurrent() === undefined) {
-      const defaultValueResolved = getDefaultWithContext(state, defaultValue)
-      scheduler.setCurrent(undefined)
-      return scheduler.getValue(defaultValueResolved)
+  const state: RawState<T> = function () {
+    const ctx = subscribeContext.use()
+    if (ctx && !state.emitter.contains(ctx.sub)) {
+      ctx.addEmitter(state.emitter)
     }
-    return scheduler.getCurrent() as T
+    return getValue()
   }
-  state.subscribe = (listener) => {
-    return state.valueEmitter.subscribe(() => {
-      listener(getState())
-    })
-  }
-
-  state.call = () => {
-    scheduler.setCurrent(undefined)
-    state()
-  }
-  state.ctxEmitter = ctxEmitter
-  state.valueEmitter = createEmitter(getState)
-  state.set = scheduler.addState
-  state.id = getId()
+  state.emitter = createEmitter<T>(() => state())
+  state.id = generateId()
+  state.set = scheduler
   return state
 }

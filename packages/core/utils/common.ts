@@ -1,6 +1,6 @@
 import { useDebugValue } from 'react'
 import type { Emitter } from './create-emitter'
-import type { IsEqual } from './types'
+import type { IsEqual } from '../types'
 import { useSyncExternalStoreWithSelector } from 'use-sync-external-store/with-selector'
 
 /**
@@ -56,4 +56,9 @@ export function cancelablePromise<T>(
     promise.then(resolve).catch(reject)
   })
   return { promise: cancelable, controller }
+}
+
+let id = 0
+export function generateId() {
+  return id++
 }

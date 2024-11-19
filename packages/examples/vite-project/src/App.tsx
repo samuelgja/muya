@@ -2,10 +2,16 @@ import './App.css'
 import { derivedCounter, derivedCounterFetch, useAppState } from './state'
 import { use } from '../../../core'
 import { Suspense, useEffect, useLayoutEffect } from 'react'
+import { create as zustand } from 'zustand'
+
+const zzz = zustand(async () => ({ username: 'test', somethingElse: Promise.resolve('test') }))
+
 function App() {
   // const username = useIt(userState)
   const age = use(useAppState)
   // const full = useCreate(userState)
+  const abc = zzz()
+  console.log(abc)
 
   console.log('RENDER', performance.now())
   return (

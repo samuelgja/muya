@@ -1,8 +1,5 @@
-/* eslint-disable sonarjs/pseudo-random */
-/* eslint-disable sonarjs/no-nested-functions */
-
 import { createContext } from '../create-context'
-import { longPromise } from './test-utils'
+import { longPromise } from '../../__tests__/test-utils'
 
 describe('context', () => {
   it('should check context', () => {
