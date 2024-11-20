@@ -1,7 +1,10 @@
+/* eslint-disable @typescript-eslint/no-shadow */
+/* eslint-disable no-shadow */
 import { act, renderHook } from '@testing-library/react-hooks'
 import { create } from '../create'
 import { use } from '../use'
 import { subscriber } from '../subscriber'
+import { waitFor } from '@testing-library/react'
 
 describe('use-create', () => {
   const reRendersBefore = jest.fn()
@@ -19,6 +22,8 @@ describe('use-create', () => {
     act(() => {
       state.set(2)
     })
+
+    await waitFor(() => {})
     expect(sub()).toBe(2)
   })
   it('should test use hook', async () => {
