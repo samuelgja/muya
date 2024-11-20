@@ -1,15 +1,23 @@
 import './App.css'
-import { use } from '../../../core'
-import { Suspense, useEffect, useLayoutEffect } from 'react'
-import { create as zustand } from 'zustand'
-import { AsyncLocalStorage } from 'async_hooks'
-const zzz = zustand(async () => ({ username: 'test', somethingElse: Promise.resolve('test') }))
+import { use, create } from '../../../core'
+import { Suspense, useEffect, useId, useRef } from 'react'
+
+const userState = create({ name: 'John', age: 30 })
+
+export async function getDataWithUser() {
+  const result = await fetch('https://jsonplaceholder.typicode.com/todos/1')
+  const json = await result.json()
+  return { ...json, age: userState().age }
+}
 
 function App() {
-  console.log(AsyncLocalStorage)
+  console.log('re-render App')
+  // const user = use(getDataWithUser)
   return (
     <Suspense fallback={'Loading...'}>
       <div className="App">
+        {/* {JSON.stringify(user)} */}
+        <button onClick={() => userState.set((prev) => ({ ...prev, age: prev.age + 1 }))}>Increment Age</button>
         <PageClient />
 
         <FetchClient />

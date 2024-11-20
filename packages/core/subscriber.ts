@@ -27,30 +27,30 @@ export type Subscribe<F extends AnyFunction, T extends ReturnType<F>> = {
 
 export const subscribeContext = createContext<SubscribeContext | undefined>(undefined)
 
+const cache: Cache<S> = {}
+let isInitialized = false
 export function subscriber<F extends AnyFunction, T extends ReturnType<F>, S extends ReturnType<F>>(
   anyFunction: () => T,
   selector: (stateValue: T) => S = EMPTY_SELECTOR,
   isEqual: IsEqual<S> = isEqualBase,
-): Subscribe<F, S> {
+): Subscribe<F, T> {
   const cleaners: Array<() => void> = []
   const promiseData: CancelablePromise<T> = {}
 
-  let isInitialized = false
+  console.log('RE_LOAD')
   const emitter = createEmitter(
     () => {
       if (!isInitialized) {
         isInitialized = true
-        return result()
+        return subscribe()
       }
       return cache.current
     },
     () => {
       isInitialized = true
-      return result()
+      return subscribe()
     },
   )
-
-  const cache: Cache<S> = {}
 
   async function sub() {
     if (!canUpdate(cache, isEqual)) {
@@ -60,11 +60,13 @@ export function subscriber<F extends AnyFunction, T extends ReturnType<F>, S ext
       promiseData.controller.abort()
     }
 
-    cache.current = result()
+    console.log('uprading cache')
+    cache.current = subscribe()
     if (isPromise(cache.current)) {
       emitter.emit()
       cache.current
-        .then(() => {
+        .then((data) => {
+          console.log('data', data)
           emitter.emit()
         })
         .catch(() => {})
@@ -83,7 +85,7 @@ export function subscriber<F extends AnyFunction, T extends ReturnType<F>, S ext
     sub,
   }
 
-  const result = function (): T {
+  const subscribe = function (): T {
     const resultValue = subscribeContext.run(ctx, anyFunction)
     const withSelector = selector(resultValue)
 
@@ -95,9 +97,9 @@ export function subscriber<F extends AnyFunction, T extends ReturnType<F>, S ext
           cache.current = value
         })
         .catch((error) => {
-          if (isAbortError(error)) {
-            return
-          }
+          // if (isAbortError(error)) {
+          //   return
+          // }
           throw error
         })
       const promiseResult = promiseWithSelector as T
@@ -108,15 +110,16 @@ export function subscriber<F extends AnyFunction, T extends ReturnType<F>, S ext
     return withSelector
   }
 
-  result.emitter = emitter
-  result.destroy = function () {
+  subscribe.emitter = emitter
+  subscribe.destroy = function () {
+    console.log('DESTROY')
     for (const cleaner of cleaners) {
       cleaner()
     }
     emitter.clear()
   }
-  result.id = id
-  result.listen = function (listener: (value: T) => void) {
+  subscribe.id = id
+  subscribe.listen = function (listener: (value: T) => void) {
     return emitter.subscribe(() => {
       const final = cache.current
       if (isUndefined(final)) {
@@ -125,10 +128,10 @@ export function subscriber<F extends AnyFunction, T extends ReturnType<F>, S ext
       listener(final)
     })
   }
-  result.abort = function () {
+  subscribe.abort = function () {
     if (promiseData.controller) {
       promiseData.controller.abort()
     }
   }
-  return result
+  return subscribe
 }
