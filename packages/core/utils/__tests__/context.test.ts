@@ -175,4 +175,24 @@ describe('context', () => {
     container()
     container()
   })
+
+  it('should test nested context with async when promise is returned, but not waited', async () => {
+    const context = createContext({ count: 0 })
+
+    async function insideContextNestedAwaited() {
+      await longPromise(10)
+      const ctx = context.use()
+      expect(ctx?.count).toBe(1)
+    }
+    async function insideContext() {
+      await insideContextNestedAwaited()
+      // HERE THIS IS NOT WAITED, SO CONTEXT IS LOST.
+      // insideContextNestedAwaited() // this will not work
+      context.wrap(insideContextNestedAwaited) // this work
+      const ctx = context.use()
+      expect(ctx?.count).toBe(1)
+    }
+
+    context.run({ count: 1 }, insideContext)
+  })
 })

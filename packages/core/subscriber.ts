@@ -1,5 +1,4 @@
-import type { AnyFunction, Cache, Callable, IsEqual, Listener } from './types'
-import { EMPTY_SELECTOR } from './types'
+import type { AnyFunction, Cache, Callable, Listener } from './types'
 import type { CancelablePromise } from './utils/common'
 import { cancelablePromise, canUpdate, generateId } from './utils/common'
 import { createContext } from './utils/create-context'
@@ -12,7 +11,7 @@ interface SubscribeContext<T = unknown> {
   id: number
   sub: () => void
 }
-interface SubscribeRaw<F extends AnyFunction, T extends ReturnType<F>> {
+interface SubscribeRaw<F extends AnyFunction, T extends ReturnType<F> = ReturnType<F>> {
   (): T
   emitter: Emitter<T | undefined>
   destroy: () => void
@@ -21,23 +20,20 @@ interface SubscribeRaw<F extends AnyFunction, T extends ReturnType<F>> {
   abort: () => void
 }
 
-export type Subscribe<F extends AnyFunction, T extends ReturnType<F>> = {
+export type Subscribe<F extends AnyFunction, T extends ReturnType<F> = ReturnType<F>> = {
   readonly [K in keyof SubscribeRaw<F, T>]: SubscribeRaw<F, T>[K]
 } & Callable<T>
 
-export const subscribeContext = createContext<SubscribeContext | undefined>(undefined)
+export const context = createContext<SubscribeContext | undefined>(undefined)
 
-const cache: Cache<S> = {}
-let isInitialized = false
-export function subscriber<F extends AnyFunction, T extends ReturnType<F>, S extends ReturnType<F>>(
+export function subscriber<F extends AnyFunction, T extends ReturnType<F> = ReturnType<F>>(
   anyFunction: () => T,
-  selector: (stateValue: T) => S = EMPTY_SELECTOR,
-  isEqual: IsEqual<S> = isEqualBase,
 ): Subscribe<F, T> {
   const cleaners: Array<() => void> = []
   const promiseData: CancelablePromise<T> = {}
 
-  console.log('RE_LOAD')
+  const cache: Cache<T> = {}
+  let isInitialized = false
   const emitter = createEmitter(
     () => {
       if (!isInitialized) {
@@ -53,26 +49,14 @@ export function subscriber<F extends AnyFunction, T extends ReturnType<F>, S ext
   )
 
   async function sub() {
-    if (!canUpdate(cache, isEqual)) {
+    if (!canUpdate(cache, isEqualBase)) {
       return
     }
     if (promiseData.controller) {
       promiseData.controller.abort()
     }
 
-    console.log('uprading cache')
     cache.current = subscribe()
-    if (isPromise(cache.current)) {
-      emitter.emit()
-      cache.current
-        .then((data) => {
-          console.log('data', data)
-          emitter.emit()
-        })
-        .catch(() => {})
-      return
-    }
-
     emitter.emit()
   }
   const id = generateId()
@@ -86,33 +70,33 @@ export function subscriber<F extends AnyFunction, T extends ReturnType<F>, S ext
   }
 
   const subscribe = function (): T {
-    const resultValue = subscribeContext.run(ctx, anyFunction)
-    const withSelector = selector(resultValue)
+    const resultValue = context.run(ctx, anyFunction)
 
-    if (isPromise(withSelector)) {
-      const { controller, promise: promiseWithSelector } = cancelablePromise<T>(withSelector, promiseData.controller)
+    if (isPromise(resultValue)) {
+      const { controller, promise: promiseWithSelector } = cancelablePromise<T>(resultValue, promiseData.controller)
       promiseData.controller = controller
       promiseWithSelector
         ?.then((value) => {
           cache.current = value
+          emitter.emit()
         })
         .catch((error) => {
-          // if (isAbortError(error)) {
-          //   return
-          // }
+          if (isAbortError(error)) {
+            return
+          }
+
           throw error
         })
       const promiseResult = promiseWithSelector as T
       cache.current = promiseResult
       return promiseResult
     }
-    cache.current = withSelector
-    return withSelector
+    cache.current = resultValue
+    return resultValue
   }
 
   subscribe.emitter = emitter
   subscribe.destroy = function () {
-    console.log('DESTROY')
     for (const cleaner of cleaners) {
       cleaner()
     }

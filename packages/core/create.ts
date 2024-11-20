@@ -4,7 +4,7 @@ import { createEmitter } from './utils/create-emitter'
 import { isEqualBase, isFunction, isSetValueFunction, isUndefined } from './utils/is'
 import { createScheduler } from './utils/scheduler'
 import type { Cache, Callable, DefaultValue, IsEqual, Listener, SetValue } from './types'
-import { subscribeContext } from './subscriber'
+import { context } from './subscriber'
 
 interface RawState<T> {
   (): T
@@ -45,7 +45,7 @@ export function create<T>(initialValue: DefaultValue<T>, isEqual: IsEqual<T> = i
 
   const state: RawState<T> = function () {
     const stateValue = getValue()
-    const ctx = subscribeContext.use()
+    const ctx = context.use()
     if (ctx && !state.emitter.contains(ctx.sub)) {
       ctx.addEmitter(state.emitter)
     }

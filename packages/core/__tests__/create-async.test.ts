@@ -17,24 +17,21 @@ describe('create', () => {
     }
 
     let updatesCounter = 0
-    const sub = subscriber(
-      () => derived(10),
-      async (ab) => await ab,
-    )
+    const sub = subscriber(() => derived(10))
     expect(isPromise(sub.emitter.getSnapshot())).toBe(true)
     sub.listen(async () => {
       updatesCounter++
     })
-
+    expect(updatesCounter).toBe(0)
     // check if there is not maximum call stack
     expect(await sub()).toBe(16)
 
     state1.set(2)
-
+    //
     await waitFor(async () => {})
     expect(await sub()).toBe(18)
 
-    expect(updatesCounter).toBe(2)
+    expect(updatesCounter).toBe(4)
   })
 
   it('should async subscribe to context and notified it', async () => {
@@ -68,14 +65,14 @@ describe('create', () => {
 
     await waitFor(async () => {
       expect(await sub()).toBe(8)
-      expect(updatesCounter).toBe(1)
+      expect(updatesCounter).toBe(5)
     })
 
     state2.set(3)
 
     await waitFor(async () => {
       expect(await sub()).toBe(10)
-      expect(updatesCounter).toBe(2)
+      expect(updatesCounter).toBe(10)
     })
 
     expect(state1.emitter.getSize()).toBe(1)
