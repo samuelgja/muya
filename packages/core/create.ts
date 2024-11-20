@@ -1,5 +1,5 @@
 import { canUpdate, generateId } from './utils/common'
-import type { Emitter } from './utils/create-emitter';
+import type { Emitter } from './utils/create-emitter'
 import { createEmitter } from './utils/create-emitter'
 import { isEqualBase, isFunction, isSetValueFunction, isUndefined } from './utils/is'
 import { createScheduler } from './utils/scheduler'

@@ -16,7 +16,7 @@ export function createScheduler<T>(options: Options<T>) {
   function schedule() {
     const startFrame = performance.now()
     const frameSizeDiffIn = startFrame - frame
-    const {size} = batches
+    const { size } = batches
     if (frameSizeDiffIn < THRESHOLD && size > 0 && size < THRESHOLD_ITEMS) {
       frame = startFrame
       flush()
