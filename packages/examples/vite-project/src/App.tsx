@@ -1,5 +1,4 @@
 import './App.css'
-import { derivedCounter, derivedCounterFetch, useAppState } from './state'
 import { use } from '../../../core'
 import { Suspense, useEffect, useLayoutEffect } from 'react'
 import { create as zustand } from 'zustand'
@@ -34,9 +33,9 @@ export function PageClient() {
 }
 
 export function FetchClient() {
-  const data = use(derivedCounterFetch)
+  // const data = use(derivedCounterFetch)
   console.log('re-render FetchClient')
-  return <main>{JSON.stringify(data)}</main>
+  return <main>{JSON.stringify(2)}</main>
 }
 
 export default App

@@ -37,7 +37,7 @@ export function generateId() {
   return id++
 }
 
-export function canUpdate<T>(cache: Cache<T>, isEqual: IsEqual<T> = (prev, next) => prev === next): boolean {
+export function canUpdate<T>(cache: Cache<T>, isEqual: IsEqual<T> = (previous, next) => previous === next): boolean {
   if (!isUndefined(cache.current)) {
     if (!isUndefined(cache.previous) && isEqual(cache.current, cache.previous)) {
       return false

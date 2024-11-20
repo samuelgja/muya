@@ -5,11 +5,11 @@ const EMPTY_CONTEXT = Symbol('_')
 export function createContext<T>(defaultContextValue: T) {
   const contextStack: Array<T | typeof EMPTY_CONTEXT> = []
 
-  function use(): T {
+  function use(): T | undefined {
     if (contextStack.length === 0) {
       return defaultContextValue
     }
-    const currentContext = contextStack[contextStack.length - 1]
+    const currentContext = contextStack.at(-1)
     return currentContext === EMPTY_CONTEXT ? defaultContextValue : currentContext
   }
 
@@ -34,7 +34,7 @@ export function createContext<T>(defaultContextValue: T) {
   function wrap<X>(cb: () => X | Promise<X>): () => X | Promise<X> {
     const capturedContext = use()
     return () => {
-      contextStack.push(capturedContext)
+      contextStack.push(capturedContext!)
       const result = cb()
       const isResultPromise = isPromise(result)
       if (isResultPromise) {

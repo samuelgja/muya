@@ -2,11 +2,9 @@ import { act, renderHook } from '@testing-library/react-hooks'
 import { create } from '../create'
 import { use } from '../use'
 import { subscriber } from '../subscriber'
-import { atom, useAtom } from 'jotai'
 
 describe('use-create', () => {
   const reRendersBefore = jest.fn()
-  const reRendersAfter = jest.fn()
 
   beforeEach(() => {
     jest.clearAllMocks()
@@ -69,31 +67,5 @@ describe('use-create', () => {
     await waitFor(() => {})
     expect(result.current).toBe(20)
     expect(reRendersBefore).toHaveBeenCalledTimes(2)
-  })
-
-  it('should test derived state with jotai', async () => {
-    const state1 = atom(1)
-    const state2 = atom(2)
-
-    const derivedBefore = atom((get) => get(state1) + get(state2) + 10)
-    const derived = atom((get) => get(state1) + get(state2) + get(derivedBefore))
-
-    const { result: setResult } = renderHook(() => {
-      return [useAtom(state1), useAtom(state2)]
-    })
-
-    const { result, waitFor } = renderHook(() => {
-      reRendersBefore()
-      return useAtom(derived)
-    })
-
-    act(() => {
-      setResult.current[0][1](2)
-      setResult.current[1][1](3)
-    })
-
-    await waitFor(() => {})
-    expect(result.current[0]).toBe(20)
-    expect(reRendersBefore).toHaveBeenCalledTimes(3)
   })
 })

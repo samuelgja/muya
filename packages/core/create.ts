@@ -1,8 +1,9 @@
 import { canUpdate, generateId } from './utils/common'
-import { createEmitter, Emitter } from './utils/create-emitter'
+import type { Emitter } from './utils/create-emitter';
+import { createEmitter } from './utils/create-emitter'
 import { isEqualBase, isFunction, isSetValueFunction, isUndefined } from './utils/is'
 import { createScheduler } from './utils/scheduler'
-import { Cache, Callable, DefaultValue, IsEqual, Listener, SetValue } from './types'
+import type { Cache, Callable, DefaultValue, IsEqual, Listener, SetValue } from './types'
 import { subscribeContext } from './subscriber'
 
 interface RawState<T> {

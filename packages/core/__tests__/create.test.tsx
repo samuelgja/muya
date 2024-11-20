@@ -53,9 +53,8 @@ describe('create', () => {
 
     const sub = subscriber(derived)
 
-    sub.listen((value) => {
+    sub.listen(() => {
       updatesCounter++
-      console.log('SUB VALUE', value)
     })
 
     // check if there is not maximum call stack

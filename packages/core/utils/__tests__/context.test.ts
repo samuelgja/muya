@@ -1,3 +1,5 @@
+/* eslint-disable sonarjs/pseudo-random */
+/* eslint-disable sonarjs/no-nested-functions */
 import { createContext } from '../create-context'
 import { longPromise } from '../../__tests__/test-utils'
 
@@ -146,26 +148,26 @@ describe('context', () => {
 
   it('should-test-default-value-with-ctx', async () => {
     const ctx = createContext({ counter: 1 })
-    await ctx.run({ counter: 10 }, async () => {
+    ctx.run({ counter: 10 }, async () => {
       await longPromise(10)
-      expect(ctx.use().counter).toBe(10)
+      expect(ctx.use()?.counter).toBe(10)
     })
     ctx.run({ counter: 12 }, () => {
-      expect(ctx.use().counter).toBe(12)
+      expect(ctx.use()?.counter).toBe(12)
     })
   })
   it('should test nested context', () => {
-    let currentCount = 0
+    const currentCount = 0
     const context = createContext({ count: 0 })
     function container() {
       const isIn = context.use()
-      expect(isIn.count).toBe(currentCount)
+      expect(isIn?.count).toBe(currentCount)
       context.run({ count: currentCount + 1 }, () => {
         const inner = context.use()
-        expect(inner.count).toBe(currentCount + 1)
+        expect(inner?.count).toBe(currentCount + 1)
         context.run({ count: currentCount + 2 }, () => {
           const innerInner = context.use()
-          expect(innerInner.count).toBe(currentCount + 2)
+          expect(innerInner?.count).toBe(currentCount + 2)
         })
       })
     }

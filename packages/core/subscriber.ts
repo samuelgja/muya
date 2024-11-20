@@ -1,15 +1,14 @@
-import { AnyFunction, AnyParameters, Cache, Callable, EMPTY_SELECTOR, IsEqual, Listener } from './types'
-import { cancelablePromise, CancelablePromise, canUpdate, generateId } from './utils/common'
+import type { AnyFunction, Cache, Callable, IsEqual, Listener } from './types'
+import { EMPTY_SELECTOR } from './types'
+import type { CancelablePromise } from './utils/common'
+import { cancelablePromise, canUpdate, generateId } from './utils/common'
 import { createContext } from './utils/create-context'
-import { createEmitter, Emitter } from './utils/create-emitter'
+import type { Emitter } from './utils/create-emitter'
+import { createEmitter } from './utils/create-emitter'
 import { isAbortError, isEqualBase, isPromise, isUndefined } from './utils/is'
 
-interface SubCache<T> extends Cache<T> {
-  currentParams?: AnyParameters[]
-  previousParams?: AnyParameters[]
-}
 interface SubscribeContext<T = unknown> {
-  addEmitter(emitter: Emitter<T>): void
+  addEmitter: (emitter: Emitter<T>) => void
   id: number
   sub: () => void
 }
@@ -29,7 +28,7 @@ export type Subscribe<F extends AnyFunction, T extends ReturnType<F>> = {
 export const subscribeContext = createContext<SubscribeContext | undefined>(undefined)
 
 export function subscriber<F extends AnyFunction, T extends ReturnType<F>, S extends ReturnType<F>>(
-  anyFn: () => T,
+  anyFunction: () => T,
   selector: (stateValue: T) => S = EMPTY_SELECTOR,
   isEqual: IsEqual<S> = isEqualBase,
 ): Subscribe<F, S> {
@@ -51,7 +50,7 @@ export function subscriber<F extends AnyFunction, T extends ReturnType<F>, S ext
     },
   )
 
-  const cache: SubCache<S> = {}
+  const cache: Cache<S> = {}
 
   async function sub() {
     if (!canUpdate(cache, isEqual)) {
@@ -85,7 +84,7 @@ export function subscriber<F extends AnyFunction, T extends ReturnType<F>, S ext
   }
 
   const result = function (): T {
-    const resultValue = subscribeContext.run(ctx, anyFn)
+    const resultValue = subscribeContext.run(ctx, anyFunction)
     const withSelector = selector(resultValue)
 
     if (isPromise(withSelector)) {
@@ -103,7 +102,7 @@ export function subscriber<F extends AnyFunction, T extends ReturnType<F>, S ext
         })
       const promiseResult = promiseWithSelector as T
       cache.current = promiseResult
-      return promiseWithSelector as any
+      return promiseResult
     }
     cache.current = withSelector
     return withSelector

@@ -1,3 +1,5 @@
+/* eslint-disable unicorn/consistent-function-scoping */
+/* eslint-disable no-console */
 import { act, renderHook } from '@testing-library/react-hooks'
 import { useStore, create as zustand } from 'zustand'
 import { useEffect, useState } from 'react'
@@ -6,7 +8,7 @@ import { atom, useAtom } from 'jotai'
 import { create } from '../create'
 
 function renderPerfHook<T>(hook: () => T, getValue: (data: T) => number, toBe: number) {
-  let onResolve = (value: number) => {}
+  let onResolve = (_value: number) => {}
   const resolvePromise = new Promise<number>((resolve) => {
     onResolve = resolve
   })
@@ -47,9 +49,9 @@ describe('benchmarks comparison measure', () => {
           count - 1,
         )
 
-        for (let i = 0; i < count; i++) {
+        for (let index = 0; index < count; index++) {
           act(() => {
-            state.set(i)
+            state.set(index)
           })
         }
 
@@ -70,9 +72,9 @@ describe('benchmarks comparison measure', () => {
           count - 1,
         )
 
-        for (let i = 0; i < count; i++) {
+        for (let index = 0; index < count; index++) {
           act(() => {
-            result.current[1](i)
+            result.current[1](index)
           })
         }
 
@@ -82,8 +84,8 @@ describe('benchmarks comparison measure', () => {
         console.log('Renders', reRendersBefore.mock.calls.length)
       })
       it(`should benchmark zustand ${count}`, async () => {
-        const state = zustand((set) => ({ state: 1 }))
-        const { result, waitFor, resolvePromise } = renderPerfHook(
+        const state = zustand((_set) => ({ state: 1 }))
+        const { result, resolvePromise } = renderPerfHook(
           () => {
             reRendersBefore()
             return useStore(state)
@@ -92,9 +94,9 @@ describe('benchmarks comparison measure', () => {
           count - 1,
         )
 
-        for (let i = 0; i < count; i++) {
+        for (let index = 0; index < count; index++) {
           act(() => {
-            state.setState(i)
+            state.setState(index)
           })
         }
 
@@ -105,7 +107,7 @@ describe('benchmarks comparison measure', () => {
       })
 
       it(`should benchmark react ${count}`, async () => {
-        const { result, waitFor, resolvePromise } = renderPerfHook(
+        const { result, resolvePromise } = renderPerfHook(
           () => {
             reRendersBefore()
             return useState(1)
@@ -114,9 +116,9 @@ describe('benchmarks comparison measure', () => {
           count - 1,
         )
 
-        for (let i = 0; i < count; i++) {
+        for (let index = 0; index < count; index++) {
           act(() => {
-            result.current[1](i)
+            result.current[1](index)
           })
         }
 
@@ -138,9 +140,9 @@ describe('benchmarks comparison measure', () => {
           count - 1,
         )
 
-        for (let i = 0; i < count; i++) {
+        for (let index = 0; index < count; index++) {
           act(() => {
-            state.set(i)
+            state.set(index)
           })
         }
 
@@ -155,7 +157,6 @@ describe('benchmarks comparison measure', () => {
 
 describe('benchmarks comparison between others', () => {
   const reRendersBefore = jest.fn()
-  const reRendersAfter = jest.fn()
 
   beforeEach(() => {
     jest.clearAllMocks()
@@ -173,9 +174,9 @@ describe('benchmarks comparison between others', () => {
           return useAtom(state)
         })
 
-        for (let i = 0; i < count; i++) {
+        for (let index = 0; index < count; index++) {
           act(() => {
-            result.current[1](i)
+            result.current[1](index)
           })
         }
 
@@ -189,16 +190,16 @@ describe('benchmarks comparison between others', () => {
         // expect(reRendersBefore).toHaveBeenCalledTimes(3)
       })
       it(`should benchmark zustand ${count}`, async () => {
-        const state = zustand((set) => ({ state: 1 }))
+        const state = zustand((_set) => ({ state: 1 }))
         const start = performance.now()
         const { result, waitFor } = renderHook(() => {
           reRendersBefore()
           return useStore(state)
         })
 
-        for (let i = 0; i < count; i++) {
+        for (let index = 0; index < count; index++) {
           act(() => {
-            state.setState(i)
+            state.setState(index)
           })
         }
 
@@ -218,9 +219,9 @@ describe('benchmarks comparison between others', () => {
           return useState(1)
         })
 
-        for (let i = 0; i < count; i++) {
+        for (let index = 0; index < count; index++) {
           act(() => {
-            result.current[1](i)
+            result.current[1](index)
           })
         }
 
@@ -241,9 +242,9 @@ describe('benchmarks comparison between others', () => {
         return use(state)
       })
 
-      for (let i = 0; i < count; i++) {
+      for (let index = 0; index < count; index++) {
         act(() => {
-          state.set(i)
+          state.set(index)
         })
       }
 

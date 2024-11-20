@@ -19,7 +19,7 @@ const tsConfigPath = path.resolve("./", 'tsconfig.json')
   depend.configs['flat/recommended'],
   {
     ignores: ['**/*.js', '**/api-definitions.ts', '**/.expo/**/*.ts*', "**/dist/**", "**/.storybook/**", "lib/**/*"],
-    files: ['src/**/*.{ts,tsx}'],
+    files: ['packages/core/*.{ts,tsx}'],
   },
   js.configs.recommended,
   // prettierRecommended,
@@ -78,8 +78,7 @@ const tsConfigPath = path.resolve("./", 'tsconfig.json')
       '@typescript-eslint/return-await': ['off'],
       '@typescript-eslint/prefer-nullish-coalescing': ['off'],
       '@typescript-eslint/no-dynamic-delete': ['off'],
-      // '@typescript-eslint/prefer-optional-chain': ['error'], slow
-      '@typescript-eslint/ban-types': ['error'],
+      '@typescript-eslint/prefer-optional-chain': ['error'], 
       '@typescript-eslint/no-var-requires': ['warn'],
       '@typescript-eslint/no-invalid-void-type': ['off'],
       '@typescript-eslint/explicit-function-return-type': ['off'],

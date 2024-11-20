@@ -1,6 +1,6 @@
+/* eslint-disable sonarjs/cognitive-complexity */
 import { isArray, isMap, isSet } from './is'
 
-// eslint-disable-next-line sonarjs/cognitive-complexity
 export function shallow<T>(valueA: T, valueB: T): boolean {
   if (valueA == valueB) {
     return true
