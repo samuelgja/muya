@@ -7,7 +7,7 @@ interface Options<T> {
   readonly onFinish: () => void
 }
 
-export function createMicroDebounce<T>(options: Options<T>) {
+export function createScheduler<T>(options: Options<T>) {
   const batches = new Set<T>()
   const { onResolveItem, onFinish } = options
   let frame = performance.now()
@@ -20,7 +20,10 @@ export function createMicroDebounce<T>(options: Options<T>) {
     if (frameSizeDiffIn < THRESHOLD && size > 0 && size < THRESHOLD_ITEMS) {
       frame = startFrame
       flush()
-    } else if (!scheduled) {
+      return
+    }
+
+    if (!scheduled) {
       scheduled = true
       Promise.resolve().then(() => {
         scheduled = false

@@ -27,12 +27,12 @@ describe('create', () => {
     })
 
     // check if there is not maximum call stack
-    expect(await sub(1)).toBe(16)
+    expect(await sub()).toBe(16)
 
     state1.set(2)
 
     await waitFor(async () => {})
-    expect(await sub(1)).toBe(18)
+    expect(await sub()).toBe(18)
 
     expect(updatesCounter).toBe(2)
   })

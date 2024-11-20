@@ -1,8 +1,8 @@
-import { AnyFunction, AnyParameters, Cache, EMPTY_EQUAL, EMPTY_PARAMS, EMPTY_SELECTOR, IsEqual, Listener } from './types'
+import { AnyFunction, AnyParameters, Cache, Callable, EMPTY_SELECTOR, IsEqual, Listener } from './types'
 import { cancelablePromise, CancelablePromise, canUpdate, generateId } from './utils/common'
 import { createContext } from './utils/create-context'
 import { createEmitter, Emitter } from './utils/create-emitter'
-import { isAbortError, isPromise, isUndefined } from './utils/is'
+import { isAbortError, isEqualBase, isPromise, isUndefined } from './utils/is'
 
 interface SubCache<T> extends Cache<T> {
   currentParams?: AnyParameters[]
@@ -14,7 +14,7 @@ interface SubscribeContext<T = unknown> {
   sub: () => void
 }
 interface SubscribeRaw<F extends AnyFunction, T extends ReturnType<F>> {
-  (...args: Parameters<F>): T
+  (): T
   emitter: Emitter<T | undefined>
   destroy: () => void
   id: number
@@ -24,14 +24,14 @@ interface SubscribeRaw<F extends AnyFunction, T extends ReturnType<F>> {
 
 export type Subscribe<F extends AnyFunction, T extends ReturnType<F>> = {
   readonly [K in keyof SubscribeRaw<F, T>]: SubscribeRaw<F, T>[K]
-} & ((...args: Parameters<F>) => T)
+} & Callable<T>
 
 export const subscribeContext = createContext<SubscribeContext | undefined>(undefined)
 
 export function subscriber<F extends AnyFunction, T extends ReturnType<F>, S extends ReturnType<F>>(
   anyFn: () => T,
   selector: (stateValue: T) => S = EMPTY_SELECTOR,
-  isEqual: IsEqual<S> = EMPTY_EQUAL,
+  isEqual: IsEqual<S> = isEqualBase,
 ): Subscribe<F, S> {
   const cleaners: Array<() => void> = []
   const promiseData: CancelablePromise<T> = {}
@@ -83,7 +83,7 @@ export function subscriber<F extends AnyFunction, T extends ReturnType<F>, S ext
     id,
     sub,
   }
-  console.log('FUCCK')
+
   const result = function (): T {
     const resultValue = subscribeContext.run(ctx, anyFn)
     const withSelector = selector(resultValue)

@@ -13,4 +13,3 @@ export type Callable<T> = () => T
 
 export const EMPTY_PARAMS: AnyParameters[] = []
 export const EMPTY_SELECTOR = <T>(stateValue: T) => stateValue
-export const EMPTY_EQUAL = <T>(prev: T, next: T) => prev === next

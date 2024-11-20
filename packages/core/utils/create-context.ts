@@ -2,65 +2,52 @@ import { isPromise } from './is'
 
 const EMPTY_CONTEXT = Symbol('_')
 
-/**
- * Base context interface.
- */
 export function createContext<T>(defaultContextValue: T) {
-  // Initialize the context with the default value
-  let currentContext: T | typeof EMPTY_CONTEXT = defaultContextValue ?? EMPTY_CONTEXT
+  const contextStack: Array<T | typeof EMPTY_CONTEXT> = []
 
-  /**
-   * Retrieves the current context value.
-   */
   function use(): T {
+    if (contextStack.length === 0) {
+      return defaultContextValue
+    }
+    const currentContext = contextStack[contextStack.length - 1]
     return currentContext === EMPTY_CONTEXT ? defaultContextValue : currentContext
   }
 
-  /**
-   * Runs a callback within a new context.
-   * @param ctxValue The new context value.
-   * @param cb The callback to execute.
-   */
   function run<R>(ctxValue: T, cb: () => R | Promise<R>): R {
-    const previousContext = currentContext
-    currentContext = ctxValue
-
+    contextStack.push(ctxValue)
     const result = cb()
     const isResultPromise = isPromise(result)
-    try {
+    if (isResultPromise) {
+      return (async () => {
+        try {
+          return await result
+        } finally {
+          contextStack.pop()
+        }
+      })() as R
+    } else {
+      contextStack.pop()
+      return result
+    }
+  }
+
+  function wrap<X>(cb: () => X | Promise<X>): () => X | Promise<X> {
+    const capturedContext = use()
+    return () => {
+      contextStack.push(capturedContext)
+      const result = cb()
+      const isResultPromise = isPromise(result)
       if (isResultPromise) {
-        // If the callback returns a promise, ensure context is reset after it resolves
         return (async () => {
           try {
             return await result
           } finally {
-            currentContext = previousContext
+            contextStack.pop()
           }
-        })() as R
-      }
-      // For synchronous callbacks, reset context immediately
-      return result
-    } finally {
-      // Reset context after the callback completes
-      if (!isResultPromise) {
-        currentContext = previousContext
-      }
-    }
-  }
-
-  /**
-   * Wraps an asynchronous callback to preserve the current context.
-   * @param cb The asynchronous callback to wrap.
-   */
-  function wrap<X>(cb: () => X | Promise<X>): () => X | Promise<X> {
-    const capturedContext = use()
-    return async () => {
-      const previousContext = currentContext
-      currentContext = capturedContext
-      try {
-        return await cb()
-      } finally {
-        currentContext = previousContext
+        })()
+      } else {
+        contextStack.pop()
+        return result
       }
     }
   }
@@ -68,6 +55,6 @@ export function createContext<T>(defaultContextValue: T) {
   return {
     run,
     use,
-    wrap, // Function to wrap async callbacks
+    wrap,
   }
 }

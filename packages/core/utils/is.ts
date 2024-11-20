@@ -4,14 +4,9 @@ import type { SetStateCb, SetValue } from '../types'
 export function isPromise<T>(value: unknown): value is Promise<T> {
   return value instanceof Promise
 }
-export function isAsyncFunction(value: unknown): value is (...args: unknown[]) => Promise<unknown> {
-  return isFunction(value) && value.constructor.name === 'AsyncFunction'
-}
+
 export function isFunction<T extends (...args: unknown[]) => unknown>(value: unknown): value is T {
   return typeof value === 'function'
-}
-export function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null
 }
 
 export function isMap(value: unknown): value is Map<unknown, unknown> {

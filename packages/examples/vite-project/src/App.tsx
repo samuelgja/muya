@@ -3,17 +3,11 @@ import { derivedCounter, derivedCounterFetch, useAppState } from './state'
 import { use } from '../../../core'
 import { Suspense, useEffect, useLayoutEffect } from 'react'
 import { create as zustand } from 'zustand'
-
+import { AsyncLocalStorage } from 'async_hooks'
 const zzz = zustand(async () => ({ username: 'test', somethingElse: Promise.resolve('test') }))
 
 function App() {
-  // const username = useIt(userState)
-  const age = use(useAppState)
-  // const full = useCreate(userState)
-  const abc = zzz()
-  console.log(abc)
-
-  console.log('RENDER', performance.now())
+  console.log(AsyncLocalStorage)
   return (
     <Suspense fallback={'Loading...'}>
       <div className="App">
@@ -25,32 +19,16 @@ function App() {
   )
 }
 
-useAppState.subscribe((value) => {
-  console.log('State subscribe from the client', value)
-})
+// useAppState.subscribe((value) => {
+//   console.log('State subscribe from the client', value)
+// })
 export function PageClient() {
-  // const appState = use(useAppState)
-  const counter = use(derivedCounter)
-  console.log('re-render')
-  console.log('RE_NDER CALL')
-  useEffect(() => {
-    console.log('CALLED')
-  }, [])
-
-  console.log('RE_NDER CALL')
-  useEffect(() => {
-    console.log('AFTER')
-  })
-
-  useLayoutEffect(() => {
-    console.log('ALYOTUAUrjannd')
-  }, [])
   return (
     <main>
       {/* <b>{appState.greeting}</b> */}
-      <button onClick={() => useAppState.set({ greeting: 'Hello, Next.js!', counter: 0 })}>Change</button>
+      {/* <button onClick={() => useAppState.set({ greeting: 'Hello, Next.js!', counter: 0 })}>Change</button>
       <p>Counter: {counter}</p>
-      <button onClick={() => useAppState.set((prev) => ({ ...prev, counter: prev.counter + 1 }))}>Increment</button>
+      <button onClick={() => useAppState.set((prev) => ({ ...prev, counter: prev.counter + 1 }))}>Increment</button> */}
     </main>
   )
 }

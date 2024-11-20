@@ -40,8 +40,8 @@ export function shallow<T>(valueA: T, valueB: T): boolean {
     return true
   }
 
-  const keysA = Object.keys(valueA as Record<string, unknown>)
-  const keysB = Object.keys(valueB as Record<string, unknown>)
+  const keysA = Object.keys(valueA)
+  const keysB = Object.keys(valueB)
   if (keysA.length !== keysB.length) return false
   for (const key of keysA) {
     if (

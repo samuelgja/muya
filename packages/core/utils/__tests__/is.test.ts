@@ -1,16 +1,5 @@
 import { Abort } from '../common'
-import {
-  isPromise,
-  isFunction,
-  isSetValueFunction,
-  isObject,
-  isMap,
-  isSet,
-  isArray,
-  isEqualBase,
-  isAbortError,
-  isAsyncFunction,
-} from '../is'
+import { isPromise, isFunction, isSetValueFunction, isMap, isSet, isArray, isEqualBase, isAbortError } from '../is'
 
 describe('isPromise', () => {
   it('should return true for a Promise', () => {
@@ -36,15 +25,6 @@ describe('isSetValueFunction', () => {
   })
   it('should return false for a non-function', () => {
     expect(isSetValueFunction(123)).toBe(false)
-  })
-})
-
-describe('isObject', () => {
-  it('should return true for an object', () => {
-    expect(isObject({})).toBe(true)
-  })
-  it('should return false for a non-object', () => {
-    expect(isObject(123)).toBe(false)
   })
 })
 
@@ -90,23 +70,5 @@ describe('isAbortError', () => {
   })
   it('should return false for a non-AbortError', () => {
     expect(isAbortError(new DOMException('', 'Error'))).toBe(false)
-  })
-})
-
-describe('isAsyncFunction', () => {
-  it('should return true for an async function', () => {
-    expect(isAsyncFunction(async () => {})).toBe(true)
-  })
-  it('should return false for a non-async function', () => {
-    expect(isAsyncFunction(() => {})).toBe(false)
-  })
-  it('should return false for a non-async function', () => {
-    expect(isAsyncFunction(async function () {})).toBe(true)
-  })
-  it('should return false for a non-function', () => {
-    expect(isAsyncFunction(() => {})).toBe(false)
-  })
-  it('should return false for a non-function', () => {
-    expect(isAsyncFunction(function () {})).toBe(false)
   })
 })

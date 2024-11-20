@@ -3,8 +3,6 @@ import { create } from '../create'
 import { use } from '../use'
 import { subscriber } from '../subscriber'
 import { atom, useAtom } from 'jotai'
-import { useStore, create as zustand } from 'zustand'
-import { useState } from 'react'
 
 describe('use-create', () => {
   const reRendersBefore = jest.fn()
@@ -98,110 +96,4 @@ describe('use-create', () => {
     expect(result.current[0]).toBe(20)
     expect(reRendersBefore).toHaveBeenCalledTimes(3)
   })
-})
-
-describe('benchmarks comparison between others', () => {
-  const reRendersBefore = jest.fn()
-  const reRendersAfter = jest.fn()
-
-  beforeEach(() => {
-    jest.clearAllMocks()
-  })
-  // const count = 10000
-
-  const counts = [1_00_000]
-  for (const count of counts) {
-    describe(`Count ${count}`, () => {
-      it(`should benchmark ${count}`, async () => {
-        const state = create(1)
-        const start = performance.now()
-        const { result, waitFor } = renderHook(() => {
-          reRendersBefore()
-          return use(state)
-        })
-
-        for (let i = 0; i < count; i++) {
-          act(() => {
-            state.set(i)
-          })
-        }
-
-        await waitFor(() => {
-          expect(result.current).toBe(count - 1)
-        })
-
-        const end = performance.now()
-        console.log('Time', end - start)
-        console.log('Renders', reRendersBefore.mock.calls.length)
-        // expect(reRendersBefore).toHaveBeenCalledTimes(2)
-      })
-      it(`should benchmark jotai ${count}`, async () => {
-        const state = atom(1)
-        const start = performance.now()
-        const { result, waitFor } = renderHook(() => {
-          reRendersBefore()
-          return useAtom(state)
-        })
-
-        for (let i = 0; i < count; i++) {
-          act(() => {
-            result.current[1](i)
-          })
-        }
-
-        await waitFor(() => {
-          expect(result.current[0]).toBe(count - 1)
-        })
-
-        const end = performance.now()
-        console.log('Time', end - start)
-        console.log('Renders', reRendersBefore.mock.calls.length)
-        // expect(reRendersBefore).toHaveBeenCalledTimes(3)
-      })
-      it(`should benchmark zustand ${count}`, async () => {
-        const state = zustand((set) => ({ state: 1 }))
-        const start = performance.now()
-        const { result, waitFor } = renderHook(() => {
-          reRendersBefore()
-          return useStore(state)
-        })
-
-        for (let i = 0; i < count; i++) {
-          act(() => {
-            state.setState(i)
-          })
-        }
-
-        await waitFor(() => {
-          expect(result.current).toBe(count - 1)
-        })
-
-        const end = performance.now()
-        console.log('Time', end - start)
-        console.log('Renders', reRendersBefore.mock.calls.length)
-      })
-
-      it(`should benchmark react ${count}`, async () => {
-        const start = performance.now()
-        const { result, waitFor } = renderHook(() => {
-          reRendersBefore()
-          return useState(1)
-        })
-
-        for (let i = 0; i < count; i++) {
-          act(() => {
-            result.current[1](i)
-          })
-        }
-
-        await waitFor(() => {
-          expect(result.current[0]).toBe(count - 1)
-        })
-
-        const end = performance.now()
-        console.log('Time', end - start)
-        console.log('Renders', reRendersBefore.mock.calls.length)
-      })
-    })
-  }
 })

@@ -1,31 +1,6 @@
-import { useDebugValue } from 'react'
-import type { Emitter } from './create-emitter'
 import type { Cache, IsEqual } from '../types'
-import { useSyncExternalStoreWithSelector } from 'use-sync-external-store/with-selector'
 import { isUndefined } from './is'
 
-/**
- * Todo need to remove this
- */
-export function toType<T>(object?: unknown): T {
-  return object as T
-}
-
-export function useSync<T, S>(
-  emitter: Emitter<T>,
-  selector: (stateValue: T) => S,
-  isEqual?: IsEqual<S>,
-): undefined extends S ? T : S {
-  const value = useSyncExternalStoreWithSelector<T, S>(
-    emitter.subscribe,
-    emitter.getSnapshot,
-    emitter.getSnapshot,
-    selector ? (stateValue) => selector(stateValue) : toType,
-    isEqual,
-  ) as undefined extends S ? T : S
-  useDebugValue(value)
-  return value
-}
 // eslint-disable-next-line no-shadow
 export enum Abort {
   Error = 'StateAbortError',
@@ -51,7 +26,6 @@ export function cancelablePromise<T>(promise: Promise<T>, previousController?: A
     signal.addEventListener('abort', () => {
       reject(new DOMException('Promise was aborted', Abort.Error))
     })
-
     // When the original promise settles, resolve or reject accordingly
     promise.then(resolve).catch(reject)
   })
