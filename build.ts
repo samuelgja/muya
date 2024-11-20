@@ -61,6 +61,11 @@ import packageJson from './package.json'
 delete packageJson.scripts
 // @ts-ignore
 delete packageJson.devDependencies
+// @ts-ignore
+delete packageJson.private
+// @ts-ignore
+delete packageJson.workspaces
+
 // Copy package.json and README.md
 await fs.writeFile(path.join(outDir, 'package.json'), JSON.stringify(packageJson, null, 2))
 
