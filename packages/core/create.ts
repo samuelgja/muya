@@ -46,6 +46,7 @@ export function create<T>(initialValue: DefaultValue<T>, isEqual: IsEqual<T> = i
   const state: RawState<T> = function () {
     const stateValue = getValue()
     const ctx = context.use()
+    // console.log('CTX', ctx?.id, 'STATE', state.id)
     if (ctx && !state.emitter.contains(ctx.sub)) {
       ctx.addEmitter(state.emitter)
     }

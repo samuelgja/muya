@@ -37,10 +37,8 @@ export function use<F extends AnyFunction, T extends ReturnType<F>, S extends Re
   const sub = memo.call()
   const initialSnapshot = sub.emitter.getInitialSnapshot ?? sub.emitter.getSnapshot
   useEffect(() => {
-    // memo.call()
     return memo.destroy
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [anyFunction])
+  }, [anyFunction, memo.destroy])
 
   const value = useSyncExternalStore<S>(
     sub.emitter.subscribe,

@@ -1,5 +1,10 @@
+/**
+ * This is not optimal, so for now just ignore. Its just for view and compare if the state is at least similar to others
+ * but this tests are not consider as a real benchmark
+ */
 /* eslint-disable unicorn/consistent-function-scoping */
 /* eslint-disable no-console */
+
 import { act, renderHook } from '@testing-library/react-hooks'
 import { useStore, create as zustand } from 'zustand'
 import { useEffect, useState } from 'react'

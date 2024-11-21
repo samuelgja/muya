@@ -3,7 +3,7 @@ import { renderHook } from '@testing-library/react-hooks'
 import { create } from '../create'
 import { use } from '../use'
 import { Suspense } from 'react'
-import { longPromise } from './test-utils'
+import { waitFor } from '@testing-library/react'
 
 describe('use-create', () => {
   const reRendersBefore = jest.fn()
@@ -26,7 +26,7 @@ describe('use-create', () => {
       return <div>Loading...</div>
     }
 
-    const { result, waitFor } = renderHook(
+    const { result } = renderHook(
       () => {
         reRendersBefore()
         const data = use(getDataWithUser)
@@ -36,8 +36,9 @@ describe('use-create', () => {
       { wrapper: ({ children }) => <Suspense fallback={<Loading />}>{children}</Suspense> },
     )
 
-    await longPromise(1000)
-    await waitFor(() => {})
+    await waitFor(() => {
+      expect(result.current).toEqual({ userId: 1, id: 1, title: 'delectus aut autem', completed: false, age: 30 })
+    })
     expect(suspenseFunction).toHaveBeenCalledTimes(1)
     expect(result.current).toEqual({ userId: 1, id: 1, title: 'delectus aut autem', completed: false, age: 30 })
   })

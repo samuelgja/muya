@@ -1,13 +1,13 @@
-const THRESHOLD = 0.2
-const THRESHOLD_ITEMS = 10
-const RESCHEDULE_COUNT = 0
+export const THRESHOLD = 0.2
+export const THRESHOLD_ITEMS = 10
+export const RESCHEDULE_COUNT = 0
 
-interface Options<T> {
+export interface SchedulerOptions<T> {
   readonly onResolveItem?: (item: T) => void
   readonly onFinish: () => void
 }
 
-export function createScheduler<T>(options: Options<T>) {
+export function createScheduler<T>(options: SchedulerOptions<T>) {
   const batches = new Set<T>()
   const { onResolveItem, onFinish } = options
   let frame = performance.now()

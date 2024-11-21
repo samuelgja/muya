@@ -29,11 +29,11 @@ export const context = createContext<SubscribeContext | undefined>(undefined)
 export function subscriber<F extends AnyFunction, T extends ReturnType<F> = ReturnType<F>>(
   anyFunction: () => T,
 ): Subscribe<F, T> {
+  const cache: Cache<T> = {}
+  let isInitialized = false
   const cleaners: Array<() => void> = []
   const promiseData: CancelablePromise<T> = {}
 
-  const cache: Cache<T> = {}
-  let isInitialized = false
   const emitter = createEmitter(
     () => {
       if (!isInitialized) {
@@ -69,30 +69,40 @@ export function subscriber<F extends AnyFunction, T extends ReturnType<F> = Retu
     sub,
   }
 
+  function asyncSub(resultValue: Promise<T>): Promise<T> | undefined {
+    const cancel = cancelablePromise<T>(resultValue, promiseData.controller)
+    promiseData.controller = cancel.controller
+    cancel.promise
+      ?.then((value) => {
+        cache.current = value
+        emitter.emit()
+      })
+      .catch((error) => {
+        if (isAbortError(error)) {
+          return
+        }
+        cache.current = error
+        emitter.emit()
+      })
+    return cancel.promise
+  }
+
   const subscribe = function (): T {
     const resultValue = context.run(ctx, anyFunction)
 
-    if (isPromise(resultValue)) {
-      const { controller, promise: promiseWithSelector } = cancelablePromise<T>(resultValue, promiseData.controller)
-      promiseData.controller = controller
-      promiseWithSelector
-        ?.then((value) => {
-          cache.current = value
-          emitter.emit()
-        })
-        .catch((error) => {
-          if (isAbortError(error)) {
-            return
-          }
-
-          throw error
-        })
-      const promiseResult = promiseWithSelector as T
-      cache.current = promiseResult
-      return promiseResult
+    if (!isPromise(resultValue)) {
+      cache.current = resultValue
+      return resultValue
     }
-    cache.current = resultValue
-    return resultValue
+
+    const promise = context.wrap(() => asyncSub(resultValue))()
+    if (isPromise(promise)) {
+      // we do not do anything with the promise, because it is already handled in asyncSub
+      promise.catch(() => null)
+    }
+    const promiseAsT = promise as T
+    cache.current = promiseAsT
+    return promiseAsT
   }
 
   subscribe.emitter = emitter

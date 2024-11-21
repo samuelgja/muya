@@ -20,12 +20,14 @@ export interface Emitter<T, P = undefined> {
  */
 export function createEmitter<T, P = undefined>(getSnapshot: () => T, getInitialSnapshot?: () => T): Emitter<T, P> {
   const listeners = new Set<(...params: P[]) => void>()
+  // const listeners = new WeakSet<(...params: P[]) => void>()
   const otherCleaners: Array<() => void> = []
   return {
     clear: () => {
       for (const cleaner of otherCleaners) {
         cleaner()
       }
+
       listeners.clear()
     },
     subscribe: (listener) => {
