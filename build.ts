@@ -30,7 +30,7 @@ await fs.mkdir(path.join(outDir, 'esm'), { recursive: true })
 await fs.mkdir(path.join(outDir, entryDir), { recursive: true })
 
 // Copy source files for react-native compatibility
-await fs.cp(entryDir, path.join(outDir, entryDir), { recursive: true })
+await fs.cp(entryDir, path.join(outDir, 'src'), { recursive: true })
 
 // CommonJS build (single file)
 await esbuild.build({
@@ -81,3 +81,5 @@ try {
 } catch {
   console.log('No .npmrc file found')
 }
+
+// Copy all core
