@@ -1,8 +1,8 @@
-import { isPromise } from './is'
+import { isPromise } from '../utils/is'
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-expect-error
-const reduxDevelopmentTools = window.__REDUX_DEVTOOLS_EXTENSION__?.connect({
+const reduxDevelopmentTools = window?.__REDUX_DEVTOOLS_EXTENSION__?.connect({
   name: 'CustomState', // This will name your instance in the DevTools
   trace: true, // Enables trace if needed
 })
