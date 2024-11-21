@@ -32,19 +32,19 @@ This allows you to write derived state as plain functions, making your code more
 ## 📦 Installation
 
 ```bash
-npm install muya@2.0.0-beta.1
+npm install muya@2.0.0-beta.2
 ```
 
 Or using Yarn:
 
 ```bash
-yarn add muya@2.0.0-beta.1
+yarn add muya@2.0.0-beta.2
 ```
 
 Or using Bun:
 
 ```bash
-bun add muya@2.0.0-beta.1
+bun add muya@2.0.0-beta.2
 ```
 
 ---
