@@ -1,6 +1,6 @@
 import { Abort } from './common'
 import type { SetStateCb, SetValue } from '../types'
-import { State } from '../create'
+import type { State } from '../create'
 
 export function isPromise<T>(value: unknown): value is Promise<T> {
   return value instanceof Promise

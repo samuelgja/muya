@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-shadow */
-/* eslint-disable no-shadow */
 import { act, renderHook } from '@testing-library/react-hooks'
 import { create } from '../create'
 import { use } from '../use'
