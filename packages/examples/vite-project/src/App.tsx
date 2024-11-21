@@ -17,21 +17,14 @@
 // //   return { ...json, age: userState().age, other: getDataWithUser('value') }
 // // }
 
-import { composeWithDevTools } from 'redux-devtools-extension'
-const devTools = composeWithDevTools({
-  name: 'MyStateLibrary',
-  trace: true,
-})
+// import { composeWithDevTools } from 'redux-devtools-extension'
+// const devTools = composeWithDevTools({
+//   name: 'MyStateLibrary',
+//   trace: true,
+// })
 
-import { Suspense, useCallback, useState } from 'react'
+import { Suspense } from 'react'
 import { create, use } from '../../../core'
-// Define state for the counters
-const counter1Atom = create(0)
-const counter2Atom = create(0)
-
-function derivedSumAtomFamily(multiplier: number) {
-  return counter1Atom() + counter2Atom() * multiplier
-}
 
 // Define atoms for the three states
 const state1Atom = create(0)
@@ -52,29 +45,55 @@ function isOdd() {
 }
 
 export default function App() {
-  // const isOddValue = use(isOdd)
+  const isOddValue = use(isOdd)
+  console.log('RENDER', isOddValue)
   return (
     <main style={{ flexDirection: 'column', display: 'flex' }}>
       <button onClick={() => state1Atom.set((c) => c + 1)}>Increment counter 1"</button>
       <button onClick={() => state1Atom.set((c) => c + 1)}>Increment counter 2"</button>
       <button onClick={() => state3Atom.set((m) => m + 1)}>Increment counter 3"</button>
-      {/* Is ODD: {isOddValue ? 'Yes' : 'No'} */}
+      <div> Is ODD: {isOddValue ? 'Yes' : 'No'}</div>
       <Suspense fallback={'Loading...'}>
-        <Component />
+        <ComponentFetchData />
+      </Suspense>
+      <Suspense fallback={'Loading...'}>
+        <ComponentFetchParent />
       </Suspense>
     </main>
   )
 }
 
+const longWait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 const counter = create(1)
-
-async function fetchData() {
+async function fetchDataParent() {
+  isOdd()
   const response = await fetch(`https://jsonplaceholder.typicode.com/todos/${counter()}`)
   return response.json()
 }
 
-function Component() {
+async function fetchData() {
+  await longWait(1000)
+  await fetchDataParent()
+  const response = await fetch(`https://jsonplaceholder.typicode.com/todos/${counter()}`)
+  return response.json()
+}
+
+function ComponentFetchParent() {
+  console.log('RENDER ASYNC')
+  const data = use(fetchDataParent)
+  console.log('RENDER ASYNC', data)
+
+  return (
+    <div>
+      <button onClick={() => counter.set((prev) => prev + 1)}>Increment</button>
+      <p>{JSON.stringify(data)}</p>
+    </div>
+  )
+}
+function ComponentFetchData() {
+  console.log('RENDER ASYNC')
   const data = use(fetchData)
+  console.log('RENDER ASYNC', data)
 
   return (
     <div>

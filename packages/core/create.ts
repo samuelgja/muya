@@ -2,9 +2,10 @@ import { canUpdate, generateId } from './utils/common'
 import type { Emitter } from './utils/create-emitter'
 import { createEmitter } from './utils/create-emitter'
 import { isEqualBase, isFunction, isSetValueFunction, isUndefined } from './utils/is'
-import { createScheduler } from './utils/scheduler'
+// import { createScheduler } from './utils/scheduler'
 import type { Cache, Callable, DefaultValue, IsEqual, Listener, SetValue } from './types'
 import { context } from './subscriber'
+import { globalScheduler } from './utils/global-scheduler'
 
 interface RawState<T> {
   (): T
@@ -12,6 +13,7 @@ interface RawState<T> {
   set: (value: SetValue<T>) => void
   emitter: Emitter<T>
   listen: Listener<T>
+  destroy: () => void
 }
 
 export type State<T> = {
@@ -32,16 +34,16 @@ export function create<T>(initialValue: DefaultValue<T>, isEqual: IsEqual<T> = i
     cache.current = isSetValueFunction(value) ? value(previous) : value
   }
 
-  const schedule = createScheduler<SetValue<T>>({
-    onFinish() {
-      cache.current = getValue()
-      if (!canUpdate(cache, isEqual)) {
-        return
-      }
-      state.emitter.emit()
-    },
-    onResolveItem: resolveValue,
-  })
+  // const schedule = createScheduler<SetValue<T>>({
+  //   onFinish() {
+  //     cache.current = getValue()
+  //     if (!canUpdate(cache, isEqual)) {
+  //       return
+  //     }
+  //     state.emitter.emit()
+  //   },
+  //   onResolveItem: resolveValue,
+  // })
 
   const state: RawState<T> = function () {
     const stateValue = getValue()
@@ -63,6 +65,27 @@ export function create<T>(initialValue: DefaultValue<T>, isEqual: IsEqual<T> = i
   }
   state.emitter = createEmitter<T>(() => state())
   state.id = generateId()
-  state.set = schedule
+
+  const clearScheduler = globalScheduler.add(state.id, {
+    onFinish() {
+      cache.current = getValue()
+      if (!canUpdate(cache, isEqual)) {
+        return
+      }
+      state.emitter.emit()
+    },
+    onResolveItem: resolveValue,
+  })
+  state.set = function (value) {
+    globalScheduler.schedule(state.id, value)
+  }
+
+  state.destroy = function () {
+    cache.current = undefined
+    getValue()
+    clearScheduler()
+    state.emitter.clear()
+  }
+
   return state
 }

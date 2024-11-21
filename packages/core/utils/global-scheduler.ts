@@ -61,8 +61,8 @@ export function createGlobalScheduler() {
   }
 
   return {
-    add(id: number, option: SchedulerOptions<unknown>) {
-      listeners.set(id, option)
+    add<T>(id: number, option: SchedulerOptions<T>) {
+      listeners.set(id, option as SchedulerOptions<unknown>)
       return () => {
         listeners.delete(id)
       }
@@ -73,3 +73,5 @@ export function createGlobalScheduler() {
     },
   }
 }
+
+export const globalScheduler = createGlobalScheduler()

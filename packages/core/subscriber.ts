@@ -4,6 +4,7 @@ import { cancelablePromise, canUpdate, generateId } from './utils/common'
 import { createContext } from './utils/create-context'
 import type { Emitter } from './utils/create-emitter'
 import { createEmitter } from './utils/create-emitter'
+import { globalScheduler } from './utils/global-scheduler'
 import { isAbortError, isEqualBase, isPromise, isUndefined } from './utils/is'
 
 interface SubscribeContext<T = unknown> {
@@ -56,10 +57,16 @@ export function subscriber<F extends AnyFunction, T extends ReturnType<F> = Retu
       promiseData.controller.abort()
     }
 
-    cache.current = subscribe()
-    emitter.emit()
+    globalScheduler.schedule(id, null)
   }
+
   const id = generateId()
+  const clearScheduler = globalScheduler.add(id, {
+    onFinish() {
+      cache.current = subscribe()
+      emitter.emit()
+    },
+  })
   const ctx: SubscribeContext = {
     addEmitter(stateEmitter) {
       const clean = stateEmitter.subscribe(sub)
@@ -111,6 +118,7 @@ export function subscriber<F extends AnyFunction, T extends ReturnType<F> = Retu
       cleaner()
     }
     emitter.clear()
+    clearScheduler()
   }
   subscribe.id = id
   subscribe.listen = function (listener: (value: T) => void) {
