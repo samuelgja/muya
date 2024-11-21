@@ -13,15 +13,25 @@ if (reduxDevelopmentTools) {
 
 export type StateType = 'state' | 'derived'
 
-export function sendToDevelopmentTools(action: string, type: StateType, value: unknown, message?: string) {
+interface SendOptions {
+  message?: string
+  type: StateType
+  value: unknown
+  name: string
+}
+export function sendToDevelopmentTools(options: SendOptions) {
+  if (!reduxDevelopmentTools) {
+    return
+  }
+  const { message, type, value, name } = options
   if (isPromise(value)) {
     return
   }
-  reduxDevelopmentTools.send(action, { value, type, message }, type)
+  reduxDevelopmentTools.send(name, { value, type, message }, type)
 }
 
 export function developmentToolsListener(name: string, type: StateType) {
   return (value: unknown) => {
-    sendToDevelopmentTools(name, type, value)
+    sendToDevelopmentTools({ name, type, value, message: 'update' })
   }
 }

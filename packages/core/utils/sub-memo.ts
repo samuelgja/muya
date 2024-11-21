@@ -1,15 +1,24 @@
 import type { Subscribe } from '../subscriber'
 import { subscriber } from '../subscriber'
 import type { AnyFunction } from '../types'
-import { developmentToolsListener } from './development-tools'
+
 interface CacheItem<T extends AnyFunction> {
   count: number
   returnType: Subscribe<T>
 }
 
 const cache = new WeakMap<AnyFunction, CacheItem<AnyFunction>>()
+let cacheCount = 0
+
+export function getDebugCacheCreation() {
+  return cacheCount
+}
+function incrementDebugFunctionCreationCount() {
+  cacheCount++
+}
 
 export function subMemo<F extends AnyFunction>(anyFunction: F) {
+  cacheCount = 0
   return {
     call(): Subscribe<F> {
       const item = cache.get(anyFunction)
@@ -18,6 +27,8 @@ export function subMemo<F extends AnyFunction>(anyFunction: F) {
 
         return item.returnType
       }
+
+      incrementDebugFunctionCreationCount()
       const returnType = subscriber(anyFunction)
       const newItem = { count: 1, returnType }
       cache.set(anyFunction, newItem)

@@ -4,7 +4,8 @@ import { cancelablePromise, canUpdate, generateId } from './utils/common'
 import { createContext } from './utils/create-context'
 import type { Emitter } from './utils/create-emitter'
 import { createEmitter } from './utils/create-emitter'
-import { developmentToolsListener, sendToDevelopmentTools, StateType } from './utils/development-tools'
+import type { StateType } from './utils/development-tools'
+import { developmentToolsListener, sendToDevelopmentTools } from './utils/development-tools'
 import { createGlobalScheduler } from './utils/global-scheduler'
 import { isAbortError, isCreate, isEqualBase, isPromise, isUndefined } from './utils/is'
 
@@ -136,9 +137,9 @@ export function subscriber<F extends AnyFunction, T extends ReturnType<F> = Retu
 
   if (process.env.NODE_ENV === 'development') {
     let name: string | undefined
-    let stateType: StateType = 'derived'
+    let type: StateType = 'derived'
     if (isCreate(anyFunction)) {
-      stateType = 'state'
+      type = 'state'
       name = anyFunction.stateName
     }
 
@@ -146,8 +147,13 @@ export function subscriber<F extends AnyFunction, T extends ReturnType<F> = Retu
       name = anyFunction.name.length > 0 ? anyFunction.name : anyFunction.toString()
     }
 
-    sendToDevelopmentTools(name, stateType, subscribe())
-    const listener = developmentToolsListener(name, stateType)
+    sendToDevelopmentTools({
+      name,
+      type,
+      value: subscribe(),
+      message: 'init',
+    })
+    const listener = developmentToolsListener(name, type)
     subscribe.listen(listener)
   }
   subscribe.abort = function () {
