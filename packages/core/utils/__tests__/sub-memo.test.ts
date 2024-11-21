@@ -1,5 +1,5 @@
 /* eslint-disable unicorn/consistent-function-scoping */
-import { subMemo } from '../sub-memo'
+import { memoizedSubscriber } from '../../memoized-subscriber'
 
 describe('memo-fn', () => {
   it('should create memo fn', () => {
@@ -7,7 +7,7 @@ describe('memo-fn', () => {
       return true
     }
 
-    const memoized = subMemo(toBeMemoized)
+    const memoized = memoizedSubscriber(toBeMemoized)
     expect(memoized.call().emitter).toBeDefined()
   })
 })

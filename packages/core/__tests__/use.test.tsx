@@ -3,7 +3,7 @@ import { create } from '../create'
 import { use } from '../use'
 import { waitFor } from '@testing-library/react'
 import { useCallback } from 'react'
-import { getDebugCacheCreation } from '../utils/sub-memo'
+import { getDebugCacheCreation } from '../memoized-subscriber'
 
 describe('use-create', () => {
   const reRendersBefore = jest.fn()
@@ -121,5 +121,44 @@ describe('use-create', () => {
     await waitFor(() => {})
     expect(result.current).toBe(20)
     expect(reRendersBefore).toHaveBeenCalledTimes(2)
+  })
+
+  it('should select just one part of state and not re-render', async () => {
+    const state1 = create({ a: 1, b: 2 })
+
+    const { result } = renderHook(() => {
+      reRendersBefore()
+      return use(() => state1().b)
+    })
+
+    await waitFor(() => {})
+    expect(reRendersBefore).toHaveBeenCalledTimes(1)
+    act(() => {
+      state1.set({ ...state1(), a: 2 })
+    })
+
+    await waitFor(() => {})
+    expect(result.current).toBe(2)
+    expect(reRendersBefore).toHaveBeenCalledTimes(1)
+    expect(state1()).toEqual({ a: 2, b: 2 })
+  })
+  it('should select just one part of state and not re-render via slice', async () => {
+    const state1 = create({ a: 1, b: 2 })
+
+    const { result } = renderHook(() => {
+      reRendersBefore()
+      return use(state1, (state) => state.b)
+    })
+
+    await waitFor(() => {})
+    expect(reRendersBefore).toHaveBeenCalledTimes(1)
+    act(() => {
+      state1.set({ ...state1(), a: 2 })
+    })
+
+    await waitFor(() => {})
+    expect(result.current).toBe(2)
+    expect(reRendersBefore).toHaveBeenCalledTimes(1)
+    expect(state1()).toEqual({ a: 2, b: 2 })
   })
 })

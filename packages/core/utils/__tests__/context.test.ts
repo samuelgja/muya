@@ -195,4 +195,26 @@ describe('context', () => {
 
     context.run({ count: 1 }, insideContext)
   })
+
+  it('should handle multiple simultaneous contexts with async contexts', async () => {
+    const contextCounts = 2
+    const context = createContext({ count: 0 })
+
+    const promises: Promise<unknown>[] = []
+
+    for (let index = 0; index < contextCounts; index++) {
+      // eslint-disable-next-line no-async-promise-executor
+      const promise = new Promise(async (resolve) => {
+        await longPromise(Math.random() * 1)
+        context.run({ count: index }, async () => {
+          await longPromise(Math.random() * 1)
+          expect(context.use()?.count).toBe(index)
+          resolve(index)
+        })
+      })
+      promises.push(promise)
+    }
+
+    await Promise.all(promises)
+  })
 })
