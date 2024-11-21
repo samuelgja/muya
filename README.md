@@ -4,7 +4,7 @@ Welcome to Muya - Making state management a breeze, focused on simplicity and sc
 [![Build](https://github.com/samuelgja/muya/actions/workflows/build.yml/badge.svg)](https://github.com/samuelgja/muya/actions/workflows/build.yml)
 [![Code quality Check](https://github.com/samuelgja/muya/actions/workflows/code-check.yml/badge.svg)](https://github.com/samuelgja/muya/actions/workflows/code-check.yml)
 [![Build Size](https://img.shields.io/bundlephobia/minzip/muya?label=Bundle%20size)](https://bundlephobia.com/result?p=muya)
-
+#### There is a new version with complete re-work (Muya v2)[https://github.com/samuelgja/muya/tree/feat/v2]
 ## 🚀 Features
 - Easy State Creation: Kickstart your state management with simple and intuitive APIs.
 - Selectors & Merges: Grab exactly what you need from your state and combine multiple states seamlessly.
