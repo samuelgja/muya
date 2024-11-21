@@ -1,16 +1,12 @@
 import type { Subscribe } from '../subscriber'
 import { subscriber } from '../subscriber'
 import type { AnyFunction } from '../types'
-import { composeWithDevTools } from 'redux-devtools-extension'
+import { developmentToolsListener } from './development-tools'
 interface CacheItem<T extends AnyFunction> {
   count: number
   returnType: Subscribe<T>
 }
 
-const devTools = composeWithDevTools({
-  name: 'MyStateLibrary',
-  trace: true,
-})
 const cache = new WeakMap<AnyFunction, CacheItem<AnyFunction>>()
 
 export function subMemo<F extends AnyFunction>(anyFunction: F) {
@@ -23,12 +19,6 @@ export function subMemo<F extends AnyFunction>(anyFunction: F) {
         return item.returnType
       }
       const returnType = subscriber(anyFunction)
-
-      // returnType.listen((value) => {
-      //   // console.log('listen', value)
-      //   // // console.log('listen', value)
-      //   // devTools('STATE_UPDATE', value)
-      // })
       const newItem = { count: 1, returnType }
       cache.set(anyFunction, newItem)
       return newItem.returnType

@@ -5,8 +5,9 @@ import { isEqualBase, isFunction, isSetValueFunction, isUndefined } from './util
 // import { createScheduler } from './utils/scheduler'
 import type { Cache, Callable, DefaultValue, IsEqual, Listener, SetValue } from './types'
 import { context } from './subscriber'
-import { globalScheduler } from './utils/global-scheduler'
+import { createGlobalScheduler } from './utils/global-scheduler'
 
+export const createScheduler = createGlobalScheduler()
 interface RawState<T> {
   (): T
   id: number
@@ -14,6 +15,8 @@ interface RawState<T> {
   emitter: Emitter<T>
   listen: Listener<T>
   destroy: () => void
+  withName: (name: string) => RawState<T>
+  stateName?: string
 }
 
 export type State<T> = {
@@ -66,7 +69,7 @@ export function create<T>(initialValue: DefaultValue<T>, isEqual: IsEqual<T> = i
   state.emitter = createEmitter<T>(() => state())
   state.id = generateId()
 
-  const clearScheduler = globalScheduler.add(state.id, {
+  const clearScheduler = createScheduler.add(state.id, {
     onFinish() {
       cache.current = getValue()
       if (!canUpdate(cache, isEqual)) {
@@ -77,7 +80,7 @@ export function create<T>(initialValue: DefaultValue<T>, isEqual: IsEqual<T> = i
     onResolveItem: resolveValue,
   })
   state.set = function (value) {
-    globalScheduler.schedule(state.id, value)
+    createScheduler.schedule(state.id, value)
   }
 
   state.destroy = function () {
@@ -85,6 +88,10 @@ export function create<T>(initialValue: DefaultValue<T>, isEqual: IsEqual<T> = i
     getValue()
     clearScheduler()
     state.emitter.clear()
+  }
+  state.withName = function (name: string) {
+    state.stateName = name
+    return state
   }
 
   return state

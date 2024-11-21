@@ -65,7 +65,9 @@ export default function App() {
 
 const longWait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 const counter = create(1)
+
 async function fetchDataParent() {
+  await longWait(1000)
   isOdd()
   const response = await fetch(`https://jsonplaceholder.typicode.com/todos/${counter()}`)
   return response.json()
@@ -77,11 +79,13 @@ async function fetchData() {
   const response = await fetch(`https://jsonplaceholder.typicode.com/todos/${counter()}`)
   return response.json()
 }
-
+const state1Atom2 = create(88).withName('state1Atom2')
 function ComponentFetchParent() {
   console.log('RENDER ASYNC')
   const data = use(fetchDataParent)
   console.log('RENDER ASYNC', data)
+
+  const aa = use(state1Atom2)
 
   return (
     <div>
@@ -90,6 +94,7 @@ function ComponentFetchParent() {
     </div>
   )
 }
+
 function ComponentFetchData() {
   console.log('RENDER ASYNC')
   const data = use(fetchData)

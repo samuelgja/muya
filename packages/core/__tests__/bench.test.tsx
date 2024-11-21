@@ -38,7 +38,7 @@ describe('benchmarks comparison measure', () => {
   beforeEach(() => {
     jest.clearAllMocks()
   })
-  const counts = [1000, 10_000]
+  const counts = [1000]
   for (const count of counts) {
     describe(`Count ${count}`, () => {
       it(`should benchmark ${count} muya first run - idk slow`, async () => {

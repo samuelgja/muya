@@ -1,5 +1,6 @@
 import { Abort } from './common'
 import type { SetStateCb, SetValue } from '../types'
+import { State } from '../create'
 
 export function isPromise<T>(value: unknown): value is Promise<T> {
   return value instanceof Promise
@@ -40,4 +41,10 @@ export function isAnyOtherError(value: unknown): value is Error {
 
 export function isUndefined(value: unknown): value is undefined {
   return value === undefined
+}
+
+export function isCreate(value: unknown): value is State<unknown> {
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-expect-error
+  return isFunction(value) && value.set !== undefined
 }

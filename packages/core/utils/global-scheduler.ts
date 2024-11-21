@@ -73,5 +73,3 @@ export function createGlobalScheduler() {
     },
   }
 }
-
-export const globalScheduler = createGlobalScheduler()

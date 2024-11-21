@@ -4,9 +4,11 @@ import { cancelablePromise, canUpdate, generateId } from './utils/common'
 import { createContext } from './utils/create-context'
 import type { Emitter } from './utils/create-emitter'
 import { createEmitter } from './utils/create-emitter'
-import { globalScheduler } from './utils/global-scheduler'
-import { isAbortError, isEqualBase, isPromise, isUndefined } from './utils/is'
+import { developmentToolsListener, sendToDevelopmentTools, StateType } from './utils/development-tools'
+import { createGlobalScheduler } from './utils/global-scheduler'
+import { isAbortError, isCreate, isEqualBase, isPromise, isUndefined } from './utils/is'
 
+const subscriberScheduler = createGlobalScheduler()
 interface SubscribeContext<T = unknown> {
   addEmitter: (emitter: Emitter<T>) => void
   id: number
@@ -57,11 +59,12 @@ export function subscriber<F extends AnyFunction, T extends ReturnType<F> = Retu
       promiseData.controller.abort()
     }
 
-    globalScheduler.schedule(id, null)
+    subscriberScheduler.schedule(id, null)
   }
 
   const id = generateId()
-  const clearScheduler = globalScheduler.add(id, {
+
+  const clearScheduler = subscriberScheduler.add(id, {
     onFinish() {
       cache.current = subscribe()
       emitter.emit()
@@ -129,6 +132,23 @@ export function subscriber<F extends AnyFunction, T extends ReturnType<F> = Retu
       }
       listener(final)
     })
+  }
+
+  if (process.env.NODE_ENV === 'development') {
+    let name: string | undefined
+    let stateType: StateType = 'derived'
+    if (isCreate(anyFunction)) {
+      stateType = 'state'
+      name = anyFunction.stateName
+    }
+
+    if (!name) {
+      name = anyFunction.name.length > 0 ? anyFunction.name : anyFunction.toString()
+    }
+
+    sendToDevelopmentTools(name, stateType, subscribe())
+    const listener = developmentToolsListener(name, stateType)
+    subscribe.listen(listener)
   }
   subscribe.abort = function () {
     if (promiseData.controller) {
