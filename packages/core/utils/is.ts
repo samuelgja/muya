@@ -1,5 +1,5 @@
 import type { SetStateCb, SetValue, State } from '../types'
-import { Abort } from './common'
+import { AbortError } from './common'
 
 export function isPromise<T>(value: unknown): value is Promise<T> {
   return value instanceof Promise
@@ -30,8 +30,8 @@ export function isEqualBase<T>(valueA: T, valueB: T): boolean {
 export function isSetValueFunction<T>(value: SetValue<T>): value is SetStateCb<T> {
   return typeof value === 'function'
 }
-export function isAbortError(value: unknown): value is DOMException {
-  return value instanceof DOMException && value.name === Abort.Error
+export function isAbortError(value: unknown): value is AbortError {
+  return value instanceof AbortError
 }
 
 export function isError(value: unknown): value is Error {
