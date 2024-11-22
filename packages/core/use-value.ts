@@ -2,7 +2,10 @@ import { useDebugValue, useSyncExternalStore } from 'react'
 import { EMPTY_SELECTOR, type GetState } from './types'
 import { isError, isPromise } from './utils/is'
 
-export function useValue<T, S>(state: GetState<T>, selector: (stateValue: T) => S = EMPTY_SELECTOR): undefined extends S ? T : S {
+export function useValue<T, S>(
+  state: GetState<T>,
+  selector: (stateValue: T) => S = EMPTY_SELECTOR,
+): Awaited<undefined extends S ? T : S> {
   const { emitter } = state
   const value = useSyncExternalStore<S>(
     state.emitter.subscribe,
@@ -18,5 +21,5 @@ export function useValue<T, S>(state: GetState<T>, selector: (stateValue: T) => 
     throw value
   }
 
-  return value as undefined extends S ? T : S
+  return value as Awaited<undefined extends S ? T : S>
 }
