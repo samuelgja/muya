@@ -17,7 +17,8 @@ export default function App() {
           state1Atom.set((c) => c + 1)
           state2Atom.set((c) => c + 1)
           state3Atom.set((m) => m + 1)
-        }}>
+        }}
+      >
         Increment All"
       </button>
       <ComponentChild1 />
