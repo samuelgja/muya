@@ -217,6 +217,40 @@ const asyncState = state.select(async (s) => {
 ```
 ---
 
+### Lazy resolution
+`Muya` can be used in `immediate` mode or in `lazy` mode. When create a state with just plain data, it will be in immediate mode, but if you create a state with a function, it will be in lazy mode. This is useful when you want to create a state that is executed only when it is accessed for the first time.
+
+
+```typescript
+// immediate mode, so no matter what, this value is already stored in memory
+const state = create(0)
+
+// lazy mode, value is not stored in memory until it is accessed for the first time via get or component render
+const state = create(() => 0)
+```
+
+And in async:
+```typescript
+// we can create some initial functions like this
+async function initialLoad() {
+  return 0
+}
+// immediate mode, so no matter what, this value is already stored in memory
+const state = create(initialLoad)
+// or
+const state = create(Promise.resolve(0))
+
+// lazy mode, value is not stored in memory until it is accessed for the first time via get or component render
+const state = create(() => Promise.resolve(0))  
+```
+
+And when setting state when initial value is promise, set is always sync.
+But as in react there are two methods how to set a state. Directly `.set(2)` or with a function `.set((prev) => prev + 1)`.
+
+So how `set` state will behave with async initial value?
+1. Directly call `.set(2)` will be sync, and will set the value to 2 (it will cancel the initial promise)
+2. Call `.set((prev) => prev + 1)` will wait until previous promise is resolved, so previous value in set callback is always resolved. 
+
 ### Debugging
 `Muya` in dev mode automatically connects to the `redux` devtools extension if it is installed in the browser. For now devtool api is simple - state updates.
 
