@@ -1,5 +1,6 @@
 import { create } from '../create'
 import { waitFor } from '@testing-library/react'
+import { longPromise } from './test-utils'
 
 describe('create', () => {
   it('should get basic value states', async () => {
@@ -117,6 +118,42 @@ describe('create', () => {
     state.set({ count: 2 })
     await waitFor(() => {
       expect(select.get()).toBe(2)
+    })
+  })
+
+  it('should create state with async value', async () => {
+    const state = create(() => longPromise(100))
+    await waitFor(() => {
+      expect(state.get()).toBe(0)
+    })
+    state.set(1)
+    await waitFor(() => {
+      expect(state.get()).toBe(1)
+    })
+  })
+  it('should create state with async value but will be cancelled by set value before it will resolve', async () => {
+    const state = create(() => longPromise(100))
+    state.set(2)
+    await waitFor(() => {
+      expect(state.get()).toBe(2)
+    })
+  })
+  it('should handle async select', async () => {
+    const state = create(0)
+    const asyncState = state.select(async (s) => {
+      await longPromise(100)
+      return s + 1
+    })
+    const listener = jest.fn()
+    asyncState.listen(listener)
+    await waitFor(() => {
+      expect(asyncState.get()).toBe(1)
+      expect(listener).toHaveBeenCalledWith(1)
+    })
+    state.set(1)
+    await waitFor(() => {
+      expect(asyncState.get()).toBe(2)
+      expect(listener).toHaveBeenCalledWith(2)
     })
   })
 })

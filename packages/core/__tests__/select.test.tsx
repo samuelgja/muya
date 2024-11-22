@@ -1,6 +1,7 @@
 import { create } from '../create'
 import { select } from '../select'
 import { waitFor } from '@testing-library/react'
+import { longPromise } from './test-utils'
 
 describe('select', () => {
   it('should derive state from a single dependency', async () => {
@@ -64,5 +65,34 @@ describe('select', () => {
     // so it works as expected
     expect(selectedState.get()).toBe(4)
     expect(listener).not.toHaveBeenCalled()
+  })
+  it('should handle async updates', async () => {
+    const state1 = create(1)
+    const state2 = create(2)
+    const selectedState = select([state1, state2], async (a, b) => {
+      await longPromise()
+      return a + b
+    })
+    const listener = jest.fn()
+    selectedState.listen(listener)
+    state1.set(2)
+    state2.set(3)
+    await waitFor(() => {
+      expect(selectedState.get()).toBe(5)
+      expect(listener).toHaveBeenCalledWith(5)
+    })
+  })
+  it('should handle async updates with async state', async () => {
+    const state = create(longPromise(100))
+    const selectedState = select([state], async (value) => {
+      await longPromise(100)
+      return (await value) + 1
+    })
+    const listener = jest.fn()
+    selectedState.listen(listener)
+    await waitFor(() => {
+      expect(selectedState.get()).toBe(1)
+      expect(listener).toHaveBeenCalledWith(1)
+    })
   })
 })

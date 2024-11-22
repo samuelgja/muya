@@ -5,17 +5,19 @@ Muya is simple and lightweight react state management library.
 
 ---
 
+[![Build](https://github.com/samuelgja/muya/actions/workflows/build.yml/badge.svg)](https://github.com/samuelgja/muya/actions/workflows/build.yml)
+[![Code Quality Check](https://github.com/samuelgja/muya/actions/workflows/code-check.yml/badge.svg)](https://github.com/samuelgja/muya/actions/workflows/code-check.yml)
+[![Build Size](https://img.shields.io/bundlephobia/minzip/muya?label=Bundle%20size)](https://bundlephobia.com/result?p=muya)
+
+---
+
+
 ## 🚀 **Key Features**
 
 - **Simplified API**: Only `create` and `select`.
 - **Batch Updates**: Built-in batching ensures efficient `muya` state updates internally.
 - **TypeScript Support**: Type first.
 - **Lightweight**: Minimal bundle size.
-
----
-[![Build](https://github.com/samuelgja/muya/actions/workflows/build.yml/badge.svg)](https://github.com/samuelgja/muya/actions/workflows/build.yml)
-[![Code Quality Check](https://github.com/samuelgja/muya/actions/workflows/code-check.yml/badge.svg)](https://github.com/samuelgja/muya/actions/workflows/code-check.yml)
-[![Build Size](https://img.shields.io/bundlephobia/minzip/muya?label=Bundle%20size)](https://bundlephobia.com/result?p=muya)
 
 ---
 
@@ -64,8 +66,14 @@ Use `select` to derive a slice of the state:
 ```typescript
 const state = create({ count: 0, value: 42 });
 
-// Derive a specific slice
 const countSlice = state.select((s) => s.count);
+
+// Also async is possible, but Muya do not recommend 
+// It can lead to spaghetti re-renders code which is hard to maintain and debug
+const asyncCountSlice = state.select(async (s) => {
+  const data = await fetchData();
+  return data.count;
+});
 ```
 
 ---
@@ -183,9 +191,34 @@ const value = useValue(state, (s) => s.slice); // Optional selector
 
 - **Equality Check**: Prevent unnecessary updates by passing a custom equality function to `create` or `select`.
 - **Batch Updates**: Muya batches internal updates for better performance, reducing communication overhead similarly how react do.
-- **Async Derives**: This library doesn’t manage async derived state natively, if you want so, please consider using alternatives like `Jotai`.
+- **Async Selectors / Derives**: Muya has support for async selectors / derives, but do not recommend to use as it can lead to spaghetti re-renders code which is hard to maintain and debug, if you want so, you can or maybe you should consider using other alternatives like `Jotai`.
 
+
+
+`Muya` encourage use async updates withing sync state like this:
+```typescript
+const state = create({ data: null });
+async function update() {
+  const data = await fetchData();
+  state.set({ data });
+}
+```
 ---
+
+But of course you can do
+
+Note: Handling async updates for the state (`set`) will cancel the previous pending promise.
+```typescript
+const state = create(0)
+const asyncState = state.select(async (s) => {
+  await longPromise(100)
+  return s + 1
+})
+```
+---
+
+### Debugging
+`Muya` in dev mode automatically connects to the `redux` devtools extension if it is installed in the browser. For now devtool api is simple - state updates.
 
 ## 🙏 **Acknowledgments**
 

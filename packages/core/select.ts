@@ -2,7 +2,7 @@ import { stateScheduler } from './create'
 import { createState } from './create-state'
 import { subscribeToDevelopmentTools } from './debug/development-tools'
 import type { Cache, GetState, IsEqual } from './types'
-import { canUpdate } from './utils/common'
+import { canUpdate, handleAsyncUpdate } from './utils/common'
 import { isUndefined } from './utils/is'
 
 type StateDependencies<T extends Array<unknown>> = {
@@ -27,7 +27,8 @@ export function select<T = unknown, S extends Array<unknown> = []>(
 
   function getValue(): T {
     if (isUndefined(cache.current)) {
-      cache.current = computedValue()
+      const newValue = computedValue()
+      cache.current = handleAsyncUpdate(cache, state.emitter.emit, newValue)
     }
     return cache.current
   }
@@ -54,7 +55,8 @@ export function select<T = unknown, S extends Array<unknown> = []>(
 
   const clearScheduler = stateScheduler.add(state.id, {
     onFinish() {
-      cache.current = computedValue()
+      const newValue = computedValue()
+      cache.current = handleAsyncUpdate(cache, state.emitter.emit, newValue)
       if (!canUpdate(cache, isEqual)) {
         return
       }

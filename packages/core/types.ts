@@ -1,13 +1,14 @@
 import type { Emitter } from './utils/create-emitter'
 
 export type IsEqual<T = unknown> = (a: T, b: T) => boolean
-export type SetStateCb<T> = (value: T) => Awaited<T>
+export type SetStateCb<T> = (value: T | Awaited<T>) => Awaited<T>
 export type SetValue<T> = SetStateCb<T> | Awaited<T>
 export type DefaultValue<T> = T | (() => T)
 export type Listener<T> = (listener: (value?: T) => void) => () => void
 export interface Cache<T> {
   current?: T
   previous?: T
+  abortController?: AbortController
 }
 
 export const EMPTY_SELECTOR = <T, S>(stateValue: T) => stateValue as unknown as S
@@ -54,6 +55,7 @@ export interface RawState<T> extends RawGetState<T> {
   /**
    * Setting new state value.
    * It can be value or function that returns a value (similar to `setState` in React).
+   * If the state is initialized with async code, set will cancel the previous promise.
    */
   set: (value: SetValue<T>) => void
   /**

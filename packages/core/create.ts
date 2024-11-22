@@ -1,4 +1,4 @@
-import { canUpdate } from './utils/common'
+import { canUpdate, handleAsyncUpdate } from './utils/common'
 import { isEqualBase, isFunction, isSetValueFunction, isUndefined } from './utils/is'
 import type { Cache, DefaultValue, IsEqual, SetValue, State } from './types'
 import { createScheduler } from './scheduler'
@@ -14,14 +14,27 @@ export function create<T>(initialValue: DefaultValue<T>, isEqual: IsEqual<T> = i
   const cache: Cache<T> = {}
 
   function getValue(): T {
-    if (isUndefined(cache.current)) {
-      cache.current = isFunction(initialValue) ? initialValue() : initialValue
+    try {
+      if (isUndefined(cache.current)) {
+        const value = isFunction(initialValue) ? initialValue() : initialValue
+        const resolvedValue = handleAsyncUpdate(cache, state.emitter.emit, value)
+        cache.current = resolvedValue
+      }
+      return cache.current
+    } catch (error) {
+      cache.current = error as T
     }
     return cache.current
   }
-  function resolveValue(value: SetValue<T>) {
+
+  function setValue(value: SetValue<T>) {
+    if (cache.abortController) {
+      cache.abortController.abort()
+    }
     const previous = getValue()
-    cache.current = isSetValueFunction(value) ? value(previous) : value
+    const newValue = isSetValueFunction(value) ? value(previous) : value
+    const resolvedValue = handleAsyncUpdate(cache, state.emitter.emit, newValue)
+    cache.current = resolvedValue
   }
 
   const state = createState<T>({
@@ -45,7 +58,7 @@ export function create<T>(initialValue: DefaultValue<T>, isEqual: IsEqual<T> = i
       }
       state.emitter.emit()
     },
-    onResolveItem: resolveValue,
+    onResolveItem: setValue,
   })
 
   subscribeToDevelopmentTools(state)
