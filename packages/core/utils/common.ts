@@ -1,14 +1,13 @@
 import type { Cache, IsEqual } from '../types'
 import { isAbortError, isEqualBase, isPromise, isUndefined } from './is'
 
-// eslint-disable-next-line no-shadow
-export enum Abort {
-  Error = 'StateAbortError',
-}
-
 export interface CancelablePromise<T> {
   promise: Promise<T>
   controller?: AbortController
+}
+
+export class AbortError extends Error {
+  static readonly Error = 'AbortError'
 }
 /**
  * Cancelable promise function, return promise and controller
@@ -23,7 +22,7 @@ function cancelablePromise<T>(promise: Promise<T>, previousController?: AbortCon
   const cancelable = new Promise<T>((resolve, reject) => {
     // Listen for the abort event
     signal.addEventListener('abort', () => {
-      reject(new DOMException('Promise was aborted', Abort.Error))
+      reject(new AbortError())
     })
     // When the original promise settles, resolve or reject accordingly
     promise.then(resolve).catch(reject)

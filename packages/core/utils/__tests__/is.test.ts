@@ -1,5 +1,17 @@
 import { create } from '../../create'
-import { isPromise, isFunction, isSetValueFunction, isMap, isSet, isArray, isEqualBase, isUndefined, isState } from '../is'
+import { AbortError } from '../common'
+import {
+  isPromise,
+  isFunction,
+  isSetValueFunction,
+  isMap,
+  isSet,
+  isArray,
+  isEqualBase,
+  isUndefined,
+  isState,
+  isAbortError,
+} from '../is'
 
 describe('isPromise', () => {
   it('should return true for a Promise', () => {
@@ -87,5 +99,16 @@ describe('isState', () => {
   })
   it('should return false for a non-State', () => {
     expect(isState(123)).toBe(false)
+  })
+})
+
+describe('isAbortError', () => {
+  it('should return true for an AbortError', () => {
+    const error = new AbortError()
+    expect(isAbortError(error)).toBe(true)
+  })
+  it('should return false for a non-AbortError', () => {
+    const error = new Error('asd')
+    expect(isAbortError(error)).toBe(false)
   })
 })
