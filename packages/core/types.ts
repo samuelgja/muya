@@ -43,7 +43,7 @@ export interface GetState<T> {
   /**
    * Name of the state. For debugging purposes.
    */
-  name?: string
+  stateName?: string
   /**
    * Select particular slice of the state.
    * It will create "another" state in read-only mode (without set).
@@ -62,4 +62,5 @@ export interface State<T> extends GetState<T> {
    * Set the state name. For debugging purposes.
    */
   withName: (name: string) => State<T>
+  isSet: true
 }

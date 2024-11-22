@@ -75,9 +75,15 @@ describe('isUndefined', () => {
 })
 
 describe('isState', () => {
-  it('should return true for a State', () => {
+  it('should return true for a State real', () => {
     const state = create(1)
     expect(isState(state)).toBe(true)
+  })
+
+  it('should return true for a State with derived', () => {
+    const state = create(1)
+    const derived = state.select((v) => v)
+    expect(isState(derived)).toBe(false)
   })
   it('should return false for a non-State', () => {
     expect(isState(123)).toBe(false)

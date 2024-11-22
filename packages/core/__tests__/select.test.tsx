@@ -95,4 +95,33 @@ describe('select', () => {
       expect(listener).toHaveBeenCalledWith(1)
     })
   })
+  it('should handle sync state updates when one of par is changed', async () => {
+    const state1Atom = create(0)
+    const state2Atom = create(0)
+    const state3Atom = create(0)
+
+    const sumState = select([state1Atom, state2Atom, state3Atom], (a, b, c) => a + b + c)
+
+    const listener = jest.fn()
+    sumState.listen(listener)
+    expect(sumState.get()).toBe(0)
+
+    state1Atom.set(1)
+    await waitFor(() => {
+      expect(sumState.get()).toBe(1)
+      expect(listener).toHaveBeenCalledWith(1)
+    })
+
+    state2Atom.set(1)
+    await waitFor(() => {
+      expect(sumState.get()).toBe(2)
+      expect(listener).toHaveBeenCalledWith(2)
+    })
+
+    state3Atom.set(1)
+    await waitFor(() => {
+      expect(sumState.get()).toBe(3)
+      expect(listener).toHaveBeenCalledWith(3)
+    })
+  })
 })

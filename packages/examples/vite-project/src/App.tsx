@@ -1,4 +1,4 @@
-import { create, use, select } from '../../../core'
+import { create, select } from '../../../core'
 
 // Define atoms for the three states
 const state1Atom = create(0)
@@ -30,6 +30,6 @@ const sumState = select([state1Atom, state2Atom, state3Atom], (a, b, c) => a + b
 function ComponentChild1() {
   console.log('ComponentChild1 render')
   // Use the state atom in the child component
-  const state1 = use(sumState)
+  const state1 = sumState()
   return <div>Sum of states: {state1}</div>
 }

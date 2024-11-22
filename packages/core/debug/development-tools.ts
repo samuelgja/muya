@@ -46,6 +46,7 @@ export function subscribeToDevelopmentTools<T>(state: State<T> | GetState<T>) {
   if (!isState(state)) {
     type = 'derived'
   }
-  sendToDevelopmentTools({ name: state.name ?? state.id.toString(), type, value: state.get(), message: 'initial' })
-  return state.listen(developmentToolsListener(state.name ?? state.id.toString(), type))
+  const name = state.stateName?.length ? state.stateName : `${type}(${state.id.toString()})`
+  sendToDevelopmentTools({ name, type, value: state.get(), message: 'initial' })
+  return state.listen(developmentToolsListener(name, type))
 }

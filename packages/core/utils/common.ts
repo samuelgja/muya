@@ -31,11 +31,6 @@ function cancelablePromise<T>(promise: Promise<T>, previousController?: AbortCon
   return { promise: cancelable, controller }
 }
 
-let id = 0
-export function generateId() {
-  return id++
-}
-
 /**
  * Check if the cache value is different from the previous value.
  */

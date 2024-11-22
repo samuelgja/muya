@@ -161,6 +161,7 @@ state.set(value); // Update value
 state.listen(listener); // Subscribe to changes
 state.select(selector, isEqual?); // Create derived state
 state.destroy(); // Unsubscribe from changes, useful for dynamic state creation in components
+state.withName(name); // Add a name for debugging, otherwise it will be auto generated number
 ```
 
 ### **`select`**
@@ -175,6 +176,7 @@ derived.get(); // Get current value
 derived.listen(listener); // Subscribe to changes
 derived.select(selector, isEqual?); // Create nested derived state
 derived.destroy(); // Unsubscribe from changes, useful for dynamic state creation in components
+derived.withName(name); // Add a name for debugging, otherwise it will be auto generated number
 ```
 
 ### **`useValue`**

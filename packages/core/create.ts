@@ -31,6 +31,7 @@ export function create<T>(initialValue: DefaultValue<T>, isEqual: IsEqual<T> = i
     if (cache.abortController) {
       cache.abortController.abort()
     }
+
     const previous = getValue()
     const newValue = isSetValueFunction(value) ? value(previous) : value
     const resolvedValue = handleAsyncUpdate(cache, state.emitter.emit, newValue)
