@@ -1,5 +1,5 @@
 import { select } from './select'
-import type { RawGetState, RawState, SetValue } from './types'
+import type { GetState, SetValue, State } from './types'
 import { useValue } from './use-value'
 import { generateId } from './utils/common'
 import { createEmitter } from './utils/create-emitter'
@@ -11,7 +11,7 @@ interface GetStateOptions<T> {
   readonly destroy: () => void
 }
 
-type FullState<T> = GetStateOptions<T>['set'] extends undefined ? RawGetState<T> : RawState<T>
+type FullState<T> = GetStateOptions<T>['set'] extends undefined ? GetState<T> : State<T>
 export function createState<T>(options: GetStateOptions<T>): FullState<T> {
   const { get, destroy, set } = options
 
@@ -35,7 +35,7 @@ export function createState<T>(options: GetStateOptions<T>): FullState<T> {
     return select([state], selector, isSelectorEqual)
   }
   state.get = get
-  state.set = set as RawState<T>['set']
+  state.set = set as State<T>['set']
 
   return state
 }

@@ -13,8 +13,8 @@ export interface Cache<T> {
 
 export const EMPTY_SELECTOR = <T, S>(stateValue: T) => stateValue as unknown as S
 
-export interface RawGetState<T> {
-  <S>(selector: (stateValue: T) => S): undefined extends S ? T : S
+export interface GetState<T> {
+  <S>(selector?: (stateValue: T) => S): undefined extends S ? T : S
   /**
    * Get the cached state value.
    */
@@ -51,7 +51,7 @@ export interface RawGetState<T> {
   select: <S>(selector: (state: T) => S, isEqual?: IsEqual<S>) => GetState<S>
 }
 
-export interface RawState<T> extends RawGetState<T> {
+export interface State<T> extends GetState<T> {
   /**
    * Setting new state value.
    * It can be value or function that returns a value (similar to `setState` in React).
@@ -62,12 +62,4 @@ export interface RawState<T> extends RawGetState<T> {
    * Set the state name. For debugging purposes.
    */
   withName: (name: string) => State<T>
-}
-
-export type State<T> = {
-  readonly [K in keyof RawState<T>]: RawState<T>[K]
-}
-
-export type GetState<T> = {
-  readonly [K in keyof RawGetState<T>]: RawGetState<T>[K]
 }

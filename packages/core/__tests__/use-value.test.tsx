@@ -10,6 +10,12 @@ describe('useValue', () => {
     expect(result.current).toBe(1)
   })
 
+  it('should get the initial state value', () => {
+    const state = create(1)
+    const { result } = renderHook(() => state())
+    expect(result.current).toBe(1)
+  })
+
   it('should update when the state changes', async () => {
     const state = create(1)
     const { result } = renderHook(() => useValue(state))
