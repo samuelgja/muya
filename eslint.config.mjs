@@ -18,7 +18,7 @@ const config = [
   depend.configs['flat/recommended'],
   {
     ignores: ['**/*.js', '**/api-definitions.ts', '**/.expo/**/*.ts*', "**/dist/**", "**/.storybook/**", "lib/**/*"],
-    files: ['src/**/*.{ts,tsx}'],
+    files: ['packages/core/*.{ts,tsx}'],
   },
   ...tailwind.configs['flat/recommended'],
   reactPerfPlugin.configs.flat.recommended,

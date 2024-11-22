@@ -21,5 +21,5 @@
     "downlevelIteration": true,
     "sourceMap": false
   },
-  "include": ["src"]
+  "include": ["packages/core"]
 }

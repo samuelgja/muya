@@ -1,321 +1,224 @@
-# Muya 🌀
-Welcome to Muya - Making state management a breeze, focused on simplicity and scalability for real-world scenarios.
+
+# **Muya 🌀**
+
+Muya is simple and lightweight react state management library.
+
+---
 
 [![Build](https://github.com/samuelgja/muya/actions/workflows/build.yml/badge.svg)](https://github.com/samuelgja/muya/actions/workflows/build.yml)
-[![Code quality Check](https://github.com/samuelgja/muya/actions/workflows/code-check.yml/badge.svg)](https://github.com/samuelgja/muya/actions/workflows/code-check.yml)
+[![Code Quality Check](https://github.com/samuelgja/muya/actions/workflows/code-check.yml/badge.svg)](https://github.com/samuelgja/muya/actions/workflows/code-check.yml)
 [![Build Size](https://img.shields.io/bundlephobia/minzip/muya?label=Bundle%20size)](https://bundlephobia.com/result?p=muya)
-#### There is a new version with complete re-work [Muya v2](https://github.com/samuelgja/muya/tree/feat/v2)
-## 🚀 Features
-- Easy State Creation: Kickstart your state management with simple and intuitive APIs.
-- Selectors & Merges: Grab exactly what you need from your state and combine multiple states seamlessly.
-- Deep Nesting Support: Handle complex state structures without breaking a sweat.
-- Optimized Rendering: Prevent unnecessary re-renders
-- TypeScript Ready: Fully typed for maximum developer sanity.
-- Small Bundle Size: Lightweight and fast, no bloatware here.
 
-## 📦 Installation
 
+- **Simplified API**: Only `create` and `select`.
+- **Batch Updates**: Built-in batching ensures efficient `muya` state updates internally.
+- **TypeScript Support**: Type first.
+- **Lightweight**: Minimal bundle size.
+
+---
+
+## 📦 **Installation**
+
+Install with your favorite package manager:
 ```bash
-bun add muya
+bun add muya@latest
 ```
-or
 ```bash
-yarn add muya
+npm install muya@latest
 ```
-or
 ```bash
-npm install muya
+yarn add muya@latest
 ```
 
-## 📝 Quick Start
+---
 
-```typescript
-import { create } from 'muya'
+## 📝 **Quick Start**
 
-const useCounter = create(0)
+### **Create and Use State**
 
-function App() {
-  const counter = useCounter()
-  return <div onClick={() => useCounter.setState((prev) => prev + 1)}>{counter}</div>
-}
-```
-
-### Update
-Sugar syntax above the `setState` method for partially updating the state.
-```typescript
-import { create } from 'muya'
-
-const useUser = create({ name: 'John', lastName: 'Doe' })
-
-function App() {
-  const user = useUser()
-  // this will just partially update only the name field, it's sugar syntax for setState.
-  return <div onClick={() => useUser.updateState({ name: 'Nope' })}>{user.name}</div>
-}
-```
-
-### Selecting parts of the state globally
-```tsx
-import { create } from 'muya'
-
-const useUser = create({ name: 'John', age: 30 })
-
-// Selecting only the name part of the state
-const useName = useUser.select((user) => user.name)
-
-function App() {
-  const name = useName()
-  return <div onClick={() => useUser.setState((prev) => ({ ...prev, name: 'Jane' }))}>{name}</div>
-}
-
-```
-
-### Merge any states
-```typescript
-import { create, shallow, merge } from 'muya'
-
-const useName = create(() => 'John')
-const useAge = create(() => 30)
-
-const useFullName = merge([useName, useAge], (name, age) => `${name} and ${age}`)
-
-function App() {
-  const fullName = useFullName()
-  return <div onClick={() => useName.setState((prev) => 'Jane')}>{fullName}</div>
-}
-```
-
-### Promise based state and lifecycle management working with React Suspense
-This methods are useful for handling async data fetching and lazy loading via React Suspense.
-
-#### Immediate Promise resolution
 ```typescript
 import { create } from 'muya';
- // state will try to resolve the promise immediately, can hit the suspense boundary
-const counterState = create(Promise.resolve(0));
 
+const counter = create(0);
+
+// Access in a React component
 function Counter() {
-  const counter = counterState();
+  const count = counter(); // Call state directly
   return (
-    <div onClick={() => counterState.setState((prev) => prev + 1)}>
-      {counter}
+    <div>
+      <button onClick={() => counter.set((prev) => prev + 1)}>Increment</button>
+      <p>Count: {count}</p>
     </div>
   );
 }
 ```
 
-#### Lazy Promise resolution
-```typescript
-import { create } from 'muya';
-// state will lazy resolve the promise on first access, this will hit the suspense boundary if the first access is from component and via `counterState.getState()` method
-const counterState = create(() => Promise.resolve(0)); 
+---
 
-function Counter() {
-  const counter = counterState();
-  return (
-    <div onClick={() => counterState.setState((prev) => prev + 1)}>
-      {counter}
-    </div>
-  );
-}
-```
+### **Select and Slice State**
 
-## 🔍 API Reference
-
-### `create`
-
-Creates a basic atom state.
+Use `select` to derive a slice of the state:
 
 ```typescript
-function create<T>(defaultState: T, options?: StateOptions<T>): StateSetter<T>;
-```
+const state = create({ count: 0, value: 42 });
 
-**Example:**
+const countSlice = state.select((s) => s.count);
 
-```typescript
-const userState = create({ name: 'John', age: 30 });
-```
-
-### `select`
-
-Selects a slice of an existing state directly or via a selector function.
-
-```typescript
-// userState is ready to use as hook, so you can name it with `use` prefix
-const userState = create({ name: 'John', age: 30 });
-// Direct selection outside the component, is useful for accessing the slices of the state in multiple components
-const userAgeState = userState.select((user) => user.age);
-```
-
-### `merge`
-Merges any number states into a single state. 
-```typescript
-const useName = create(() => 'John');
-const useAge = create(() => 30);
-const useFullName = merge([useName, useAge], (name, age) => `${name} and ${age}`);
-```
-
-### `setState`
-Sets the state to a new value or a function that returns a new value.
-
-```typescript
-const userState = create({ name: 'John', age: 30 });
-userState.setState({ name: 'Jane' });
-```
-
-### `updateState`
-Partially updates the state with a new value.
-
-```typescript
-const userState = create({ name: 'John', age: 30 });
-userState.updateState({ name: 'Jane' });
-```
-
-### `getState`
-Returns the current state value outside the component.
-
-```typescript
-const userState = create({ name: 'John', age: 30 });
-const user = userState.getState();
-```
-
-### `use`
-Creates a hook for the state.
-
-```typescript
-const useCounter = create(0);
-// use inside the component
-const counter = useCounter();
-```
-
-### `subscribe`
-Subscribes to the state changes.
-
-```typescript
-const userState = create({ name: 'John', age: 30 });
-const unsubscribe = userState.subscribe((state) => console.log(state));
-```
-
-### Promise Handling
-
-#### Immediate Promise Resolution
-
-```typescript
-import { create } from 'muya';
-
-// State will try to resolve the promise immediately, can hit the suspense boundary
-const counterState = create(Promise.resolve(0));
-
-function Counter() {
-  const counter = counterState();
-  return (
-    <div onClick={() => counterState.setState((prev) => prev + 1)}>
-      {counter}
-    </div>
-  );
-}
-```
-
-#### Lazy Promise Resolution
-
-```typescript
-import { create } from 'muya';
-
-// State will lazy resolve the promise on first access, this will hit the suspense boundary if the first access is from component and via `counterState.getState()` method
-const counterState = create(() => Promise.resolve(0));
-
-function Counter() {
-  const counter = counterState();
-  return (
-    <div onClick={() => counterState.setState((prev) => prev + 1)}>
-      {counter}
-    </div>
-  );
-}
-```
-
-#### Promise Rejection Handling
-
-```typescript
-import { create } from 'muya';
-
-// State will reject the promise
-const counterState = create(Promise.reject('Error occurred'));
-
-function Counter() {
-  try {
-    const counter = counterState();
-    return <div>{counter}</div>;
-  } catch (error) {
-    return <div>Error: {error}</div>;
-  }
-}
-```
-
-#### Error Throwing
-
-```typescript
-import { create } from 'muya';
-
-// State will throw an error
-const counterState = create(() => {
-  throw new Error('Error occurred');
+// Also async is possible, but Muya do not recommend 
+// It can lead to spaghetti re-renders code which is hard to maintain and debug
+const asyncCountSlice = state.select(async (s) => {
+  const data = await fetchData();
+  return data.count;
 });
+```
 
-function Counter() {
-  try {
-    const counter = counterState();
-    return <div>{counter}</div>;
-  } catch (error) {
-    return <div>Error: {error.message}</div>;
-  }
+---
+
+### **Combine Multiple States**
+
+Combine multiple states into a derived state:
+
+```typescript
+const state1 = create(1);
+const state2 = create(2);
+
+const sum = select([state1, state2], (s1, s2) => s1 + s2);
+```
+
+### **Equality Check**
+
+Customize equality checks to prevent unnecessary updates:
+
+```typescript
+const state = create({ a: 1, b: 2 }, (prev, next) => prev.b === next.b);
+
+// Updates only when `b` changes
+state.set((prev) => ({ ...prev, a: prev.a + 1 }));
+```
+
+Or in select methods:
+
+```typescript
+const derived = select([state1, state2], (s1, s2) => s1 + s2, (prev, next) => prev === next);
+```
+
+---
+
+
+## 🖥️ **Using State in Components**
+
+Access state directly or through `useValue` hook:
+
+### **Option 1: Access State Directly**
+
+```typescript
+const userState = create(0);
+
+function App() {
+  const user = userState(); // Directly call state
+  return <p>User: {user}</p>;
 }
 ```
 
-#### Setting a state during promise resolution
+### **Option 2: Use the Hook**
 
 ```typescript
-import { create } from 'muya';
+import { useValue } from 'muya';
 
-// State will resolve the promise and set the state
-const counterState = create(Promise.resolve(0));
-// this will abort current promise and set the state to 10
-counterState.setState(10); 
-function Counter() {
-  const counter = counterState();
-  return (
-    <div onClick={() => counterState.setState((prev) => prev + 1)}>
-      {counter}
-    </div>
-  );
+function App() {
+  const user = useValue(userState); // Access state via hook
+  return <p>User: {user}</p>;
 }
 ```
 
+### **Option 3: Slice with Hook**
 
-### Access from outside the component
-:warning: Avoid using this method for state management in [React Server Components](https://github.com/reactjs/rfcs/blob/main/text/0188-server-components.md), especially in Next.js 13+. It may cause unexpected behavior or privacy concerns.
 ```typescript
-const userState = create({ name: 'John', age: 30 });
-const user = userState.getState();
+function App() {
+  const count = useValue(state, (s) => s.count); // Use selector in hook
+  return <p>Count: {count}</p>;
+}
+```
+
+---
+
+## 📖 **API Overview**
+
+### **`create`**
+
+Create a new state:
+
+```typescript
+const state = create(initialValue, isEqual?);
+
+// Methods:
+state.get(); // Get current value
+state.set(value); // Update value
+state.listen(listener); // Subscribe to changes
+state.select(selector, isEqual?); // Create derived state
+state.destroy(); // Unsubscribe from changes, useful for dynamic state creation in components
+state.withName(name); // Add a name for debugging, otherwise it will be auto generated number
+```
+
+### **`select`**
+
+Combine or derive new states:
+
+```typescript
+const derived = select([state1, state2], (s1, s2) => s1 + s2);
+
+// Methods:
+derived.get(); // Get current value
+derived.listen(listener); // Subscribe to changes
+derived.select(selector, isEqual?); // Create nested derived state
+derived.destroy(); // Unsubscribe from changes, useful for dynamic state creation in components
+derived.withName(name); // Add a name for debugging, otherwise it will be auto generated number
+```
+
+### **`useValue`**
+
+React hook to access state:
+
+```typescript
+const value = useValue(state, (s) => s.slice); // Optional selector
+```
+
+---
+
+## ⚠️ **Notes**
+
+- **Equality Check**: Prevent unnecessary updates by passing a custom equality function to `create` or `select`.
+- **Batch Updates**: Muya batches internal updates for better performance, reducing communication overhead similarly how react do.
+- **Async Selectors / Derives**: Muya has support for async selectors / derives, but do not recommend to use as it can lead to spaghetti re-renders code which is hard to maintain and debug, if you want so, you can or maybe you should consider using other alternatives like `Jotai`.
+
+
+
+`Muya` encourage use async updates withing sync state like this:
+```typescript
+const state = create({ data: null });
+async function update() {
+  const data = await fetchData();
+  state.set({ data });
+}
 ```
 ---
 
-### Slicing new references
-:warning: Slicing data with new references can lead to maximum call stack exceeded error.
-It's recommended to not use new references for the state slices, if you need so, use `shallow` or other custom equality checks.
+But of course you can do
+
+Note: Handling async updates for the state (`set`) will cancel the previous pending promise.
 ```typescript
-import { state, shallow } from 'muya';
-const userState = create({ name: 'John', age: 30 });
-// this slice will create new reference object on each call
-const useName = userState.select((user) => ({newUser: user.name }), shallow);
+const state = create(0)
+const asyncState = state.select(async (s) => {
+  await longPromise(100)
+  return s + 1
+})
 ```
+---
 
-## 🤖 Contributing
-Contributions are welcome! Please read the [contributing guidelines](CONTRIBUTING.md) before submitting a pull request.
+### Debugging
+`Muya` in dev mode automatically connects to the `redux` devtools extension if it is installed in the browser. For now devtool api is simple - state updates.
 
-## 🧪 Testing
-Muya comes with a robust testing suite. Check out the state.test.tsx for examples on how to write your own tests.
+## 🙏 **Acknowledgments**
 
-## 📜 License
-
-Muya is [MIT licensed](LICENSE).
+This library is a fun, experimental project and not a replacement for robust state management tools. For more advanced use cases, consider libraries like `Zustand`, `Jotai`, or `Redux`. 
+If you enjoy `Muya`, please give it a ⭐️! :)
