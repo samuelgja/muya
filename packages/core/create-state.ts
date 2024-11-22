@@ -2,7 +2,7 @@ import { select } from './select'
 import type { GetState, SetValue, State } from './types'
 import { useValue } from './use-value'
 import { createEmitter } from './utils/create-emitter'
-import { isEqualBase } from './utils/is'
+import { isEqualBase, isPromise } from './utils/is'
 
 interface GetStateOptions<T> {
   readonly get: () => T
@@ -33,7 +33,11 @@ export function createState<T>(options: GetStateOptions<T>): FullState<T> {
   state.destroy = destroy
   state.listen = function (listener) {
     return this.emitter.subscribe(() => {
-      listener(get())
+      const value = get()
+      if (isPromise(value)) {
+        return
+      }
+      listener(get() as Awaited<T>)
     })
   }
   state.withName = function (name) {

@@ -30,7 +30,7 @@ export interface GetState<T> {
   /**
    * Listen to changes in the state.
    */
-  listen: Listener<T>
+  listen: Listener<Awaited<T>>
   /**
    * Destroy / cleanup the state.
    * Clean all listeners and make cache value undefined.
