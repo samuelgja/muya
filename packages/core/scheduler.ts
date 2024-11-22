@@ -2,14 +2,20 @@ export const THRESHOLD = 0.2
 export const THRESHOLD_ITEMS = 10
 export const RESCHEDULE_COUNT = 0
 
+interface GlobalSchedulerItem<T> {
+  value: T
+  id: number
+}
+
 export interface SchedulerOptions<T> {
   readonly onResolveItem?: (item: T) => void
   readonly onFinish: () => void
 }
 
-export function createScheduler<T>(options: SchedulerOptions<T>) {
-  const batches = new Set<T>()
-  const { onResolveItem, onFinish } = options
+export function createScheduler() {
+  const listeners = new Map<number, SchedulerOptions<unknown>>()
+  const batches = new Set<GlobalSchedulerItem<unknown>>()
+
   let frame = performance.now()
   let scheduled = false
 
@@ -37,9 +43,15 @@ export function createScheduler<T>(options: SchedulerOptions<T>) {
     if (batches.size === 0) {
       return
     }
+
+    const effectedListeners = new Set<number>()
     for (const value of batches) {
-      if (onResolveItem) {
-        onResolveItem(value)
+      if (listeners.has(value.id)) {
+        effectedListeners.add(value.id)
+        const { onResolveItem } = listeners.get(value.id)!
+        if (onResolveItem) {
+          onResolveItem(value.value)
+        }
       }
       batches.delete(value)
     }
@@ -48,12 +60,22 @@ export function createScheduler<T>(options: SchedulerOptions<T>) {
       schedule()
       return
     }
-    onFinish()
+
+    for (const id of effectedListeners) {
+      listeners.get(id)?.onFinish()
+    }
   }
 
-  function addValue(value: T) {
-    batches.add(value)
-    schedule()
+  return {
+    add<T>(id: number, option: SchedulerOptions<T>) {
+      listeners.set(id, option as SchedulerOptions<unknown>)
+      return () => {
+        listeners.delete(id)
+      }
+    },
+    schedule<T>(id: number, value: T) {
+      batches.add({ value, id })
+      schedule()
+    },
   }
-  return addValue
 }

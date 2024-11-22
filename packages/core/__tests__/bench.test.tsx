@@ -8,7 +8,7 @@
 import { act, renderHook } from '@testing-library/react-hooks'
 import { useStore, create as zustand } from 'zustand'
 import { useEffect, useState } from 'react'
-import { use } from '../use'
+import { useValue } from '../use-value'
 import { atom, useAtom } from 'jotai'
 import { create } from '../create'
 
@@ -38,7 +38,7 @@ describe('benchmarks comparison measure', () => {
   beforeEach(() => {
     jest.clearAllMocks()
   })
-  const counts = [10_000]
+  const counts = [1000]
   for (const count of counts) {
     describe(`Count ${count}`, () => {
       it(`should benchmark ${count} muya first run - idk slow`, async () => {
@@ -48,7 +48,7 @@ describe('benchmarks comparison measure', () => {
         const { result, resolvePromise } = renderPerfHook(
           () => {
             reRendersBefore()
-            return use(state)
+            return useValue(state)
           },
           (data) => data,
           count - 1,
@@ -139,7 +139,7 @@ describe('benchmarks comparison measure', () => {
         const { result, resolvePromise } = renderPerfHook(
           () => {
             reRendersBefore()
-            return use(state)
+            return useValue(state)
           },
           (data) => data,
           count - 1,
@@ -244,7 +244,7 @@ describe('benchmarks comparison between others', () => {
       const start = performance.now()
       const { result, waitFor } = renderHook(() => {
         reRendersBefore()
-        return use(state)
+        return useState(state)
       })
 
       for (let index = 0; index < count; index++) {

@@ -1,5 +1,5 @@
-import { Abort } from '../common'
-import { isPromise, isFunction, isSetValueFunction, isMap, isSet, isArray, isEqualBase, isAbortError } from '../is'
+import { create } from '../../create'
+import { isPromise, isFunction, isSetValueFunction, isMap, isSet, isArray, isEqualBase, isUndefined, isState } from '../is'
 
 describe('isPromise', () => {
   it('should return true for a Promise', () => {
@@ -64,11 +64,22 @@ describe('isEqualBase', () => {
   })
 })
 
-describe('isAbortError', () => {
-  it('should return true for an AbortError', () => {
-    expect(isAbortError(new DOMException('', Abort.Error))).toBe(true)
+describe('isUndefined', () => {
+  it('should return true for undefined', () => {
+    // eslint-disable-next-line unicorn/no-useless-undefined
+    expect(isUndefined(undefined)).toBe(true)
   })
-  it('should return false for a non-AbortError', () => {
-    expect(isAbortError(new DOMException('', 'Error'))).toBe(false)
+  it('should return false for a non-undefined', () => {
+    expect(isUndefined(123)).toBe(false)
+  })
+})
+
+describe('isState', () => {
+  it('should return true for a State', () => {
+    const state = create(1)
+    expect(isState(state)).toBe(true)
+  })
+  it('should return false for a non-State', () => {
+    expect(isState(123)).toBe(false)
   })
 })

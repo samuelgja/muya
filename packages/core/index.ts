@@ -1,4 +1,5 @@
 export * from './types'
 export { create } from './create'
-export { use } from './use'
+export { select } from './select'
+export { useValue } from './use-value'
 export { shallow } from './utils/shallow'

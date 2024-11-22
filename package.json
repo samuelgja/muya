@@ -1,41 +1,10 @@
 {
-  "workspaces": [
-    "packages/*"
-  ],
-  "private": true,
   "name": "muya",
   "version": "2.0.0-beta.3",
   "author": "samuel.gjabel@gmail.com",
-  "description": "👀 Another React state management library",
-  "license": "MIT",
+  "repository": "https://github.com/samuelgjabel/muya",
   "main": "cjs/index.js",
   "module": "esm/index.js",
-  "react-native": "src/index.ts",
-  "types": "types/index.d.ts",
-  "homepage": "https://github.com/samuelgjabel/muya",
-  "repository": "https://github.com/samuelgjabel/muya",
-  "sideEffects": false,
-  "keywords": [
-    "react",
-    "react-hooks",
-    "react-native",
-    "state",
-    "management",
-    "library",
-    "muya",
-    "redux",
-    "zustand"
-  ],
-  "scripts": {
-    "clean": "sudo rm -rf node_modules && sudo rm -rf packages/*/node_modules && bun install",
-    "build": "bun run build.ts",
-    "code-check": "bun run typecheck && bun run lint && bun run test && bun run format",
-    "typecheck": "tsc --noEmit",
-    "lint": "bun eslint \"packages/core/**/*.{ts,tsx}\" --fix",
-    "format": "prettier --write \"./**/*.{js,jsx,json,ts,tsx}\"",
-    "test": "bun test",
-    "pub": "bun run code-check && bun run test && bun run build && cd lib && npm publish"
-  },
   "devDependencies": {
     "@eslint-react/eslint-plugin": "1.15.1",
     "@eslint/compat": "^1.1.1",
@@ -83,6 +52,20 @@
     "use-sync-external-store": ">=1.2.0",
     "react": ">=18.0.0"
   },
+  "description": "👀 Another React state management library",
+  "homepage": "https://github.com/samuelgjabel/muya",
+  "keywords": [
+    "react",
+    "react-hooks",
+    "react-native",
+    "state",
+    "management",
+    "library",
+    "muya",
+    "redux",
+    "zustand"
+  ],
+  "license": "MIT",
   "peerDependenciesMeta": {
     "react": {
       "optional": true
@@ -90,5 +73,22 @@
     "use-sync-external-store": {
       "optional": true
     }
-  }
+  },
+  "private": true,
+  "react-native": "src/index.ts",
+  "scripts": {
+    "clean": "sudo rm -rf node_modules && sudo rm -rf packages/*/node_modules && bun install",
+    "build": "bun run build.ts",
+    "code-check": "bun run typecheck && bun run lint && bun run test && bun run format",
+    "typecheck": "tsc --noEmit",
+    "lint": "bun eslint \"packages/core/**/*.{ts,tsx}\" --fix",
+    "format": "prettier --write \"./**/*.{js,jsx,json,ts,tsx}\"",
+    "test": "bun test",
+    "pub": "bun run code-check && bun run test && bun run build && cd lib && npm publish"
+  },
+  "sideEffects": false,
+  "types": "types/index.d.ts",
+  "workspaces": [
+    "packages/*"
+  ]
 }

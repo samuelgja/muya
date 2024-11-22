@@ -1,80 +1,54 @@
 
-# Muya 🌀
+# **Muya 🌀**
 
-Welcome to **Muya v2**—a state management library that makes managing state a breeze, focusing on simplicity and scalability for real-world applications.
+Muya is simple and lightweight react state management library.
 
+---
+
+## 🚀 **Key Features**
+
+- **Simplified API**: Only `create` and `select`.
+- **Batch Updates**: Built-in batching ensures efficient `muya` state updates internally.
+- **TypeScript Support**: Type first.
+- **Lightweight**: Minimal bundle size.
+
+---
 [![Build](https://github.com/samuelgja/muya/actions/workflows/build.yml/badge.svg)](https://github.com/samuelgja/muya/actions/workflows/build.yml)
 [![Code Quality Check](https://github.com/samuelgja/muya/actions/workflows/code-check.yml/badge.svg)](https://github.com/samuelgja/muya/actions/workflows/code-check.yml)
 [![Build Size](https://img.shields.io/bundlephobia/minzip/muya?label=Bundle%20size)](https://bundlephobia.com/result?p=muya)
 
 ---
 
-## 🚀 Features
+## 📦 **Installation**
 
-- **Simple State Creation**: Easily create global state with an intuitive API.
-- **Functional Derivations**: Derive / Compute new state using plain functions, embracing functional programming.
-- **Async Support**: Async derived states work out of the box, with support for React Suspense.
-- **Performance Optimizations**: WIP Batch state updates for optimized rendering.
-- **TypeScript Support**: Fully typed for a better developer experience.
-- **Small Bundle Size**: Lightweight and efficient—no unnecessary bloat.
-
----
-
-Info: [Muya v2](https://medium.com/p/106de3d04c43)
-
-### 💡 How It Works
-Muya v2 uses its own custom context system to track dependencies and notify components when state changes. When you use a function that accesses state in your component, Muya tracks which states are used and re-renders the component when any of them change.
-
-This allows you to write derived state as plain functions, making your code more intuitive and closer to standard JavaScript. No need to define selectors or use special APIs—just use functions!
-
---- 
-
-## 📦 Installation
-
+Install with your favorite package manager:
 ```bash
-npm install muya@2.0.0-beta.2
+bun add muya@latest
 ```
-
-Or using Yarn:
-
 ```bash
-yarn add muya@2.0.0-beta.2
+npm install muya@latest
 ```
-
-Or using Bun:
-
 ```bash
-bun add muya@2.0.0-beta.2
+yarn add muya@latest
 ```
 
 ---
 
-## 📝 Quick Start
+## 📝 **Quick Start**
 
-Here's how to get started with **Muya v2**:
-
-### Creating State
+### **Create and Use State**
 
 ```typescript
 import { create } from 'muya';
 
 const counter = create(0);
-```
 
-### Using State in Components
-
-```tsx
-import React from 'react';
-import { use } from 'muya';
-
+// Access in a React component
 function Counter() {
-  const count = use(counter);
-
+  const count = counter(); // Call state directly
   return (
     <div>
-      <button onClick={() => counter.set((prev) => prev + 1)}>
-        Increment
-      </button>
+      <button onClick={() => counter.set((prev) => prev + 1)}>Increment</button>
       <p>Count: {count}</p>
     </div>
   );
@@ -83,217 +57,137 @@ function Counter() {
 
 ---
 
-## 📚 Examples
+### **Select and Slice State**
 
-### Deriving / Selecting State with Functions
-
-You can derive new state using plain functions:
+Use `select` to derive a slice of the state:
 
 ```typescript
-const counter = create(0);
+const state = create({ count: 0, value: 42 });
 
-function doubled() {
-  return counter() * 2;
-}
+// Derive a specific slice
+const countSlice = state.select((s) => s.count);
 ```
 
-Use it in a component:
+---
 
-```tsx
-function DoubledCounter() {
-  const value = use(doubled);
+### **Combine Multiple States**
 
-  return <p>Doubled Count: {value}</p>;
-}
+Combine multiple states into a derived state:
+
+```typescript
+const state1 = create(1);
+const state2 = create(2);
+
+const sum = select([state1, state2], (s1, s2) => s1 + s2);
 ```
 
-### Complex Derivations
+### **Equality Check**
 
-Create more complex derived states by composing functions:
+Customize equality checks to prevent unnecessary updates:
 
-```tsx
-import { create, use } from 'muya';
+```typescript
+const state = create({ a: 1, b: 2 }, (prev, next) => prev.b === next.b);
 
-const state1 = create(0);
-const state2 = create(0);
-const state3 = create(0);
-
-function sum() {
-  return state1() + state2() + state3();
-}
-
-function multiply() {
-  return sum() * 2; // Example multiplier
-}
-
-function isOdd() {
-  return multiply() % 2 === 1;
-}
-
-function App() {
-  const isOddValue = use(isOdd);
-
-  return (
-    <div>
-      <button onClick={() => state1.set((c) => c + 1)}>Increment Counter 1</button>
-      <button onClick={() => state2.set((c) => c + 1)}>Increment Counter 2</button>
-      <button onClick={() => state3.set((c) => c + 1)}>Increment Counter 3</button>
-      <p>Is ODD: {isOddValue ? 'Yes' : 'No'}</p>
-    </div>
-  );
-}
+// Updates only when `b` changes
+state.set((prev) => ({ ...prev, a: prev.a + 1 }));
 ```
 
+Or in select methods:
 
-### Derive state with parameters
-```tsx
-
-import React, { useCallback, useState } from 'react';
-import { create, use } from 'muya';
-
-const counter1 = create(0);
-const counter2 = create(0);
-
-function multipliedSum(multiplier: number) {
-  return (counter1() + counter2()) * multiplier;
-}
-
-function MultipliedCounter() {
-  const [multiplier, setMultiplier] = useState(1);
-  // make sure to use useCallback to memoize the function
-  const multiply = useCallback(() => multipliedSum(multiplier), [multiplier]);
-  const result = use(multiply);
-
-  return (
-    <div>
-      <button onClick={() => counter1.set((c) => c + 1)}>
-        Increment Counter 1
-      </button>
-      <button onClick={() => counter2.set((c) => c + 1)}>
-        Increment Counter 2
-      </button>
-      <button onClick={() => setMultiplier((m) => m + 1)}>
-        Increment Multiplier
-      </button>
-      <p>Result: {result}</p>
-    </div>
-  );
-}
+```typescript
+const derived = select([state1, state2], (s1, s2) => s1 + s2, (prev, next) => prev === next);
 ```
 
-### Async derives State
-
-```tsx
-import { create } from 'muya';
-
-const counter = create(1);
-
-async function fetchData() {
-  const response = await fetch(`https://jsonplaceholder.typicode.com/todos/${counter()}`);
-  return response.json();
-}
-
-// make sure this component is wrapped in a <Suspense> component
-function Component() {
-  const data = use(fetchData);
-
-  return (
-    <div>
-      <button onClick={() => counter.set((prev) => prev + 1)}>Increment</button>
-      <p>{JSON.stringify(data)}</p>
-    </div>
-  );
-}
-
-
-```
 ---
 
 
+## 🖥️ **Using State in Components**
 
+Access state directly or through `useValue` hook:
 
-## 📖 Documentation
-
-#### `create`
+### **Option 1: Access State Directly**
 
 ```typescript
-  function create<T>(initialState: T): State<T>;
-```
+const userState = create(0);
 
-Create return state block or atom, setting a new value to the state will trigger a re-render of all components using the state.
-```typescript
-  const counter = create(0);
-  // set new value
-  counter.set(1);
-```
-
-Get the state value outside of react
-```typescript
-  const value = counter();
-  // call it like a function
-  console.log(value()); // 1
-```
-
-Each state created by create has the following properties and methods:
-
-- id: number: Unique identifier for the state.
-- (): T: The state is callable to get the current value.
-- set(value: T | ((prev: T) => T)): Update the state value.
-- listen(listener: (value: T) => void): () => void: Subscribe to state changes.
-
-#### `use` hook
-Use hook to get state value in react component
-```typescript
-  function use<T>(state: State<T> | (() => T)): T;
-```
-example
-```tsx
-  const counter = create(0);
-
-  // in react component
-  const count = use(counter);
-```
-
-Also custom selector to avoid re-rendering the app
-```tsx
-  const doubled = create({doubled:true});
-  // in react component
-  const value = use(doubled, (state) => state.doubled);
-```
-
-
-
-
-
-### ⚠️ Notes
-Memoization: When using derived functions with parameters, you should memoize them using useCallback to prevent unnecessary re-renders and prevent function calls.
-```tsx
-Copy code
-const multiply = useCallback(() => multipliedSum(multiplier), [multiplier]);
-```
-Async Functions: Async functions used in use should handle errors appropriately and may need to use React's Suspense for loading states.
-Also keep in note, setting new state in async derives, will cancel the pending previous one in the queue.
-
-```tsx
-Copy code
 function App() {
-  return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <DataComponent />
-    </Suspense>
-  );
+  const user = userState(); // Directly call state
+  return <p>User: {user}</p>;
 }
 ```
 
-Error Handling: If an async function throws an error, you can catch it using React's error boundaries.
+### **Option 2: Use the Hook**
 
-### 🤖 Contributing
-Contributions are welcome! Please read the contributing guidelines before submitting a pull request.
+```typescript
+import { useValue } from 'muya';
 
-### 🧪 Testing
-Muya comes with a robust testing suite. Check out the state.test.tsx for examples on how to write your own tests.
+function App() {
+  const user = useValue(userState); // Access state via hook
+  return <p>User: {user}</p>;
+}
+```
 
+### **Option 3: Slice with Hook**
 
-### 🙏 Acknowledgments
-Special thanks to reddit to motivate me for v2 :D 
+```typescript
+function App() {
+  const count = useValue(state, (s) => s.count); // Use selector in hook
+  return <p>Count: {count}</p>;
+}
+```
 
+---
+
+## 📖 **API Overview**
+
+### **`create`**
+
+Create a new state:
+
+```typescript
+const state = create(initialValue, isEqual?);
+
+// Methods:
+state.get(); // Get current value
+state.set(value); // Update value
+state.listen(listener); // Subscribe to changes
+state.select(selector, isEqual?); // Create derived state
+state.destroy(); // Unsubscribe from changes, useful for dynamic state creation in components
+```
+
+### **`select`**
+
+Combine or derive new states:
+
+```typescript
+const derived = select([state1, state2], (s1, s2) => s1 + s2);
+
+// Methods:
+derived.get(); // Get current value
+derived.listen(listener); // Subscribe to changes
+derived.select(selector, isEqual?); // Create nested derived state
+derived.destroy(); // Unsubscribe from changes, useful for dynamic state creation in components
+```
+
+### **`useValue`**
+
+React hook to access state:
+
+```typescript
+const value = useValue(state, (s) => s.slice); // Optional selector
+```
+
+---
+
+## ⚠️ **Notes**
+
+- **Equality Check**: Prevent unnecessary updates by passing a custom equality function to `create` or `select`.
+- **Batch Updates**: Muya batches internal updates for better performance, reducing communication overhead similarly how react do.
+- **Async Derives**: This library doesn’t manage async derived state natively, if you want so, please consider using alternatives like `Jotai`.
+
+---
+
+## 🙏 **Acknowledgments**
+
+This library is a fun, experimental project and not a replacement for robust state management tools. For more advanced use cases, consider libraries like `Zustand`, `Jotai`, or `Redux`. 
+If you enjoy `Muya`, please give it a ⭐️! :)

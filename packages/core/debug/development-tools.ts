@@ -1,4 +1,5 @@
-import { isPromise } from '../utils/is'
+import type { GetState, State } from '../types'
+import { isPromise, isState } from '../utils/is'
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-expect-error
@@ -19,7 +20,7 @@ interface SendOptions {
   value: unknown
   name: string
 }
-export function sendToDevelopmentTools(options: SendOptions) {
+function sendToDevelopmentTools(options: SendOptions) {
   if (!reduxDevelopmentTools) {
     return
   }
@@ -30,8 +31,21 @@ export function sendToDevelopmentTools(options: SendOptions) {
   reduxDevelopmentTools.send(name, { value, type, message }, type)
 }
 
-export function developmentToolsListener(name: string, type: StateType) {
+function developmentToolsListener(name: string, type: StateType) {
   return (value: unknown) => {
     sendToDevelopmentTools({ name, type, value, message: 'update' })
   }
+}
+
+export function subscribeToDevelopmentTools<T>(state: State<T> | GetState<T>) {
+  if (process.env.NODE_ENV === 'production') {
+    return
+  }
+  let type: StateType = 'state'
+
+  if (!isState(state)) {
+    type = 'derived'
+  }
+  sendToDevelopmentTools({ name: state.name ?? state.id.toString(), type, value: state.get(), message: 'initial' })
+  return state.listen(developmentToolsListener(state.name ?? state.id.toString(), type))
 }
