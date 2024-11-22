@@ -1,6 +1,7 @@
 import { create } from '../create'
 import { waitFor } from '@testing-library/react'
 import { longPromise } from './test-utils'
+import { isPromise } from '../utils/is'
 
 describe('create', () => {
   it('should get basic value states', async () => {
@@ -56,9 +57,16 @@ describe('create', () => {
     })
   })
 
-  it('should initialize state with a function', () => {
+  it('should initialize state with a lazy value', () => {
     const initialValue = jest.fn(() => 10)
     const state = create(initialValue)
+    expect(initialValue).not.toHaveBeenCalled()
+    expect(state.get()).toBe(10)
+  })
+
+  it('should initialize state with direct lazy value', () => {
+    const initialValue = jest.fn(() => 10)
+    const state = create(initialValue())
     expect(initialValue).toHaveBeenCalled()
     expect(state.get()).toBe(10)
   })
@@ -154,6 +162,64 @@ describe('create', () => {
     await waitFor(() => {
       expect(asyncState.get()).toBe(2)
       expect(listener).toHaveBeenCalledWith(2)
+    })
+  })
+
+  it('should resolve immediately when state is promise', async () => {
+    const promiseMock = jest.fn(() => longPromise(100))
+    const state1 = create(promiseMock())
+    expect(promiseMock).toHaveBeenCalled()
+    state1.set((value) => {
+      // set with callback will be executed later when promise is resolved
+      expect(isPromise(value)).toBe(false)
+      return value + 1
+    })
+
+    await waitFor(() => {
+      expect(state1.get()).toBe(1)
+    })
+
+    state1.set(2)
+    await waitFor(() => {
+      expect(state1.get()).toBe(2)
+    })
+
+    state1.set((value) => {
+      expect(isPromise(value)).toBe(false)
+      return value + 1
+    })
+
+    await waitFor(() => {
+      expect(state1.get()).toBe(3)
+    })
+  })
+
+  it('should resolve lazy when state is promise', async () => {
+    const promiseMock = jest.fn(() => longPromise(100))
+    const state1 = create(promiseMock)
+    expect(promiseMock).not.toHaveBeenCalled()
+    state1.set((value) => {
+      // set with callback will be executed later when promise is resolved
+      expect(isPromise(value)).toBe(false)
+      return value + 1
+    })
+
+    await waitFor(() => {
+      expect(state1.get()).toBe(1)
+    })
+
+    state1.set(2)
+    await waitFor(() => {
+      expect(state1.get()).toBe(2)
+    })
+
+    state1.set((value) => {
+      expect(isPromise(value)).toBe(false)
+      return value + 1
+    })
+
+    await waitFor(() => {
+      expect(state1.get()).toBe(3)
     })
   })
 })
