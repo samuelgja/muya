@@ -39,14 +39,14 @@ yarn add muya@latest
 ```typescript
 import { create } from 'muya';
 
-const counter = create(0);
+const useCounter = create(0);
 
 // Access in a React component
 function Counter() {
-  const count = counter(); // Call state directly
+  const count = useCounter(); // Call state directly
   return (
     <div>
-      <button onClick={() => counter.set((prev) => prev + 1)}>Increment</button>
+      <button onClick={() => useCounter.set((prev) => prev + 1)}>Increment</button>
       <p>Count: {count}</p>
     </div>
   );
@@ -76,9 +76,11 @@ const asyncCountSlice = state.select(async (s) => {
 
 ### **Combine Multiple States**
 
-Combine multiple states into a derived state:
+Combine multiple states into a derived state via `select` method:
 
 ```typescript
+import { create, select } from 'muya'
+
 const state1 = create(1);
 const state2 = create(2);
 
@@ -110,7 +112,7 @@ const derived = select([state1, state2], (s1, s2) => s1 + s2, (prev, next) => pr
 Access state directly or through `useValue` hook:
 
 ### **Option 1: Access State Directly**
-
+Each state can be called as the hook directly
 ```typescript
 const userState = create(0);
 
@@ -121,7 +123,7 @@ function App() {
 ```
 
 ### **Option 2: Use the Hook**
-
+Or for convenience, there is `useValue` method
 ```typescript
 import { useValue } from 'muya';
 
@@ -132,7 +134,7 @@ function App() {
 ```
 
 ### **Option 3: Slice with Hook**
-
+For efficient re-renders, `useValue` provides a slicing method.
 ```typescript
 function App() {
   const count = useValue(state, (s) => s.count); // Use selector in hook
