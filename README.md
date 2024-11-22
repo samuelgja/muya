@@ -1,6 +1,6 @@
 
 # Muya 🌀
-
+### This approach is currently on hold.
 Welcome to **Muya v2**—a state management library that makes managing state a breeze, focusing on simplicity and scalability for real-world applications.
 
 [![Build](https://github.com/samuelgja/muya/actions/workflows/build.yml/badge.svg)](https://github.com/samuelgja/muya/actions/workflows/build.yml)
