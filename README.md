@@ -9,10 +9,6 @@ Muya is simple and lightweight react state management library.
 [![Code Quality Check](https://github.com/samuelgja/muya/actions/workflows/code-check.yml/badge.svg)](https://github.com/samuelgja/muya/actions/workflows/code-check.yml)
 [![Build Size](https://img.shields.io/bundlephobia/minzip/muya?label=Bundle%20size)](https://bundlephobia.com/result?p=muya)
 
----
-
-
-## 🚀 **Key Features**
 
 - **Simplified API**: Only `create` and `select`.
 - **Batch Updates**: Built-in batching ensures efficient `muya` state updates internally.
