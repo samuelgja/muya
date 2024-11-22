@@ -4,7 +4,7 @@ export type IsEqual<T = unknown> = (a: T, b: T) => boolean
 export type SetStateCb<T> = (value: T | Awaited<T>) => Awaited<T>
 export type SetValue<T> = SetStateCb<T> | Awaited<T>
 export type DefaultValue<T> = T | (() => T)
-export type Listener<T> = (listener: (value?: T) => void) => () => void
+export type Listener<T> = (listener: (value: T) => void) => () => void
 export interface Cache<T> {
   current?: T
   previous?: T
