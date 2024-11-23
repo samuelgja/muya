@@ -1,7 +1,8 @@
 import { create } from '../create'
 import { select } from '../select'
-import { waitFor } from '@testing-library/react'
+import { renderHook, waitFor } from '@testing-library/react'
 import { longPromise } from './test-utils'
+import { Suspense } from 'react'
 
 describe('select', () => {
   it('should derive state from a single dependency', async () => {
@@ -101,7 +102,7 @@ describe('select', () => {
       await longPromise(100)
       return (await value) + 1
     })
-    const selectedState2 = selectedState.select(async (value) => (await value) + 1)
+    const selectedState2 = selectedState.select(async (value) => value + 1)
     const listener = jest.fn()
     selectedState2.listen(listener)
     await waitFor(() => {
@@ -154,7 +155,7 @@ describe('select', () => {
   it('should select state from async initial state', async () => {
     const state = create(longPromise(100))
     const selectedState = state.select(async (value) => {
-      return (await value) + 2
+      return value + 2
     })
     await waitFor(() => {
       expect(selectedState.get()).toBe(2)
@@ -167,6 +168,41 @@ describe('select', () => {
     })
     await waitFor(() => {
       expect(selectedState.get()).toBe(2)
+    })
+  })
+
+  it('should select state from async state and do not change second time as it just boolean value', async () => {
+    const state = create(longPromise(100))
+    const selectedState = state.select((value) => {
+      const result = value > 0
+      expect(value).not.toBeUndefined()
+      return result
+    })
+    const render = jest.fn()
+
+    const { result } = renderHook(
+      () => {
+        render()
+        const value = selectedState()
+        return value
+      },
+      { wrapper: ({ children }) => <Suspense fallback="loading">{children}</Suspense> },
+    )
+
+    await waitFor(() => {
+      expect(result.current).toBe(false)
+      expect(selectedState.get()).toBe(false)
+      // re-render twice, as it hit suspense, because value is not resolved yet
+      expect(render).toHaveBeenCalledTimes(2)
+    })
+
+    state.set(1)
+
+    await waitFor(() => {
+      expect(result.current).toBe(true)
+      expect(selectedState.get()).toBe(true)
+      // next time it re-render only once, as value is already resolved
+      expect(render).toHaveBeenCalledTimes(3)
     })
   })
 })

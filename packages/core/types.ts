@@ -48,7 +48,7 @@ export interface GetState<T> {
    * Select particular slice of the state.
    * It will create "another" state in read-only mode (without set).
    */
-  select: <S>(selector: (state: Awaited<T> | T) => S, isEqual?: IsEqual<S>) => GetState<S>
+  select: <S>(selector: (state: Awaited<T>) => S, isEqual?: IsEqual<S>) => GetState<S>
 }
 
 export interface State<T> extends GetState<T> {

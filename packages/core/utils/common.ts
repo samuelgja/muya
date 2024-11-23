@@ -12,7 +12,7 @@ export class AbortError extends Error {
 /**
  * Cancelable promise function, return promise and controller
  */
-function cancelablePromise<T>(promise: Promise<T>, previousController?: AbortController): CancelablePromise<T> {
+export function cancelablePromise<T>(promise: Promise<T>, previousController?: AbortController): CancelablePromise<T> {
   if (previousController) {
     previousController.abort()
   }

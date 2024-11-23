@@ -45,7 +45,7 @@ export function createState<T>(options: GetStateOptions<T>): FullState<T> {
     return this
   }
   state.select = function (selector, isSelectorEqual = isEqualBase) {
-    return select([state], selector, isSelectorEqual)
+    return select([state as never], selector, isSelectorEqual)
   }
   state.get = get
   state.set = set as State<T>['set']
