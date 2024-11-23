@@ -65,6 +65,7 @@ export function create<T>(initialValue: DefaultValue<T>, isEqual: IsEqual<T> = i
     set(value: SetValue<T>) {
       stateScheduler.schedule(state.id, value)
     },
+    getSnapshot: getValue,
   })
 
   const clearScheduler = stateScheduler.add(state.id, {

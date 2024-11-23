@@ -48,11 +48,30 @@ export function select<T = unknown, S extends Array<unknown> = []>(
     const result = selector(...(values as S))
     return result
   }
-
+  function getSnapshot(): T {
+    if (isUndefined(cache.current)) {
+      const newValue = computedValue()
+      cache.current = handleAsyncUpdate(cache, state.emitter.emit, newValue)
+    }
+    return cache.current
+  }
   function getValue(): T {
     if (isUndefined(cache.current)) {
       const newValue = computedValue()
       cache.current = handleAsyncUpdate(cache, state.emitter.emit, newValue)
+    }
+    const { current } = cache
+    if (isPromise(current)) {
+      return new Promise((resolve) => {
+        current.then((value: unknown) => {
+          if (isUndefined(value)) {
+            resolve(getValue())
+            return
+          }
+
+          resolve(value)
+        })
+      }) as T
     }
     return cache.current
   }
@@ -75,6 +94,7 @@ export function select<T = unknown, S extends Array<unknown> = []>(
       cache.current = undefined
     },
     get: getValue,
+    getSnapshot,
   })
 
   const clearScheduler = stateScheduler.add(state.id, {

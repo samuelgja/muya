@@ -205,4 +205,31 @@ describe('select', () => {
       expect(render).toHaveBeenCalledTimes(3)
     })
   })
+
+  it('should get value when initial value is promise', async () => {
+    const state = create(longPromise(100))
+    const selectedState = state.select((value) => {
+      return value + 2
+    })
+    expect(await selectedState.get()).toBe(2)
+  })
+
+  it('should have sync get method sync', async () => {
+    const state = create(100)
+    const selectedState = state.select((value) => {
+      return value + 2
+    })
+    expect(selectedState.get()).toBe(102)
+  })
+
+  it('should have async get method sync', async () => {
+    const state = create(100)
+    const selectedState = state.select((value) => {
+      return value + 2
+    })
+    const selectedState2 = selectedState.select(async (value) => {
+      return value + 2
+    })
+    expect(await selectedState2.get()).toBe(104)
+  })
 })

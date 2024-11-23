@@ -8,6 +8,7 @@ interface GetStateOptions<T> {
   readonly get: () => T
   readonly set?: (value: SetValue<T>) => void
   readonly destroy: () => void
+  readonly getSnapshot: () => T
 }
 
 let stateId = 0
@@ -20,7 +21,7 @@ type FullState<T> = GetStateOptions<T>['set'] extends undefined ? GetState<T> : 
  * This is just utility function to create state base data
  */
 export function createState<T>(options: GetStateOptions<T>): FullState<T> {
-  const { get, destroy, set } = options
+  const { get, destroy, set, getSnapshot } = options
   const isSet = !!set
 
   const state: FullState<T> = function (selector) {
@@ -29,7 +30,7 @@ export function createState<T>(options: GetStateOptions<T>): FullState<T> {
   }
   state.isSet = isSet as true
   state.id = getStateId()
-  state.emitter = createEmitter<T>(get)
+  state.emitter = createEmitter<T>(getSnapshot)
   state.destroy = destroy
   state.listen = function (listener) {
     return this.emitter.subscribe(() => {
@@ -44,10 +45,10 @@ export function createState<T>(options: GetStateOptions<T>): FullState<T> {
     this.stateName = name
     return this
   }
-  state.select = function (selector, isSelectorEqual = isEqualBase) {
+  state.select = function (selector: never, isSelectorEqual = isEqualBase) {
     return select([state as never], selector, isSelectorEqual)
-  }
-  state.get = get
+  } as never
+  state.get = get as never
   state.set = set as State<T>['set']
 
   return state

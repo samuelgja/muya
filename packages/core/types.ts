@@ -13,12 +13,12 @@ export interface Cache<T> {
 
 export const EMPTY_SELECTOR = <T, S>(stateValue: T) => stateValue as unknown as S
 
-export interface GetState<T> {
+export interface GetState<T, IsFroMPromise extends boolean = false> {
   <S>(selector?: (stateValue: T) => S): Awaited<undefined extends S ? T : S>
   /**
    * Get the cached state value.
    */
-  get: () => T
+  get: () => IsFroMPromise extends true ? Promise<T> : T
   /**
    * Get the unique id of the state.
    */
@@ -48,7 +48,7 @@ export interface GetState<T> {
    * Select particular slice of the state.
    * It will create "another" state in read-only mode (without set).
    */
-  select: <S>(selector: (state: Awaited<T>) => S, isEqual?: IsEqual<S>) => GetState<S>
+  select: <S>(selector: (state: Awaited<T>) => S, isEqual?: IsEqual<S>) => GetState<S, T extends Promise<unknown> ? true : false>
 }
 
 export interface State<T> extends GetState<T> {
