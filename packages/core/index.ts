@@ -1,3 +1,4 @@
+export * from './utils/is'
 export * from './types'
 export { create } from './create'
 export { select } from './select'

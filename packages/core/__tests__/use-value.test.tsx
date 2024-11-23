@@ -2,6 +2,7 @@ import { renderHook, act } from '@testing-library/react-hooks'
 import { create } from '../create'
 import { useValue } from '../use-value'
 import { waitFor } from '@testing-library/react'
+import { longPromise } from './test-utils'
 
 describe('useValue', () => {
   it('should get the initial state value', () => {
@@ -74,5 +75,27 @@ describe('useValue', () => {
     })
     await waitFor(() => {})
     expect(renders).toHaveBeenCalledTimes(2)
+  })
+
+  it('should check how many times the hook re-render when the state is promise', async () => {
+    const state = create(longPromise(100))
+
+    const render = jest.fn()
+    const renderAfter = jest.fn()
+
+    const { result } = renderHook(() => {
+      render()
+      const stateResult = state()
+      renderAfter()
+      return stateResult
+    })
+
+    await waitFor(() => {
+      expect(result.current).toBe(0)
+      // when it render, it will return a promise - hit the suspense, so it should be called twice
+      expect(render).toHaveBeenCalledTimes(2)
+      // after the promise resolved, it will re-render again, this part should be called once
+      expect(renderAfter).toHaveBeenCalledTimes(1)
+    })
   })
 })

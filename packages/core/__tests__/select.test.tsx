@@ -95,6 +95,33 @@ describe('select', () => {
       expect(listener).toHaveBeenCalledWith(1)
     })
   })
+  it('should handle async updates with nested selects', async () => {
+    const state = create(longPromise(100))
+    const selectedState = select([state], async (value) => {
+      await longPromise(100)
+      return (await value) + 1
+    })
+    const selectedState2 = selectedState.select(async (value) => (await value) + 1)
+    const listener = jest.fn()
+    selectedState2.listen(listener)
+    await waitFor(() => {
+      expect(selectedState2.get()).toBe(2)
+      expect(listener).toHaveBeenCalledWith(2)
+    })
+  })
+  it('should handle async updates with async state', async () => {
+    const state = create(longPromise(100))
+    const selectedState = select([state], async (value) => {
+      // await longPromise(100)
+      return (await value) + 1
+    })
+    const listener = jest.fn()
+    selectedState.listen(listener)
+    await waitFor(() => {
+      expect(selectedState.get()).toBe(1)
+      expect(listener).toHaveBeenCalledWith(1)
+    })
+  })
   it('should handle sync state updates when one of par is changed', async () => {
     const state1Atom = create(0)
     const state2Atom = create(0)
@@ -122,6 +149,24 @@ describe('select', () => {
     await waitFor(() => {
       expect(sumState.get()).toBe(3)
       expect(listener).toHaveBeenCalledWith(3)
+    })
+  })
+  it('should select state from async initial state', async () => {
+    const state = create(longPromise(100))
+    const selectedState = state.select(async (value) => {
+      return (await value) + 2
+    })
+    await waitFor(() => {
+      expect(selectedState.get()).toBe(2)
+    })
+  })
+  it('should select state from sync initial state', async () => {
+    const state = create(0)
+    const selectedState = state.select((value) => {
+      return value + 2
+    })
+    await waitFor(() => {
+      expect(selectedState.get()).toBe(2)
     })
   })
 })
