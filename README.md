@@ -251,6 +251,11 @@ So how `set` state will behave with async initial value?
 1. Directly call `.set(2)` will be sync, and will set the value to 2 (it will cancel the initial promise)
 2. Call `.set((prev) => prev + 1)` will wait until previous promise is resolved, so previous value in set callback is always resolved. 
 
+### Async selectors knowledge base
+1. Values in selectors derived from another async selectors will be always sync **(not promise)**
+2. If the selector is async (`state.select(async (s) => s + 1)`) it will automatically use suspense mode, so on each change it firstly resolved promise (hit suspense) and then update the value.
+3. If the selector is sync, but it's derived from async selector, it will also be in suspense mode - but it depends what the parent is, if the parent is async state, it will hit the suspense only once, on initial load, but if the parent is another async selector, it will hit suspense on each change.
+
 ### Debugging
 `Muya` in dev mode automatically connects to the `redux` devtools extension if it is installed in the browser. For now devtool api is simple - state updates.
 
@@ -258,3 +263,6 @@ So how `set` state will behave with async initial value?
 
 This library is a fun, experimental project and not a replacement for robust state management tools. For more advanced use cases, consider libraries like `Zustand`, `Jotai`, or `Redux`. 
 If you enjoy `Muya`, please give it a ⭐️! :)
+
+
+
