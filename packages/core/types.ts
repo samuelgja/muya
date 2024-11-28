@@ -14,7 +14,7 @@ export interface Cache<T> {
 export const EMPTY_SELECTOR = <T, S>(stateValue: T) => stateValue as unknown as S
 
 export interface GetState<T, IsFroMPromise extends boolean = false> {
-  <S>(selector?: (stateValue: T) => S): Awaited<undefined extends S ? T : S>
+  <S>(selector?: (stateValue: Awaited<T>) => S): Awaited<undefined extends S ? T : S>
   /**
    * Get the cached state value.
    */

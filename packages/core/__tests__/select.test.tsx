@@ -87,7 +87,7 @@ describe('select', () => {
     const state = create(longPromise(100))
     const selectedState = select([state], async (value) => {
       await longPromise(100)
-      return (await value) + 1
+      return value + 1
     })
     const listener = jest.fn()
     selectedState.listen(listener)
@@ -100,7 +100,7 @@ describe('select', () => {
     const state = create(longPromise(100))
     const selectedState = select([state], async (value) => {
       await longPromise(100)
-      return (await value) + 1
+      return value + 1
     })
     const selectedState2 = selectedState.select(async (value) => value + 1)
     const listener = jest.fn()
@@ -114,7 +114,7 @@ describe('select', () => {
     const state = create(longPromise(100))
     const selectedState = select([state], async (value) => {
       // await longPromise(100)
-      return (await value) + 1
+      return value + 1
     })
     const listener = jest.fn()
     selectedState.listen(listener)

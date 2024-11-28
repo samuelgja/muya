@@ -9,29 +9,30 @@ type StateDependencies<T extends Array<unknown>> = {
   [K in keyof T]: GetState<T[K]>
 }
 
+type AwaitedArray<T extends Array<unknown>> = {
+  [K in keyof T]: Awaited<T[K]>
+}
 /**
  * Selecting state from multiple states.
  * It will create new state in read-only mode (without set).
  */
 export function select<T = unknown, S extends Array<unknown> = []>(
   states: StateDependencies<S>,
-  selector: (...values: S) => T,
+  selector: (...values: AwaitedArray<S>) => T,
   isEqual?: IsEqual<T>,
 ): GetState<T> {
   const cache: Cache<T> = {}
 
   function computedValue(): T {
-    // const values = states.map((state) => state.get()) as S
-
-    const values: unknown[] = []
     let hasPromise = false
-    for (const state of states) {
-      const value = state.get()
-      if (isPromise(value)) {
+    const values = states.map((state) => {
+      const stateValue = state.get()
+      if (isPromise(stateValue)) {
         hasPromise = true
       }
-      values.push(value)
-    }
+      return stateValue
+    }) as S
+
     if (hasPromise) {
       return new Promise((resolve, reject) => {
         Promise.all(values).then((resolvedValues) => {
@@ -40,12 +41,12 @@ export function select<T = unknown, S extends Array<unknown> = []>(
           if (resolvedValues.some((element) => isUndefined(element))) {
             return reject(new AbortError())
           }
-          const resolved = selector(...(resolvedValues as S))
+          const resolved = selector(...resolvedValues)
           resolve(resolved)
         })
       }) as T
     }
-    const result = selector(...(values as S))
+    const result = selector(...(values as AwaitedArray<S>))
     return result
   }
   function getSnapshot(): T {

@@ -4,13 +4,13 @@ import { isError, isPromise } from './utils/is'
 
 export function useValue<T, S>(
   state: GetState<T>,
-  selector: (stateValue: T) => S = EMPTY_SELECTOR,
+  selector: (stateValue: Awaited<T>) => S = EMPTY_SELECTOR,
 ): Awaited<undefined extends S ? T : S> {
   const { emitter } = state
   const value = useSyncExternalStore<S>(
     state.emitter.subscribe,
-    () => selector(emitter.getSnapshot()),
-    () => selector(emitter.getInitialSnapshot ? emitter.getInitialSnapshot() : emitter.getSnapshot()),
+    () => selector(emitter.getSnapshot() as Awaited<T>),
+    () => selector((emitter.getInitialSnapshot ? emitter.getInitialSnapshot() : emitter.getSnapshot()) as Awaited<T>),
   )
   useDebugValue(value)
   if (isPromise(value)) {
