@@ -5,7 +5,7 @@ import { isError, isPromise } from './utils/is'
 export function useValue<T, S>(
   state: GetState<T>,
   selector: (stateValue: Awaited<T>) => S = EMPTY_SELECTOR,
-): Awaited<undefined extends S ? T : S> {
+): undefined extends S ? Awaited<T> : S {
   const { emitter } = state
   const value = useSyncExternalStore<S>(
     state.emitter.subscribe,
@@ -21,5 +21,5 @@ export function useValue<T, S>(
     throw value
   }
 
-  return value as Awaited<undefined extends S ? T : S>
+  return value as undefined extends S ? Awaited<T> : S
 }
