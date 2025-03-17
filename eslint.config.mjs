@@ -1,4 +1,3 @@
-import tailwind from 'eslint-plugin-tailwindcss'
 import reactHooks from 'eslint-plugin-react-hooks'
 import { fixupPluginRules } from '@eslint/compat'
 import * as depend from 'eslint-plugin-depend'
@@ -7,20 +6,16 @@ import path from 'node:path'
 import reactPerfPlugin from 'eslint-plugin-react-perf'
 import baseConfig from './eslint.config.base.mjs'
 
-
-
-
-const tsConfigPath = path.resolve("./", 'tsconfig.json')
-const eslintBase = baseConfig;
+const tsConfigPath = path.resolve('./', 'tsconfig.json')
+const eslintBase = baseConfig
 /** @type {import('eslint').Linter.Config} */
 const config = [
   ...eslintBase,
   depend.configs['flat/recommended'],
   {
-    ignores: ['**/*.js', '**/api-definitions.ts', '**/.expo/**/*.ts*', "**/dist/**", "**/.storybook/**", "lib/**/*"],
+    ignores: ['**/*.js', '**/api-definitions.ts', '**/.expo/**/*.ts*', '**/dist/**', '**/.storybook/**', 'lib/**/*'],
     files: ['packages/core/*.{ts,tsx}'],
   },
-  ...tailwind.configs['flat/recommended'],
   reactPerfPlugin.configs.flat.recommended,
   {
     files: ['**/*.{ts,tsx}'],
@@ -36,9 +31,6 @@ const config = [
       'react-hooks': fixupPluginRules(reactHooks),
     },
     rules: {
-      'tailwindcss/no-custom-classname': 'off',
-      'tailwindcss/classnames-order': 'off',
-
       ...reactHooks.configs.recommended.rules,
       'react/react-in-jsx-scope': 'off',
       'react-hooks/rules-of-hooks': 'error', // Checks rules of Hooks
@@ -56,7 +48,6 @@ const config = [
       },
     },
   },
-];
-
+]
 
 export default config
