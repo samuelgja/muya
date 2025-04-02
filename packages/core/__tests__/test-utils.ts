@@ -1,3 +1,4 @@
+/* eslint-disable unicorn/prevent-abbreviations */
 import { Component } from 'react'
 
 export function longPromise(time = 200): Promise<number> {

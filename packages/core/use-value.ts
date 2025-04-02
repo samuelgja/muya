@@ -1,16 +1,18 @@
-import { useDebugValue, useSyncExternalStore } from 'react'
+import { useDebugValue } from 'react'
 import { EMPTY_SELECTOR, type GetState } from './types'
 import { isError, isPromise } from './utils/is'
+import { useSyncExternalStoreWithSelector } from 'use-sync-external-store/shim/with-selector'
 
 export function useValue<T, S>(
   state: GetState<T>,
   selector: (stateValue: Awaited<T>) => S = EMPTY_SELECTOR,
 ): undefined extends S ? Awaited<T> : S {
   const { emitter } = state
-  const value = useSyncExternalStore<S>(
+  const value = useSyncExternalStoreWithSelector<T, S>(
     state.emitter.subscribe,
-    () => selector(emitter.getSnapshot() as Awaited<T>),
-    () => selector((emitter.getInitialSnapshot ? emitter.getInitialSnapshot() : emitter.getSnapshot()) as Awaited<T>),
+    emitter.getSnapshot,
+    emitter.getInitialSnapshot,
+    selector as (stateValue: T) => S,
   )
   useDebugValue(value)
   if (isPromise(value)) {
