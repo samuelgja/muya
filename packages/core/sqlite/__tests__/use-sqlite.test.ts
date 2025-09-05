@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react-hooks'
-import { createSqliteState } from '../create-sqlite-state'
-import { useSqliteValue } from '../use-sqlite-value'
+import { createSqliteState } from '../create-sqlite'
+import { useSqliteValue } from '../use-sqlite'
 import { waitFor } from '@testing-library/react'
 import { bunMemoryBackend } from '../table/bun-backend'
 import { useState } from 'react'
@@ -191,7 +191,7 @@ describe('use-sqlite-state', () => {
     })
   })
   it('should change ordering', async () => {
-    const sql = await createSqliteState<Person>({ backend, tableName: 'State7', key: 'id' })
+    const sql = await createSqliteState<Person>({ backend, tableName: 'State7', key: 'id', indexes: ['age'] })
     const people: Person[] = []
     for (let index = 1; index <= 100; index++) {
       people.push({ id: index.toString(), name: `Person${index}`, age: 20 + (index % 50) })
@@ -208,6 +208,28 @@ describe('use-sqlite-state', () => {
     })
     await waitFor(() => {
       expect(result.current[0][0].age).toBe(69)
+    })
+  })
+
+  it('should support selector in options', async () => {
+    const sql = await createSqliteState<Person>({ backend, tableName: 'State8', key: 'id' })
+    await sql.batchSet([
+      { id: '1', name: 'Alice', age: 30 },
+      { id: '2', name: 'Bob', age: 25 },
+      { id: '3', name: 'Carol', age: 40 },
+    ])
+    const { result } = renderHook(() =>
+      useSqliteValue(
+        sql,
+        {
+          sorBy: 'age',
+          select: (d) => d.name,
+        },
+        [],
+      ),
+    )
+    await waitFor(() => {
+      expect(result.current[0]).toEqual(['Bob', 'Alice', 'Carol'])
     })
   })
 })

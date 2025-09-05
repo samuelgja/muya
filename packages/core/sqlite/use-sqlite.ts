@@ -1,5 +1,5 @@
 import { useCallback, useDebugValue, useId, useLayoutEffect, useMemo, type DependencyList } from 'react'
-import type { SyncTable } from './create-sqlite-state'
+import type { SyncTable } from './create-sqlite'
 import type { DocType } from './table/table.types'
 import { isError, isPromise } from '../utils/is'
 import { useSyncExternalStoreWithSelector } from 'use-sync-external-store/shim/with-selector'

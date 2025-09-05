@@ -1,4 +1,4 @@
-import { createSqliteState } from '../create-sqlite-state'
+import { createSqliteState } from '../create-sqlite'
 import { bunMemoryBackend } from '../table/bun-backend'
 
 const backend = bunMemoryBackend()
