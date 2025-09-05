@@ -1,5 +1,5 @@
 import { select } from './select'
-import type { GetState, SetValue, State } from './types'
+import type { GetState, SetValue, State, Cache } from './types'
 import { useValue } from './use-value'
 import { createEmitter } from './utils/create-emitter'
 import { isEqualBase, isPromise } from './utils/is'
@@ -23,7 +23,7 @@ type FullState<T> = GetStateOptions<T>['set'] extends undefined ? GetState<T> : 
 export function createState<T>(options: GetStateOptions<T>): FullState<T> {
   const { get, destroy, set, getSnapshot } = options
   const isSet = !!set
-
+  const cache: Cache<T> = {}
   const state: FullState<T> = function (selector) {
     // eslint-disable-next-line react-hooks/rules-of-hooks
     return useValue(state, selector)
@@ -50,6 +50,7 @@ export function createState<T>(options: GetStateOptions<T>): FullState<T> {
   } as never
   state.get = get as never
   state.set = set as State<T>['set']
+  state.cache = cache
 
   return state
 }

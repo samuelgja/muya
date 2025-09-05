@@ -2,18 +2,26 @@ export const THRESHOLD = 0.2
 export const THRESHOLD_ITEMS = 10
 export const RESCHEDULE_COUNT = 0
 
+type ScheduleId = string | number | symbol
 interface GlobalSchedulerItem<T> {
   value: T
-  id: number
+  id: ScheduleId
 }
 
 export interface SchedulerOptions<T> {
   readonly onResolveItem?: (item: T) => void
-  readonly onFinish: () => void
+  readonly onScheduleDone: () => void | Promise<void>
 }
 
+/**
+ * A simple scheduler to batch updates and avoid blocking the main thread
+ * It uses a combination of time-based and count-based strategies to determine when to flush the queue.
+ * - Time-based: If the time taken to process the current batch is less than a threshold (THRESHOLD), it continues processing.
+ * - Count-based: If the ScheduleId of items in the batch exceeds a certain limit (THRESHOLD_ITEMS), it defers processing to the next microtask.
+ * @returns An object with methods to add listeners and schedule tasks.
+ */
 export function createScheduler() {
-  const listeners = new Map<number, SchedulerOptions<unknown>>()
+  const listeners = new Map<ScheduleId, SchedulerOptions<unknown>>()
   const batches = new Set<GlobalSchedulerItem<unknown>>()
 
   let frame = performance.now()
@@ -44,7 +52,7 @@ export function createScheduler() {
       return
     }
 
-    const effectedListeners = new Set<number>()
+    const effectedListeners = new Set<ScheduleId>()
     for (const value of batches) {
       if (listeners.has(value.id)) {
         effectedListeners.add(value.id)
@@ -62,18 +70,18 @@ export function createScheduler() {
     }
 
     for (const id of effectedListeners) {
-      listeners.get(id)?.onFinish()
+      listeners.get(id)?.onScheduleDone()
     }
   }
 
   return {
-    add<T>(id: number, option: SchedulerOptions<T>) {
+    add<T>(id: ScheduleId, option: SchedulerOptions<T>) {
       listeners.set(id, option as SchedulerOptions<unknown>)
       return () => {
         listeners.delete(id)
       }
     },
-    schedule<T>(id: number, value: T) {
+    schedule<T>(id: ScheduleId, value: T) {
       batches.add({ value, id })
       schedule()
     },

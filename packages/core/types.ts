@@ -63,4 +63,5 @@ export interface State<T> extends GetState<T> {
    */
   withName: (name: string) => State<T>
   isSet: true
+  cache: Cache<T>
 }

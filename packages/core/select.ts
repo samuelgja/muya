@@ -1,7 +1,7 @@
-import { stateScheduler } from './create'
+import { STATE_SCHEDULER } from './create'
 import { createState } from './create-state'
 import { subscribeToDevelopmentTools } from './debug/development-tools'
-import type { Cache, GetState, IsEqual } from './types'
+import type { GetState, IsEqual } from './types'
 import { AbortError, canUpdate, handleAsyncUpdate } from './utils/common'
 import { isPromise, isUndefined } from './utils/is'
 
@@ -21,8 +21,6 @@ export function select<T = unknown, S extends Array<unknown> = []>(
   selector: (...values: AwaitedArray<S>) => T,
   isEqual?: IsEqual<T>,
 ): GetState<T> {
-  const cache: Cache<T> = {}
-
   function computedValue(): T {
     let hasPromise = false
     const values = states.map((state) => {
@@ -50,18 +48,18 @@ export function select<T = unknown, S extends Array<unknown> = []>(
     return result
   }
   function getSnapshot(): T {
-    if (isUndefined(cache.current)) {
+    if (isUndefined(state.cache.current)) {
       const newValue = computedValue()
-      cache.current = handleAsyncUpdate(cache, state.emitter.emit, newValue)
+      state.cache.current = handleAsyncUpdate(state, newValue)
     }
-    return cache.current
+    return state.cache.current
   }
   function getValue(): T {
-    if (isUndefined(cache.current)) {
+    if (isUndefined(state.cache.current)) {
       const newValue = computedValue()
-      cache.current = handleAsyncUpdate(cache, state.emitter.emit, newValue)
+      state.cache.current = handleAsyncUpdate(state, newValue)
     }
-    const { current } = cache
+    const { current } = state.cache
     if (isPromise(current)) {
       return new Promise((resolve) => {
         current.then((value: unknown) => {
@@ -74,13 +72,13 @@ export function select<T = unknown, S extends Array<unknown> = []>(
         })
       }) as T
     }
-    return cache.current
+    return state.cache.current
   }
 
   const cleanups: Array<() => void> = []
   for (const dependencyState of states) {
     const clean = dependencyState.emitter.subscribe(() => {
-      stateScheduler.schedule(state.id, null)
+      STATE_SCHEDULER.schedule(state.id, null)
     })
     cleanups.push(clean)
   }
@@ -92,17 +90,17 @@ export function select<T = unknown, S extends Array<unknown> = []>(
       }
       clearScheduler()
       state.emitter.clear()
-      cache.current = undefined
+      state.cache.current = undefined
     },
     get: getValue,
     getSnapshot,
   })
 
-  const clearScheduler = stateScheduler.add(state.id, {
-    onFinish() {
+  const clearScheduler = STATE_SCHEDULER.add(state.id, {
+    onScheduleDone() {
       const newValue = computedValue()
-      cache.current = handleAsyncUpdate(cache, state.emitter.emit, newValue)
-      if (!canUpdate(cache, isEqual)) {
+      state.cache.current = handleAsyncUpdate(state, newValue)
+      if (!canUpdate(state.cache, isEqual)) {
         return
       }
       state.emitter.emit()
