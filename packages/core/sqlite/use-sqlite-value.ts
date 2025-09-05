@@ -1,9 +1,14 @@
-import { useCallback, useDebugValue, useId, useLayoutEffect, type DependencyList } from 'react'
+import { useCallback, useDebugValue, useId, useLayoutEffect, useMemo, type DependencyList } from 'react'
 import type { SyncTable } from './create-sqlite-state'
 import type { DocType } from './table/table.types'
 import { isError, isPromise } from '../utils/is'
 import { useSyncExternalStoreWithSelector } from 'use-sync-external-store/shim/with-selector'
 import type { Where } from './table/where'
+
+export interface SqLiteActions {
+  readonly next: () => Promise<boolean>
+  readonly reset: () => Promise<void>
+}
 
 export interface UseSearchOptions<Document extends DocType, Selected = Document> {
   readonly sorBy?: keyof Document
@@ -22,21 +27,13 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
   state: SyncTable<Document>,
   options: UseSearchOptions<Document, Selected> = {},
   deps: DependencyList = [],
-): [undefined extends Selected ? Document[] : Selected[], () => void] {
+): [undefined extends Selected ? Document[] : Selected[], SqLiteActions] {
   const { select } = options
 
   const id = useId()
-  useLayoutEffect(() => {
-    const unsubscribe = state.registerSearch(id, { ...options, select: undefined })
-    return () => {
-      unsubscribe()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   useLayoutEffect(() => {
     state.updateSearchOptions(id, { ...options, select: undefined })
-
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps)
 
@@ -68,5 +65,12 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
   if (isError(value)) {
     throw value
   }
-  return [value as undefined extends Selected ? Document[] : Selected[], () => state.next(id)]
+
+  const actions = useMemo((): SqLiteActions => {
+    return {
+      next: () => state.next(id),
+      reset: () => state.refresh(id),
+    }
+  }, [id, state])
+  return [value as undefined extends Selected ? Document[] : Selected[], actions]
 }

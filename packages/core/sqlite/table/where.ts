@@ -11,10 +11,7 @@ export interface Field {
   readonly field: string
 }
 
-interface Condition<
-  Document extends Record<string, unknown>,
-  K extends keyof Document = keyof Document,
-> {
+interface Condition<Document extends Record<string, unknown>, K extends keyof Document = keyof Document> {
   readonly is?: Document[K] | Array<Document[K]>
   readonly isNot?: Document[K] | Array<Document[K]>
   readonly gt?: Document[K] | Array<Document[K]>
@@ -90,17 +87,7 @@ function getFieldExpr(field: string, value: unknown, tableAlias?: string): strin
 // -------------------------------------------------------------
 // Valid operators set (for quick membership checks).
 // -------------------------------------------------------------
-const OPS_SET: ReadonlySet<string> = new Set([
-  'is',
-  'isNot',
-  'gt',
-  'gte',
-  'lt',
-  'lte',
-  'in',
-  'notIn',
-  'like',
-])
+const OPS_SET: ReadonlySet<string> = new Set(['is', 'isNot', 'gt', 'gte', 'lt', 'lte', 'in', 'notIn', 'like'])
 
 function isUndefined(value: unknown): value is undefined {
   return value === undefined
@@ -110,10 +97,7 @@ function isUndefined(value: unknown): value is undefined {
 // Main recursive parser: turn a `Where<Document>` into a SQL clause
 // (without the leading "WHERE").
 // -------------------------------------------------------------
-export function getWhere<Document extends Record<string, unknown>>(
-  where: Where<Document>,
-  tableAlias?: string,
-): string {
+export function getWhere<Document extends Record<string, unknown>>(where: Where<Document>, tableAlias?: string): string {
   if (!where || typeof where !== 'object') {
     return ''
   }
@@ -177,9 +161,7 @@ export function getWhere<Document extends Record<string, unknown>>(
     //  - array           → { in: rawVal }
     let cond: Condition<Document, typeof key>
     if (typeof rawValue !== 'object' || Array.isArray(rawValue)) {
-      cond = Array.isArray(rawValue)
-        ? { in: rawValue }
-        : ({ is: rawValue } as Condition<Document, typeof key>)
+      cond = Array.isArray(rawValue) ? { in: rawValue } : ({ is: rawValue } as Condition<Document, typeof key>)
     } else {
       cond = rawValue as Condition<Document, typeof key>
     }
@@ -279,9 +261,7 @@ export function getWhere<Document extends Record<string, unknown>>(
 // -------------------------------------------------------------
 // Wrap `parse(...)` in "WHERE (…)". If empty, return "".
 // -------------------------------------------------------------
-export function getWhereQuery<Document extends Record<string, unknown>>(
-  where: Where<Document>,
-): string {
+export function getWhereQuery<Document extends Record<string, unknown>>(where: Where<Document>): string {
   const clause = getWhere(where)
   return clause ? `WHERE ${clause}` : ''
 }

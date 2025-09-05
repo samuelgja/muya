@@ -7,7 +7,7 @@ import type { Table, DbOptions, DocType, Key, SearchOptions, MutationResult } fr
 import { getWhereQuery, type Where } from './where'
 
 const DELETE_IN_CHUNK = 500 // keep well below SQLite's default 999 parameter limit
-
+export const DEFAULT_STEP_SIZE = 100
 export async function createTable<Document extends DocType>(options: DbOptions<Document>): Promise<Table<Document>> {
   const { backend, tableName, indexes, key } = options
   const hasUserKey = key !== undefined
@@ -118,7 +118,7 @@ export async function createTable<Document extends DocType>(options: DbOptions<D
         offset = 0,
         where,
         select = (document, _meta) => document as unknown as Selected,
-        stepSize = 100,
+        stepSize = DEFAULT_STEP_SIZE,
       } = options
 
       let baseQuery = `SELECT rowid, data FROM ${tableName}`

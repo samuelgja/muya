@@ -78,43 +78,4 @@ describe('create-sqlite-state', () => {
     for await (const p of sql.search({ where: { age: { lt: 35 } } })) results.push(p)
     expect(results.map((p) => p.id)).toEqual(['1', '2'])
   })
-
-  it('should notify listeners via registerSearch/subscribe and cleanup', async () => {
-    const sql = await createSqliteState<Person>({ backend, tableName: 'State7', key: 'id' })
-    const searchId = 'test-search'
-    let notified = 0
-    const unregister = sql.registerSearch(searchId, {})
-    const unsub = sql.subscribe(searchId, () => {
-      notified++
-    })
-    await sql.set({ id: '1', name: 'Alice', age: 30 })
-    // Wait for async notification
-    await new Promise((done) => setTimeout(done, 10))
-    expect(notified).toBeGreaterThan(0)
-    unsub()
-    unregister()
-    // After cleanup, further changes should not notify
-    notified = 0
-    await sql.set({ id: '2', name: 'Bob', age: 25 })
-    await new Promise((done) => setTimeout(done, 10))
-    expect(notified).toBe(0)
-  })
-
-  it('should cleanup state and listeners on destroy', async () => {
-    const sql = await createSqliteState<Person>({ backend, tableName: 'State8', key: 'id' })
-    const searchId = 'destroy-search'
-    let notified = 0
-    sql.registerSearch(searchId, {})
-    sql.subscribe(searchId, () => {
-      notified++
-    })
-    await sql.set({ id: '1', name: 'Alice', age: 30 })
-    await new Promise((done) => setTimeout(done, 10))
-    expect(notified).toBeGreaterThan(0)
-    sql.destroy()
-    notified = 0
-    await sql.set({ id: '2', name: 'Bob', age: 25 })
-    await new Promise((done) => setTimeout(done, 10))
-    expect(notified).toBe(0)
-  })
 })

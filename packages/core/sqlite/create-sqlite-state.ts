@@ -3,12 +3,11 @@
 /* eslint-disable no-shadow */
 import { createScheduler } from '../scheduler'
 import { shallow } from '../utils/shallow'
-import { createTable } from './table/table'
+import { createTable, DEFAULT_STEP_SIZE } from './table/table'
 import type { DbOptions, DocType, Key, MutationResult, SearchOptions, Table } from './table/table.types'
 import type { Where } from './table/where'
 
 type SearchId = string
-const EMPTY_ARRAY: readonly unknown[] = []
 const STATE_SCHEDULER = createScheduler()
 
 let stateId = 0
@@ -16,7 +15,7 @@ function getStateId() {
   return stateId++
 }
 export interface SyncTable<Document extends DocType> {
-  readonly registerSearch: <Selected = Document>(searchId: SearchId, options: SearchOptions<Document, Selected>) => () => void
+  // readonly registerSearch: <Selected = Document>(searchId: SearchId, options: SearchOptions<Document, Selected>) => () => void
   readonly updateSearchOptions: <Selected = Document>(searchId: SearchId, options: SearchOptions<Document, Selected>) => void
   readonly subscribe: (searchId: SearchId, listener: () => void) => () => void
   readonly getSnapshot: (searchId: SearchId) => Document[]
@@ -31,13 +30,12 @@ export interface SyncTable<Document extends DocType> {
   readonly count: (options?: { where?: Where<Document> }) => Promise<number>
   readonly deleteBy: (where: Where<Document>) => Promise<MutationResult[]>
   readonly destroy: () => void
-  readonly next: (searchId: SearchId) => Promise<void>
+  readonly next: (searchId: SearchId) => Promise<boolean>
 }
 
 interface DataItems<Document extends DocType> {
   items: Document[]
   keys: Set<Key>
-  usedCounter: number
   options?: SearchOptions<Document, unknown>
 }
 
@@ -66,11 +64,11 @@ export async function createSqliteState<Document extends DocType>(options: DbOpt
   const listeners = new Map<SearchId, () => void>()
   const iterators = new Map<SearchId, AsyncIterableIterator<NextResult>>()
 
-  async function next(searchId: SearchId, data: DataItems<Document>) {
+  async function next(searchId: SearchId, data: DataItems<Document>): Promise<boolean> {
     const iterator = iterators.get(searchId)
     const { items, options = {} } = data
-    const { stepSize = 100 } = options
-    if (!iterator) return []
+    const { stepSize = DEFAULT_STEP_SIZE } = options
+    if (!iterator) return false
     const newItems: Document[] = []
 
     for (let index = 0; index < stepSize; index++) {
@@ -83,9 +81,9 @@ export async function createSqliteState<Document extends DocType>(options: DbOpt
       data.keys.add(String(result.value.rowId))
     }
 
-    if (shallow(data.items, newItems)) return items
+    if (shallow(data.items, newItems)) return false
     data.items = [...items, ...newItems]
-    return data.items
+    return newItems.length > 0
   }
 
   function notifyListeners(searchId: SearchId) {
@@ -154,7 +152,7 @@ export async function createSqliteState<Document extends DocType>(options: DbOpt
 
   function registerData(searchId: SearchId, options?: SearchOptions<Document, unknown>) {
     if (!cachedData.has(searchId)) {
-      cachedData.set(searchId, { items: [], usedCounter: 0, options, keys: new Set() })
+      cachedData.set(searchId, { items: [], options, keys: new Set() })
       if (options) {
         refresh(searchId)
       }
@@ -208,24 +206,6 @@ export async function createSqliteState<Document extends DocType>(options: DbOpt
       return await table.count(options)
     },
 
-    registerSearch(searchId, options) {
-      const data = registerData(searchId, options)
-      data.usedCounter += 1
-      const scheduleId = getScheduleId(searchId)
-      const clear = STATE_SCHEDULER.add(scheduleId, {
-        onScheduleDone() {
-          refresh(searchId)
-        },
-      })
-      clearSchedulers.add(clear)
-      return () => {
-        data.usedCounter -= 1
-        if (data.usedCounter <= 0) {
-          cachedData.delete(searchId)
-          clear()
-        }
-      }
-    },
     updateSearchOptions(searchId, options) {
       const data = registerData(searchId, options)
       data.options = options
@@ -234,16 +214,26 @@ export async function createSqliteState<Document extends DocType>(options: DbOpt
     },
 
     subscribe(searchId, listener) {
+      const scheduleId = getScheduleId(searchId)
+      const clear = STATE_SCHEDULER.add(scheduleId, {
+        onScheduleDone() {
+          refresh(searchId)
+        },
+      })
+      clearSchedulers.add(clear)
+
       if (!listeners.has(searchId)) {
         listeners.set(searchId, listener)
       }
       return () => {
         listeners.delete(searchId)
+        clear()
+        cachedData.delete(searchId)
       }
     },
     getSnapshot(searchId) {
       const data = registerData(searchId)
-      return data ? data.items : (EMPTY_ARRAY as Document[])
+      return data.items
     },
     refresh,
     destroy() {
@@ -254,9 +244,13 @@ export async function createSqliteState<Document extends DocType>(options: DbOpt
     async next(searchId) {
       const data = cachedData.get(searchId)
       if (data) {
-        await next(searchId, data)
-        notifyListeners(searchId)
+        const hasNext = await next(searchId, data)
+        if (hasNext) {
+          notifyListeners(searchId)
+        }
+        return hasNext
       }
+      return false
     },
   }
 }
