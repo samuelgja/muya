@@ -12,13 +12,13 @@ import * as depend from 'eslint-plugin-depend'
 
 import path from 'node:path'
 
-const tsConfigPath = path.resolve("./", 'tsconfig.json')
+const tsConfigPath = path.resolve('./', 'tsconfig.json')
 
- /** @type {import('eslint').Linter.Config} */
- const config =  [
+/** @type {import('eslint').Linter.Config} */
+const config = [
   depend.configs['flat/recommended'],
   {
-    ignores: ['**/*.js', '**/api-definitions.ts', '**/.expo/**/*.ts*', "**/dist/**", "**/.storybook/**", "lib/**/*"],
+    ignores: ['**/*.js', '**/api-definitions.ts', '**/.expo/**/*.ts*', '**/dist/**', '**/.storybook/**', 'lib/**/*'],
     files: ['packages/core/*.{ts,tsx}'],
   },
   js.configs.recommended,
@@ -78,7 +78,7 @@ const tsConfigPath = path.resolve("./", 'tsconfig.json')
       '@typescript-eslint/return-await': ['off'],
       '@typescript-eslint/prefer-nullish-coalescing': ['off'],
       '@typescript-eslint/no-dynamic-delete': ['off'],
-      '@typescript-eslint/prefer-optional-chain': ['error'], 
+      '@typescript-eslint/prefer-optional-chain': ['error'],
       '@typescript-eslint/no-var-requires': ['warn'],
       '@typescript-eslint/no-invalid-void-type': ['off'],
       '@typescript-eslint/explicit-function-return-type': ['off'],
@@ -103,6 +103,8 @@ const tsConfigPath = path.resolve("./", 'tsconfig.json')
         'error',
         {
           replacements: {
+            idx: false,
+            doc: false,
             props: false,
             param: false,
             ref: false,
@@ -119,6 +121,6 @@ const tsConfigPath = path.resolve("./", 'tsconfig.json')
       ],
     },
   },
-];
+]
 
 export default config

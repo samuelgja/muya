@@ -1,4 +1,4 @@
-import type { Cache, IsEqual } from '../types'
+import type { Cache, IsEqual, State } from '../types'
 import { isAbortError, isEqualBase, isPromise, isUndefined } from './is'
 
 export interface CancelablePromise<T> {
@@ -46,7 +46,11 @@ export function canUpdate<T>(cache: Cache<T>, isEqual: IsEqual<T> = isEqualBase)
 /**
  * Handle async updates for `create` and `select`
  */
-export function handleAsyncUpdate<T>(cache: Cache<T>, emit: () => void, value: T): T {
+export function handleAsyncUpdate<T>(state: State<T>, value: T): T {
+  const {
+    cache,
+    emitter: { emit },
+  } = state
   if (!isPromise(value)) {
     return value
   }

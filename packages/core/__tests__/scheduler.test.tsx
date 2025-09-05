@@ -9,7 +9,7 @@ describe('scheduler', () => {
     const value = 2
     const callback = jest.fn()
     scheduler.add(id, {
-      onFinish: callback,
+      onScheduleDone: callback,
     })
     scheduler.schedule(id, value)
     await waitFor(() => {
@@ -23,7 +23,7 @@ describe('scheduler', () => {
     for (const id of ids) {
       const callback = jest.fn()
       scheduler.add(id, {
-        onFinish: callback,
+        onScheduleDone: callback,
       })
       callbacks.push(callback)
     }

@@ -1,40 +1,38 @@
 import { canUpdate, handleAsyncUpdate } from './utils/common'
 import { isEqualBase, isFunction, isPromise, isSetValueFunction, isUndefined } from './utils/is'
-import type { Cache, DefaultValue, IsEqual, SetStateCb, SetValue, State } from './types'
+import type { DefaultValue, IsEqual, SetStateCb, SetValue, State } from './types'
 import { createScheduler } from './scheduler'
 import { subscribeToDevelopmentTools } from './debug/development-tools'
 import { createState } from './create-state'
 
-export const stateScheduler = createScheduler()
+export const STATE_SCHEDULER = createScheduler()
 
 /**
  * Create state from a default value.
  */
 export function create<T>(initialValue: DefaultValue<T>, isEqual: IsEqual<T> = isEqualBase): State<T> {
-  const cache: Cache<T> = {}
-
   function getValue(): T {
     try {
-      if (isUndefined(cache.current)) {
+      if (isUndefined(state.cache.current)) {
         const value = isFunction(initialValue) ? initialValue() : initialValue
-        const resolvedValue = handleAsyncUpdate(cache, state.emitter.emit, value)
-        cache.current = resolvedValue
+        const resolvedValue = handleAsyncUpdate(state, value)
+        state.cache.current = resolvedValue
 
-        return cache.current
+        return state.cache.current
       }
-      return cache.current
+      return state.cache.current
     } catch (error) {
-      cache.current = error as T
+      state.cache.current = error as T
     }
 
-    return cache.current
+    return state.cache.current
   }
 
   async function handleAsyncSetValue(previousPromise: Promise<T>, value: SetStateCb<T>) {
     await previousPromise
-    const newValue = value(cache.current as Awaited<T>)
-    const resolvedValue = handleAsyncUpdate(cache, state.emitter.emit, newValue)
-    cache.current = resolvedValue
+    const newValue = value(state.cache.current as Awaited<T>)
+    const resolvedValue = handleAsyncUpdate(state, newValue)
+    state.cache.current = resolvedValue
   }
 
   function setValue(value: SetValue<T>) {
@@ -45,13 +43,13 @@ export function create<T>(initialValue: DefaultValue<T>, isEqual: IsEqual<T> = i
       handleAsyncSetValue(previous as Promise<T>, value)
       return
     }
-    if (cache.abortController) {
-      cache.abortController.abort()
+    if (state.cache.abortController) {
+      state.cache.abortController.abort()
     }
 
     const newValue = isFunctionValue ? value(previous as Awaited<T>) : value
-    const resolvedValue = handleAsyncUpdate(cache, state.emitter.emit, newValue)
-    cache.current = resolvedValue
+    const resolvedValue = handleAsyncUpdate(state, newValue)
+    state.cache.current = resolvedValue
   }
 
   const state = createState<T>({
@@ -60,18 +58,18 @@ export function create<T>(initialValue: DefaultValue<T>, isEqual: IsEqual<T> = i
       getValue()
       clearScheduler()
       state.emitter.clear()
-      cache.current = undefined
+      state.cache.current = undefined
     },
     set(value: SetValue<T>) {
-      stateScheduler.schedule(state.id, value)
+      STATE_SCHEDULER.schedule(state.id, value)
     },
     getSnapshot: getValue,
   })
 
-  const clearScheduler = stateScheduler.add(state.id, {
-    onFinish() {
-      cache.current = getValue()
-      if (!canUpdate(cache, isEqual)) {
+  const clearScheduler = STATE_SCHEDULER.add(state.id, {
+    onScheduleDone() {
+      state.cache.current = getValue()
+      if (!canUpdate(state.cache, isEqual)) {
         return
       }
       state.emitter.emit()
