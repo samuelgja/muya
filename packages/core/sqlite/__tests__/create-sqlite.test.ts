@@ -10,7 +10,7 @@ interface Person {
 
 describe('create-sqlite-state', () => {
   it('should batchSet and update multiple documents', async () => {
-    const sql = await createSqliteState<Person>({ backend, tableName: 'State2', key: 'id' })
+    const sql = createSqliteState<Person>({ backend, tableName: 'State2', key: 'id' })
     await sql.batchSet([
       { id: '1', name: 'Alice', age: 30 },
       { id: '2', name: 'Bob', age: 25 },
@@ -32,7 +32,7 @@ describe('create-sqlite-state', () => {
   })
 
   it('should deleteBy condition', async () => {
-    const sql = await createSqliteState<Person>({ backend, tableName: 'State3', key: 'id' })
+    const sql = createSqliteState<Person>({ backend, tableName: 'State3', key: 'id' })
     await sql.batchSet([
       { id: '1', name: 'Alice', age: 30 },
       { id: '2', name: 'Bob', age: 25 },
@@ -46,7 +46,7 @@ describe('create-sqlite-state', () => {
   })
 
   it('should get by key and with selector', async () => {
-    const sql = await createSqliteState<Person>({ backend, tableName: 'State4', key: 'id' })
+    const sql = createSqliteState<Person>({ backend, tableName: 'State4', key: 'id' })
     await sql.set({ id: '1', name: 'Alice', age: 30 })
     const doc = await sql.get('1')
     expect(doc).toEqual({ id: '1', name: 'Alice', age: 30 })
@@ -57,7 +57,7 @@ describe('create-sqlite-state', () => {
   })
 
   it('should count documents with and without where', async () => {
-    const sql = await createSqliteState<Person>({ backend, tableName: 'State5', key: 'id' })
+    const sql = createSqliteState<Person>({ backend, tableName: 'State5', key: 'id' })
     await sql.batchSet([
       { id: '1', name: 'Alice', age: 30 },
       { id: '2', name: 'Bob', age: 25 },
@@ -68,7 +68,7 @@ describe('create-sqlite-state', () => {
   })
 
   it('should support search with options', async () => {
-    const sql = await createSqliteState<Person>({ backend, tableName: 'State6', key: 'id' })
+    const sql = createSqliteState<Person>({ backend, tableName: 'State6', key: 'id' })
     await sql.batchSet([
       { id: '1', name: 'Alice', age: 30 },
       { id: '2', name: 'Bob', age: 25 },
