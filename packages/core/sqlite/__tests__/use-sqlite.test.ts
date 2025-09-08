@@ -76,7 +76,7 @@ describe('use-sqlite-state', () => {
     })
 
     await waitFor(() => {
-      expect(result.current[0][0].map((p) => p.name)).toEqual(['Bob', 'Alice', 'Carol'])
+      expect(result.current[0][0].map((p) => p.name)).toEqual(['Alice', 'Bob', 'Carol'])
       expect(reRenders).toBe(2)
     })
 
@@ -129,13 +129,13 @@ describe('use-sqlite-state', () => {
       { initialProps: { order: 'asc' as 'asc' | 'desc', limit: 2 } },
     )
     await waitFor(() => {
-      expect(result.current[0].map((p) => p.name)).toEqual(['Bob', 'Alice'])
+      expect(result.current[0].map((p) => p.name)).toEqual(['Alice', 'Bob'])
     })
     act(() => {
       rerender({ order: 'desc', limit: 2 })
     })
     await waitFor(() => {
-      expect(result.current[0].map((p) => p.name)).toEqual(['Carol', 'Alice'])
+      expect(result.current[0].map((p) => p.name)).toEqual(['Carol', 'Bob'])
     })
     act(() => {
       rerender({ order: 'desc', limit: 1 })
@@ -240,7 +240,7 @@ describe('use-sqlite-state', () => {
       initialProps: { order: 'asc' as 'asc' | 'desc' },
     })
     await waitFor(() => {
-      expect(result.current[0][0].age).toBe(20)
+      expect(result.current[0][0].age).toBe(21)
     })
     act(() => {
       rerender({ order: 'desc' })
@@ -268,7 +268,7 @@ describe('use-sqlite-state', () => {
       ),
     )
     await waitFor(() => {
-      expect(result.current[0]).toEqual(['Bob', 'Alice', 'Carol'])
+      expect(result.current[0]).toEqual(['Alice', 'Bob', 'Carol'])
     })
   })
 })

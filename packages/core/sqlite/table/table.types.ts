@@ -16,6 +16,7 @@ export interface DbOptions<Document extends DocType> {
    * Optional key. If omitted, the table uses implicit SQLite ROWID as the key.
    */
   readonly key?: keyof Document
+  readonly disablePragmaOptimization?: boolean
 }
 
 interface DbNotGeneric {
@@ -23,7 +24,7 @@ interface DbNotGeneric {
 }
 
 export interface SearchOptions<Document extends DocType, Selected = Document> {
-  readonly sorBy?: keyof Document
+  readonly sortBy?: keyof Document
   readonly order?: 'asc' | 'desc'
   readonly limit?: number
   readonly offset?: number
