@@ -9,8 +9,17 @@ import { getWhereQuery, type Where } from './where'
 const DELETE_IN_CHUNK = 500 // keep well below SQLite's default 999 parameter limit
 export const DEFAULT_STEP_SIZE = 100
 export async function createTable<Document extends DocType>(options: DbOptions<Document>): Promise<Table<Document>> {
-  const { backend, tableName, indexes, key } = options
+  const { backend, tableName, indexes, key, disablePragmaOptimization } = options
   const hasUserKey = key !== undefined
+
+  // --- Apply performance PRAGMAs unless explicitly disabled ---
+  // These significantly speed up write-heavy workloads on SQLite.
+  if (!disablePragmaOptimization) {
+    await backend.execute(`PRAGMA journal_mode=WAL;`)
+    await backend.execute(`PRAGMA synchronous=NORMAL;`)
+    await backend.execute(`PRAGMA temp_store=MEMORY;`)
+    await backend.execute(`PRAGMA cache_size=-20000;`)
+  }
 
   // Schema
   if (hasUserKey) {
@@ -112,7 +121,7 @@ export async function createTable<Document extends DocType>(options: DbOptions<D
     // --- FIXED: include rowid in search ---
     async *search<Selected = Document>(options: SearchOptions<Document, Selected> = {}): AsyncIterableIterator<Selected> {
       const {
-        sorBy,
+        sortBy,
         order = 'asc',
         limit,
         offset = 0,
@@ -129,8 +138,8 @@ export async function createTable<Document extends DocType>(options: DbOptions<D
       while (true) {
         let query = baseQuery
 
-        if (sorBy) {
-          query += ` ORDER BY json_extract(data, '$.${String(sorBy)}') COLLATE NOCASE ${order.toUpperCase()}`
+        if (sortBy) {
+          query += ` ORDER BY json_extract(data, '$.${String(sortBy)}') COLLATE NOCASE ${order.toUpperCase()}`
         } else {
           query += hasUserKey ? ` ORDER BY key COLLATE NOCASE ${order.toUpperCase()}` : ` ORDER BY rowid ${order.toUpperCase()}`
         }

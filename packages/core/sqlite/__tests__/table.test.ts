@@ -57,14 +57,14 @@ describe('table', () => {
     }
     // sort by age ascending
     const asc = [] as Person[]
-    for await (const p of table.search({ sorBy: 'age', order: 'asc' })) asc.push(p)
+    for await (const p of table.search({ sortBy: 'age', order: 'asc' })) asc.push(p)
     expect(asc.map((p) => p.name)).toEqual(['Bob', 'Alice', 'Carol'])
     // limit and offset
     const limited = [] as Person[]
-    for await (const p of table.search({ sorBy: 'age', order: 'asc', limit: 2 })) limited.push(p)
+    for await (const p of table.search({ sortBy: 'age', order: 'asc', limit: 2 })) limited.push(p)
     expect(limited.map((p) => p.name)).toEqual(['Bob', 'Alice'])
     const offsetted = [] as Person[]
-    for await (const p of table.search({ sorBy: 'age', order: 'asc', offset: 1, limit: 2 })) offsetted.push(p)
+    for await (const p of table.search({ sortBy: 'age', order: 'asc', offset: 1, limit: 2 })) offsetted.push(p)
     expect(offsetted.map((p) => p.name)).toEqual(['Alice', 'Carol'])
   })
 
@@ -109,7 +109,7 @@ describe('table', () => {
       await table.set(p)
     }
     const results: Person[] = []
-    for await (const person of table.search({ sorBy: 'age', order: 'asc', limit: 100 })) {
+    for await (const person of table.search({ sortBy: 'age', order: 'asc', limit: 100 })) {
       results.push(person)
     }
     expect(results.length).toBe(100)
@@ -119,7 +119,7 @@ describe('table', () => {
     expect(await table.count()).toBe(0)
     expect(await table.get('NonExistent')).toBeUndefined()
     const results: Person[] = []
-    for await (const person of table.search({ sorBy: 'age', order: 'asc' })) {
+    for await (const person of table.search({ sortBy: 'age', order: 'asc' })) {
       results.push(person)
     }
     expect(results.length).toBe(0)

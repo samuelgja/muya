@@ -3,20 +3,14 @@ import type { SyncTable } from './create-sqlite'
 import type { DocType } from './table/table.types'
 import { isError, isPromise } from '../utils/is'
 import { useSyncExternalStoreWithSelector } from 'use-sync-external-store/shim/with-selector'
-import type { Where } from './table/where'
+import type { SqlSeachOptions } from './select-sql'
 
 export interface SqLiteActions {
   readonly next: () => Promise<boolean>
   readonly reset: () => Promise<void>
 }
 
-export interface UseSearchOptions<Document extends DocType, Selected = Document> {
-  readonly sorBy?: keyof Document
-  readonly order?: 'asc' | 'desc'
-  readonly limit?: number
-  readonly offset?: number
-  readonly where?: Where<Document>
-  readonly stepSize?: number
+export interface UseSearchOptions<Document extends DocType, Selected = Document> extends SqlSeachOptions<Document> {
   /**
    * Naive projection. Prefer specialized queries for heavy fan-out graphs.
    */

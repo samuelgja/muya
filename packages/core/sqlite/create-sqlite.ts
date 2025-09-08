@@ -3,6 +3,7 @@
 /* eslint-disable no-shadow */
 import { createScheduler } from '../scheduler'
 import { shallow } from '../utils/shallow'
+import { selectSql, type CreateState } from './select-sql'
 import { createTable, DEFAULT_STEP_SIZE } from './table/table'
 import type { DbOptions, DocType, Key, MutationResult, SearchOptions, Table } from './table/table.types'
 import type { Where } from './table/where'
@@ -14,6 +15,7 @@ let stateId = 0
 function getStateId() {
   return stateId++
 }
+
 export interface SyncTable<Document extends DocType> {
   // readonly registerSearch: <Selected = Document>(searchId: SearchId, options: SearchOptions<Document, Selected>) => () => void
   readonly updateSearchOptions: <Selected = Document>(searchId: SearchId, options: SearchOptions<Document, Selected>) => void
@@ -31,6 +33,10 @@ export interface SyncTable<Document extends DocType> {
   readonly deleteBy: (where: Where<Document>) => Promise<MutationResult[]>
   readonly destroy: () => void
   readonly next: (searchId: SearchId) => Promise<boolean>
+
+  readonly select: <Params extends unknown[]>(
+    compute: (...args: Params) => SearchOptions<Document>,
+  ) => CreateState<Document, Params>
 }
 
 interface DataItems<Document extends DocType> {
@@ -39,7 +45,7 @@ interface DataItems<Document extends DocType> {
   options?: SearchOptions<Document, unknown>
 }
 
-export async function createSqliteState<Document extends DocType>(options: DbOptions<Document>): Promise<SyncTable<Document>> {
+export function createSqliteState<Document extends DocType>(options: DbOptions<Document>): SyncTable<Document> {
   // const table = await createTable<Document>(options)
 
   const id = getStateId()
@@ -66,7 +72,7 @@ export async function createSqliteState<Document extends DocType>(options: DbOpt
 
   async function next(searchId: SearchId, data: DataItems<Document>): Promise<boolean> {
     const iterator = iterators.get(searchId)
-    const { items, options = {} } = data
+    const { options = {} } = data
     const { stepSize = DEFAULT_STEP_SIZE } = options
     if (!iterator) return false
     const newItems: Document[] = []
@@ -81,9 +87,10 @@ export async function createSqliteState<Document extends DocType>(options: DbOpt
       data.keys.add(String(result.value.rowId))
     }
 
+    if (newItems.length === 0) return false
     if (shallow(data.items, newItems)) return false
-    data.items = [...items, ...newItems]
-    return newItems.length > 0
+    data.items = [...data.items, ...newItems]
+    return true
   }
 
   function notifyListeners(searchId: SearchId) {
@@ -164,7 +171,7 @@ export async function createSqliteState<Document extends DocType>(options: DbOpt
     return data
   }
 
-  return {
+  const state: SyncTable<Document> = {
     async set(document) {
       const table = await getTable()
       const changes = await table.set(document)
@@ -252,5 +259,11 @@ export async function createSqliteState<Document extends DocType>(options: DbOpt
       }
       return false
     },
+
+    select(compute) {
+      return selectSql(state, compute)
+    },
   }
+
+  return state
 }

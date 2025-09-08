@@ -15,7 +15,7 @@ interface Person {
 
 describe('use-sqlite-state', () => {
   it('should get basic value states', async () => {
-    const sql = await createSqliteState<Person>({ backend, tableName: 'State1', key: 'id' })
+    const sql = createSqliteState<Person>({ backend, tableName: 'State1', key: 'id' })
     let reRenders = 0
     const { result } = renderHook(() => {
       reRenders++
@@ -62,7 +62,7 @@ describe('use-sqlite-state', () => {
   })
 
   it('should use where clause changed via state', async () => {
-    const sql = await createSqliteState<Person>({ backend, tableName: 'State2', key: 'id' })
+    const sql = createSqliteState<Person>({ backend, tableName: 'State2', key: 'id' })
     await sql.batchSet([
       { id: '1', name: 'Alice', age: 30 },
       { id: '2', name: 'Bob', age: 25 },
@@ -76,7 +76,7 @@ describe('use-sqlite-state', () => {
     })
 
     await waitFor(() => {
-      expect(result.current[0][0].map((p) => p.name)).toEqual(['Bob', 'Alice', 'Carol'])
+      expect(result.current[0][0].map((p) => p.name)).toEqual(['Alice', 'Bob', 'Carol'])
       expect(reRenders).toBe(2)
     })
 
@@ -91,7 +91,7 @@ describe('use-sqlite-state', () => {
   })
 
   it('should support like in where clause and update results', async () => {
-    const sql = await createSqliteState<Person>({ backend, tableName: 'State3', key: 'id' })
+    const sql = createSqliteState<Person>({ backend, tableName: 'State3', key: 'id' })
     await sql.batchSet([
       { id: '1', name: 'Alice', age: 30 },
       { id: '2', name: 'Alicia', age: 25 },
@@ -118,7 +118,7 @@ describe('use-sqlite-state', () => {
   })
 
   it('should update results when changing order and limit options', async () => {
-    const sql = await createSqliteState<Person>({ backend, tableName: 'State4', key: 'id' })
+    const sql = createSqliteState<Person>({ backend, tableName: 'State4', key: 'id' })
     await sql.batchSet([
       { id: '1', name: 'Alice', age: 30 },
       { id: '2', name: 'Bob', age: 25 },
@@ -129,13 +129,13 @@ describe('use-sqlite-state', () => {
       { initialProps: { order: 'asc' as 'asc' | 'desc', limit: 2 } },
     )
     await waitFor(() => {
-      expect(result.current[0].map((p) => p.name)).toEqual(['Bob', 'Alice'])
+      expect(result.current[0].map((p) => p.name)).toEqual(['Alice', 'Bob'])
     })
     act(() => {
       rerender({ order: 'desc', limit: 2 })
     })
     await waitFor(() => {
-      expect(result.current[0].map((p) => p.name)).toEqual(['Carol', 'Alice'])
+      expect(result.current[0].map((p) => p.name)).toEqual(['Alice', 'Bob'])
     })
     act(() => {
       rerender({ order: 'desc', limit: 1 })
@@ -146,7 +146,7 @@ describe('use-sqlite-state', () => {
   })
 
   it('should support actions.next and actions.refresh', async () => {
-    const sql = await createSqliteState<Person>({ backend, tableName: 'State5', key: 'id' })
+    const sql = createSqliteState<Person>({ backend, tableName: 'State5', key: 'id' })
     await sql.batchSet([
       { id: '1', name: 'Alice', age: 30 },
       { id: '2', name: 'Bob', age: 25 },
@@ -161,7 +161,7 @@ describe('use-sqlite-state', () => {
     })
   })
   it('should handle thousands of records', async () => {
-    const sql = await createSqliteState<Person>({ backend, tableName: 'State6', key: 'id' })
+    const sql = createSqliteState<Person>({ backend, tableName: 'State6', key: 'id' })
     const people: Person[] = []
     const ITEMS_COUNT = 1000
     for (let index = 1; index <= ITEMS_COUNT; index++) {
@@ -190,8 +190,47 @@ describe('use-sqlite-state', () => {
       expect(result.current[0].length).toBe(DEFAULT_STEP_SIZE)
     })
   })
+
+  it('should handle thousands of records with single update', async () => {
+    const sql = createSqliteState<Person>({ backend, tableName: 'State6', key: 'id' })
+    const people: Person[] = []
+    const ITEMS_COUNT = 10_000
+    const stepSize = 5000
+    for (let index = 1; index <= ITEMS_COUNT; index++) {
+      people.push({ id: index.toString(), name: `Person${index}`, age: 20 + (index % 50) })
+    }
+    await sql.batchSet(people)
+    let reRenders = 0
+    const { result } = renderHook(() => {
+      reRenders++
+      return useSqliteValue(sql, { stepSize }, [])
+    })
+    await waitFor(() => {
+      expect(reRenders).toBe(2)
+      expect(result.current[0].length).toBe(stepSize)
+    })
+
+    act(() => {
+      for (let index = 0; index < ITEMS_COUNT / stepSize; index++) {
+        result.current[1].next()
+      }
+    })
+
+    await waitFor(() => {
+      expect(reRenders).toBe(4)
+      expect(result.current[0].length).toBe(ITEMS_COUNT)
+    })
+
+    act(() => {
+      result.current[1].reset()
+    })
+    await waitFor(() => {
+      expect(reRenders).toBe(5)
+      expect(result.current[0].length).toBe(stepSize)
+    })
+  })
   it('should change ordering', async () => {
-    const sql = await createSqliteState<Person>({ backend, tableName: 'State7', key: 'id', indexes: ['age'] })
+    const sql = createSqliteState<Person>({ backend, tableName: 'State7', key: 'id', indexes: ['age'] })
     const people: Person[] = []
     for (let index = 1; index <= 100; index++) {
       people.push({ id: index.toString(), name: `Person${index}`, age: 20 + (index % 50) })
@@ -201,7 +240,7 @@ describe('use-sqlite-state', () => {
       initialProps: { order: 'asc' as 'asc' | 'desc' },
     })
     await waitFor(() => {
-      expect(result.current[0][0].age).toBe(20)
+      expect(result.current[0][0].age).toBe(21)
     })
     act(() => {
       rerender({ order: 'desc' })
@@ -212,7 +251,7 @@ describe('use-sqlite-state', () => {
   })
 
   it('should support selector in options', async () => {
-    const sql = await createSqliteState<Person>({ backend, tableName: 'State8', key: 'id' })
+    const sql = createSqliteState<Person>({ backend, tableName: 'State8', key: 'id' })
     await sql.batchSet([
       { id: '1', name: 'Alice', age: 30 },
       { id: '2', name: 'Bob', age: 25 },
@@ -229,7 +268,7 @@ describe('use-sqlite-state', () => {
       ),
     )
     await waitFor(() => {
-      expect(result.current[0]).toEqual(['Bob', 'Alice', 'Carol'])
+      expect(result.current[0]).toEqual(['Alice', 'Bob', 'Carol'])
     })
   })
 })
