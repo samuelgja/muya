@@ -16,10 +16,6 @@ function getStateId() {
   return stateId++
 }
 
-export interface SqLiteActions {
-  readonly next: () => Promise<boolean>
-  readonly reset: () => Promise<void>
-}
 export interface SyncTable<Document extends DocType> {
   // readonly registerSearch: <Selected = Document>(searchId: SearchId, options: SearchOptions<Document, Selected>) => () => void
   readonly updateSearchOptions: <Selected = Document>(searchId: SearchId, options: SearchOptions<Document, Selected>) => void
