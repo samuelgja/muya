@@ -4,7 +4,7 @@ import { longPromise } from './test-utils'
 import { isPromise } from '../utils/is'
 
 describe('create', () => {
-  it('should get basic value states', async () => {
+  it('should get basic value states here', async () => {
     const state1 = create(1)
     const state2 = create(2)
     expect(state1.get()).toBe(1)

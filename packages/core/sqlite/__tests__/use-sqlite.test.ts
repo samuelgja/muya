@@ -14,14 +14,13 @@ interface Person {
 }
 
 describe('use-sqlite-state', () => {
-  it('should get basic value states', async () => {
-    const sql = createSqliteState<Person>({ backend, tableName: 'State1', key: 'id' })
+  it('should use state', async () => {
+    const sql = createSqliteState<Person>({ backend, tableName: 'StateXXX', key: 'id' })
     let reRenders = 0
     const { result } = renderHook(() => {
       reRenders++
       return useSqliteValue(sql, {}, [])
     })
-    // expect(result.current).toEqual([])
 
     expect(reRenders).toBe(1)
 
