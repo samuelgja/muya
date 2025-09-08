@@ -82,6 +82,7 @@ export async function createSqliteState<Document extends DocType>(options: DbOpt
     }
 
     if (shallow(data.items, newItems)) return false
+    console.log('next', data.items.length)
     data.items = [...items, ...newItems]
     return newItems.length > 0
   }

@@ -190,6 +190,38 @@ describe('use-sqlite-state', () => {
       expect(result.current[0].length).toBe(DEFAULT_STEP_SIZE)
     })
   })
+
+  it('should handle thousands of records with single update', async () => {
+    const sql = await createSqliteState<Person>({ backend, tableName: 'State6', key: 'id' })
+    const people: Person[] = []
+    const ITEMS_COUNT = 1000
+    for (let index = 1; index <= ITEMS_COUNT; index++) {
+      people.push({ id: index.toString(), name: `Person${index}`, age: 20 + (index % 50) })
+    }
+    await sql.batchSet(people)
+    const { result } = renderHook(() => useSqliteValue(sql, {}, []))
+    await waitFor(() => {
+      expect(result.current[0].length).toBe(DEFAULT_STEP_SIZE)
+    })
+
+    // loop until we have all ITEMS_COUNT items
+    act(() => {
+      for (let index = 0; index < ITEMS_COUNT / DEFAULT_STEP_SIZE; index++) {
+        result.current[1].next()
+      }
+    })
+
+    await waitFor(() => {
+      expect(result.current[0].length).toBe(ITEMS_COUNT)
+    })
+
+    act(() => {
+      result.current[1].reset()
+    })
+    await waitFor(() => {
+      expect(result.current[0].length).toBe(DEFAULT_STEP_SIZE)
+    })
+  })
   it('should change ordering', async () => {
     const sql = await createSqliteState<Person>({ backend, tableName: 'State7', key: 'id', indexes: ['age'] })
     const people: Person[] = []
