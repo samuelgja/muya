@@ -17,6 +17,14 @@ export interface UseSearchOptions<Document extends DocType, Selected = Document>
   readonly select?: (document: Document) => Selected
 }
 
+/**
+ * React hook to subscribe to a SyncTable and get its current snapshot, with optional search options and selector for derived state
+ * @param state The SyncTable to subscribe to
+ * @param options Optional search options to filter and sort the documents
+ * @param deps Dependency list to control when to update the search options
+ * @returns A tuple containing the current array of documents (or selected documents) and an object with actions to interact with the SyncTable
+ * @throws If the value is a Promise or an Error, it will be thrown to be handled by an error boundary or suspense
+ */
 export function useSqliteValue<Document extends DocType, Selected = Document>(
   state: SyncTable<Document>,
   options: UseSearchOptions<Document, Selected> = {},

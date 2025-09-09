@@ -5,6 +5,7 @@ import tsParser from '@typescript-eslint/parser'
 import path from 'node:path'
 import reactPerfPlugin from 'eslint-plugin-react-perf'
 import baseConfig from './eslint.config.base.mjs'
+import jsdoc from 'eslint-plugin-jsdoc'
 
 const tsConfigPath = path.resolve('./', 'tsconfig.json')
 const eslintBase = baseConfig
@@ -16,6 +17,7 @@ const config = [
     ignores: ['**/*.js', '**/api-definitions.ts', '**/.expo/**/*.ts*', '**/dist/**', '**/.storybook/**', 'lib/**/*'],
     files: ['packages/core/*.{ts,tsx}'],
   },
+  jsdoc.configs['flat/recommended-typescript'],
   reactPerfPlugin.configs.flat.recommended,
   {
     files: ['**/*.{ts,tsx}'],
@@ -39,6 +41,21 @@ const config = [
         'error',
         {
           additionalHooks: '(useAnimatedStyle|useDerivedValue|useAnimatedProps|useStyle)',
+        },
+      ],
+
+      'jsdoc/require-description': 'error',
+      'jsdoc/check-tag-names': [
+        'error',
+        {
+          definedTags: [
+            'group',
+            'category',
+            'remarks',
+            'example',
+            'experimental',
+            // add other TypeDoc-specific tags you use
+          ],
         },
       ],
     },

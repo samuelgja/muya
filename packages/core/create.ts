@@ -8,9 +8,16 @@ import { createState } from './create-state'
 export const STATE_SCHEDULER = createScheduler()
 
 /**
- * Create state from a default value.
+ * Create a new state with an initial value and optional equality check
+ * @param initialValue The initial value or a function that returns the initial value
+ * @param isEqual Optional custom equality check function
+ * @returns A State<T> object
  */
 export function create<T>(initialValue: DefaultValue<T>, isEqual: IsEqual<T> = isEqualBase): State<T> {
+  /**
+   * Get the current value of the state, initializing it if necessary.
+   * @returns The current value of the state
+   */
   function getValue(): T {
     try {
       if (isUndefined(state.cache.current)) {
@@ -28,6 +35,11 @@ export function create<T>(initialValue: DefaultValue<T>, isEqual: IsEqual<T> = i
     return state.cache.current
   }
 
+  /**
+   * Handle async set value when previous value is promise and new value is function
+   * @param previousPromise Previous promise
+   * @param value New value function
+   */
   async function handleAsyncSetValue(previousPromise: Promise<T>, value: SetStateCb<T>) {
     await previousPromise
     const newValue = value(state.cache.current as Awaited<T>)
@@ -35,6 +47,10 @@ export function create<T>(initialValue: DefaultValue<T>, isEqual: IsEqual<T> = i
     state.cache.current = resolvedValue
   }
 
+  /**
+   * Set value to state
+   * @param value Value to set
+   */
   function setValue(value: SetValue<T>) {
     const previous = getValue()
     const isFunctionValue = isSetValueFunction(value)

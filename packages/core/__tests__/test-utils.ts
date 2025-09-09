@@ -1,6 +1,11 @@
 /* eslint-disable unicorn/prevent-abbreviations */
 import { Component } from 'react'
 
+/**
+ * Create a promise that resolves after a specified time
+ * @param time Time in ms to wait
+ * @returns A promise that resolves after the specified time
+ */
 export function longPromise(time = 200): Promise<number> {
   return new Promise((resolve) => {
     setTimeout(() => {

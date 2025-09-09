@@ -13,6 +13,10 @@ type SearchId = string
 const STATE_SCHEDULER = createScheduler()
 
 let stateId = 0
+/**
+ * Get a unique state ID
+ * @returns The unique state ID
+ */
 function getStateId() {
   return stateId++
 }
@@ -50,13 +54,28 @@ interface DataItems<Document extends DocType> {
   options?: SearchOptions<Document, unknown>
 }
 
+/**
+ * Create a SyncTable that wraps a Table and provides reactive capabilities
+ * @param options Options to create the SyncTable, including the backend and table name
+ * @returns A SyncTable instance with methods to interact with the underlying Table and manage reactive searches
+ */
 export function createSqliteState<Document extends DocType>(options: CreateSqliteOptions<Document>): SyncTable<Document> {
   const id = getStateId()
+
+  /**
+   * Get a unique schedule ID for a search ID
+   * @param searchId The search ID
+   * @returns The unique schedule ID
+   */
   function getScheduleId(searchId: SearchId) {
     return `state-${id}-search-${searchId}`
   }
 
   let cachedTable: Table<Document> | undefined
+  /**
+   * Get or create the underlying table
+   * @returns The Table instance
+   */
   async function getTable() {
     if (!cachedTable) {
       const { backend, ...rest } = options
@@ -75,6 +94,12 @@ export function createSqliteState<Document extends DocType>(options: CreateSqlit
   const listeners = new Map<SearchId, () => void>()
   const iterators = new Map<SearchId, AsyncIterableIterator<NextResult>>()
 
+  /**
+   * Next step in the iterator
+   * @param searchId The search ID
+   * @param data The data items to process
+   * @returns boolean indicating if new items were added
+   */
   async function next(searchId: SearchId, data: DataItems<Document>): Promise<boolean> {
     const iterator = iterators.get(searchId)
     const { options = {} } = data
@@ -101,6 +126,10 @@ export function createSqliteState<Document extends DocType>(options: CreateSqlit
     return true
   }
 
+  /**
+   * Notify listeners of up dates
+   * @param searchId The search ID to notify
+   */
   function notifyListeners(searchId: SearchId) {
     const searchListeners = listeners.get(searchId)
     if (searchListeners) {
@@ -108,6 +137,10 @@ export function createSqliteState<Document extends DocType>(options: CreateSqlit
     }
   }
 
+  /**
+   * Refresh the cache for a search ID
+   * @param searchId The search ID to refresh
+   */
   async function refreshCache(searchId: SearchId) {
     const table = await getTable()
     const data = cachedData.get(searchId)
@@ -119,11 +152,20 @@ export function createSqliteState<Document extends DocType>(options: CreateSqlit
     data.items = []
     await next(searchId, data)
   }
+  /**
+   * Refresh the data and notify listeners
+   * @param searchId The search ID to refresh
+   */
   async function refresh(searchId: SearchId) {
     await refreshCache(searchId)
     notifyListeners(searchId)
   }
 
+  /**
+   * Handle changes to the data
+   * @param mutationResult The mutation result
+   * @returns A set of search IDs that need to be updated
+   */
   function handleChange(mutationResult: MutationResult) {
     const { key, op } = mutationResult
     // find all cached data with key
@@ -147,6 +189,10 @@ export function createSqliteState<Document extends DocType>(options: CreateSqlit
     return searchIds
   }
 
+  /**
+   * Handle multiple changes
+   * @param mutationResults The array of mutation results
+   */
   async function handleChanges(mutationResults: MutationResult[]) {
     const updateSearchIds = new Set<SearchId>()
     for (const mutationResult of mutationResults) {
@@ -165,6 +211,12 @@ export function createSqliteState<Document extends DocType>(options: CreateSqlit
 
   const clearSchedulers = new Set<() => void>()
 
+  /**
+   * Register data for a search ID
+   * @param searchId The search ID
+   * @param options Optional search options
+   * @returns The data items for the search ID
+   */
   function registerData(searchId: SearchId, options?: SearchOptions<Document, unknown>) {
     if (!cachedData.has(searchId)) {
       cachedData.set(searchId, { items: [], options, keys: new Set() })

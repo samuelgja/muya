@@ -11,6 +11,9 @@ export class AbortError extends Error {
 }
 /**
  * Cancelable promise function, return promise and controller
+ * @param promise Original promise
+ * @param previousController Previous AbortController to abort if exists
+ * @returns CancelablePromise<T>
  */
 export function cancelablePromise<T>(promise: Promise<T>, previousController?: AbortController): CancelablePromise<T> {
   if (previousController) {
@@ -32,6 +35,10 @@ export function cancelablePromise<T>(promise: Promise<T>, previousController?: A
 
 /**
  * Check if the cache value is different from the previous value.
+ * If they are the same, return false to avoid unnecessary updates.
+ * @param cache - The cache object containing current and previous values
+ * @param isEqual - Optional custom equality check function
+ * @returns boolean indicating whether an update should occur
  */
 export function canUpdate<T>(cache: Cache<T>, isEqual: IsEqual<T> = isEqualBase): boolean {
   if (!isUndefined(cache.current)) {
@@ -45,6 +52,9 @@ export function canUpdate<T>(cache: Cache<T>, isEqual: IsEqual<T> = isEqualBase)
 
 /**
  * Handle async updates for `create` and `select`
+ * @param state - state object
+ * @param value - new value
+ * @returns T or Promise<T>
  */
 export function handleAsyncUpdate<T>(state: State<T>, value: T): T {
   const {

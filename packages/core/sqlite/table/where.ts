@@ -34,9 +34,11 @@ export type Where<T extends Record<string, unknown>> =
       readonly NOT?: Where<T>
     }
 
-// -------------------------------------------------------------
-// Tiny helpers
-// -------------------------------------------------------------
+/**
+ * Inline a value for SQL query, with proper escaping for strings
+ * @param value The value to inline
+ * @returns The inlined value as a string
+ */
 function inlineValue(value: unknown): string {
   if (typeof value === 'string') return `'${value.replaceAll("'", "''")}'`
   if (typeof value === 'number') return value.toString()
@@ -44,6 +46,13 @@ function inlineValue(value: unknown): string {
   return `'${String(value).replaceAll("'", "''")}'`
 }
 
+/**
+ * Get SQL expression for a field, with proper casting based on value type
+ * @param field The field name
+ * @param value The field value
+ * @param tableAlias Optional table alias to prefix the field name
+ * @returns The SQL expression for the field
+ */
 function getFieldExpr(field: string, value: unknown, tableAlias?: string): string {
   const prefix = tableAlias ? `${tableAlias}.` : ''
   if (field === 'KEY') {
@@ -57,9 +66,12 @@ function getFieldExpr(field: string, value: unknown, tableAlias?: string): strin
 
 const OPS_SET: ReadonlySet<string> = new Set(['is', 'isNot', 'gt', 'gte', 'lt', 'lte', 'in', 'notIn', 'like'])
 
-// -------------------------------------------------------------
-// Flatten nested objects to dot-paths
-// -------------------------------------------------------------
+/**
+ * Flatten a nested Where object into a single-level object with dot-separated keys
+ * @param object The nested Where object
+ * @param prefix The prefix for the current recursion level (used internally)
+ * @returns A flattened object with dot-separated keys
+ */
 function flattenWhere(object: Record<string, unknown>, prefix = ''): Record<string, unknown> {
   const result: Record<string, unknown> = {}
 
@@ -81,9 +93,12 @@ function flattenWhere(object: Record<string, unknown>, prefix = ''): Record<stri
   return result
 }
 
-// -------------------------------------------------------------
-// Main recursive builder
-// -------------------------------------------------------------
+/**
+ * Write SQL WHERE clause from a Where object
+ * @param where The Where object defining the conditions
+ * @param tableAlias Optional table alias to prefix field names
+ * @returns The SQL WHERE clause string (without the "WHERE" keyword)
+ */
 export function getWhere<T extends Record<string, unknown>>(where: Where<T>, tableAlias?: string): string {
   if (!where || typeof where !== 'object') return ''
 
@@ -172,9 +187,11 @@ export function getWhere<T extends Record<string, unknown>>(where: Where<T>, tab
   return anyField ? `(${fieldClauses})` : ''
 }
 
-// -------------------------------------------------------------
-// Public wrapper: adds "WHERE" if needed
-// -------------------------------------------------------------
+/**
+ * Get SQL WHERE clause from a Where object
+ * @param where The Where object defining the conditions
+ * @returns The SQL WHERE clause string (without the "WHERE" keyword)
+ */
 export function getWhereQuery<T extends Record<string, unknown>>(where?: Where<T>): string {
   if (!where) return ''
   const clause = getWhere(where)

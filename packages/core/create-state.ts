@@ -12,6 +12,11 @@ interface GetStateOptions<T> {
 }
 
 let stateId = 0
+
+/**
+ * Generate a unique state ID
+ * @returns A unique state ID
+ */
 function getStateId() {
   return stateId++
 }
@@ -19,6 +24,8 @@ function getStateId() {
 type FullState<T> = GetStateOptions<T>['set'] extends undefined ? GetState<T> : State<T>
 /**
  * This is just utility function to create state base data
+ * @param options Options to create state
+ * @returns FullState<T>
  */
 export function createState<T>(options: GetStateOptions<T>): FullState<T> {
   const { get, destroy, set, getSnapshot } = options

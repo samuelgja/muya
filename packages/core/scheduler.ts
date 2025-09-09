@@ -27,6 +27,9 @@ export function createScheduler() {
   let frame = performance.now()
   let scheduled = false
 
+  /**
+   * Schedule the next flush based on time and item count thresholds
+   */
   function schedule() {
     const startFrame = performance.now()
     const frameSizeDiffIn = startFrame - frame
@@ -47,6 +50,9 @@ export function createScheduler() {
     }
   }
 
+  /**
+   * Flush the current batch of scheduled items
+   */
   function flush() {
     if (batches.size === 0) {
       return

@@ -1,6 +1,13 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 import { isArray, isMap, isSet } from './is'
 
+/**
+ * Performs a shallow comparison between two values to determine if they are equivalent.
+ * This function checks if the two values are the same reference, or if they are objects,
+ * @param valueA The first value to compare.
+ * @param valueB The second value to compare.
+ * @returns True if the values are shallowly equal, false otherwise.
+ */
 export function shallow<T>(valueA: T, valueB: T): boolean {
   if (valueA == valueB) {
     return true
