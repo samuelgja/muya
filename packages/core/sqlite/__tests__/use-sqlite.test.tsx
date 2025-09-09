@@ -35,7 +35,6 @@ describe('use-sqlite-state', () => {
       sql.set({ id: '1', name: 'Alice', age: 30 })
     })
     await waitFor(() => {
-      console.log(result.current)
       expect(result.current[0]).toEqual([{ id: '1', name: 'Alice', age: 30 }])
       expect(reRenders).toBe(3)
     })

@@ -1,19 +1,37 @@
-// table.ts
+/* eslint-disable prefer-destructuring */
 /* eslint-disable sonarjs/different-types-comparison */
 /* eslint-disable sonarjs/cognitive-complexity */
 /* eslint-disable @typescript-eslint/no-shadow */
 /* eslint-disable no-shadow */
+
 import type { Table, DbOptions, DocType, Key, SearchOptions, MutationResult } from './table.types'
-import { getWhereQuery, type Where } from './where'
+import type { Where } from './where'
+import { getWhereQuery } from './where'
 
 const DELETE_IN_CHUNK = 500 // keep well below SQLite's default 999 parameter limit
 export const DEFAULT_STEP_SIZE = 100
+
+// --- Helpers for JSON dot paths ---
+function toJsonPath(dot: string) {
+  return '$.' + dot
+}
+
+export function getByPath<T extends object>(object: T, path: string): unknown {
+  if (!object || !path) return undefined
+  // eslint-disable-next-line unicorn/no-array-reduce
+  return path.split('.').reduce<unknown>((accumulator, key) => {
+    if (typeof accumulator === 'object' && accumulator !== null && key in (accumulator as Record<string, unknown>)) {
+      return (accumulator as Record<string, unknown>)[key]
+    }
+    return
+  }, object)
+}
+
 export async function createTable<Document extends DocType>(options: DbOptions<Document>): Promise<Table<Document>> {
   const { backend, tableName, indexes, key, disablePragmaOptimization } = options
   const hasUserKey = key !== undefined
 
   // --- Apply performance PRAGMAs unless explicitly disabled ---
-  // These significantly speed up write-heavy workloads on SQLite.
   if (!disablePragmaOptimization) {
     await backend.execute(`PRAGMA journal_mode=WAL;`)
     await backend.execute(`PRAGMA synchronous=NORMAL;`)
@@ -37,14 +55,18 @@ export async function createTable<Document extends DocType>(options: DbOptions<D
     `)
   }
 
-  // JSON expression indexes for fields under data
+  // JSON expression indexes
   for (const index of indexes ?? []) {
     const idx = String(index)
-    await backend.execute(`CREATE INDEX IF NOT EXISTS idx_${tableName}_${idx} ON ${tableName} (json_extract(data, '$.${idx}'));`)
+    await backend.execute(
+      `CREATE INDEX IF NOT EXISTS idx_${tableName}_${idx.replaceAll(/\W/g, '_')}
+       ON ${tableName} (json_extract(data, '${toJsonPath(idx)}'));`,
+    )
   }
 
   function getKeyFromDocument(document: Document): Key | undefined {
-    return hasUserKey ? (document[key as keyof Document] as unknown as Key | undefined) : undefined
+    if (!hasUserKey) return undefined
+    return getByPath(document, String(key)) as Key | undefined
   }
 
   async function getChanges(conn: typeof backend): Promise<number> {
@@ -87,14 +109,13 @@ export async function createTable<Document extends DocType>(options: DbOptions<D
       const rows = await db.select<Array<{ id: number }>>(`SELECT last_insert_rowid() AS id`)
       const rowid = rows[0]?.id
       if (typeof rowid !== 'number') throw new Error('Failed to retrieve last_insert_rowid()')
-      const result: MutationResult = { key: rowid, op: 'insert' }
-      return result
+      return { key: rowid, op: 'insert' }
     },
 
-    // --- FIXED: include rowid ---
     async get<Selected = Document>(
       keyValue: Key,
-      selector: (document: Document, meta: { rowid: number }) => Selected = (d, _m) => d as unknown as Selected,
+      // keep meta available and consistent with search() { rowId }
+      selector: (document: Document, meta: { rowId: number }) => Selected = (d) => d as unknown as Selected,
     ) {
       const whereKey = hasUserKey ? `key = ?` : `rowid = ?`
       const result = await backend.select<Array<{ data: string; rowid: number }>>(
@@ -102,23 +123,19 @@ export async function createTable<Document extends DocType>(options: DbOptions<D
         [keyValue],
       )
       if (result.length === 0) return
-      const [item] = result
-      const { data, rowid } = item
+      const { data, rowid } = result[0]
       const document = JSON.parse(data) as Document
-      return selector(document, { rowid }) as Selected
+      return selector(document, { rowId: rowid }) as Selected
     },
 
     async delete(keyValue: Key) {
       const whereKey = hasUserKey ? `key = ?` : `rowid = ?`
       await backend.execute(`DELETE FROM ${tableName} WHERE ${whereKey}`, [keyValue])
       const changed = await backend.select<Array<{ c: number }>>(`SELECT changes() AS c`)
-      if ((changed[0]?.c ?? 0) > 0) {
-        return { key: keyValue, op: 'delete' }
-      }
+      if ((changed[0]?.c ?? 0) > 0) return { key: keyValue, op: 'delete' }
       return
     },
 
-    // --- FIXED: include rowid in search ---
     async *search<Selected = Document>(options: SearchOptions<Document, Selected> = {}): AsyncIterableIterator<Selected> {
       const {
         sortBy,
@@ -126,12 +143,12 @@ export async function createTable<Document extends DocType>(options: DbOptions<D
         limit,
         offset = 0,
         where,
-        select = (document, _meta) => document as unknown as Selected,
+        select = (document) => document as unknown as Selected,
         stepSize = DEFAULT_STEP_SIZE,
       } = options
 
-      let baseQuery = `SELECT rowid, data FROM ${tableName}`
-      if (where) baseQuery += ' ' + getWhereQuery(where)
+      const whereSql = getWhereQuery<Document>(where)
+      const baseQuery = `SELECT rowid, data FROM ${tableName} ${whereSql}`
 
       let yielded = 0
       let currentOffset = offset
@@ -139,7 +156,7 @@ export async function createTable<Document extends DocType>(options: DbOptions<D
         let query = baseQuery
 
         if (sortBy) {
-          query += ` ORDER BY json_extract(data, '$.${String(sortBy)}') COLLATE NOCASE ${order.toUpperCase()}`
+          query += ` ORDER BY json_extract(data, '${toJsonPath(String(sortBy))}') COLLATE NOCASE ${order.toUpperCase()}`
         } else {
           query += hasUserKey ? ` ORDER BY key COLLATE NOCASE ${order.toUpperCase()}` : ` ORDER BY rowid ${order.toUpperCase()}`
         }
@@ -163,28 +180,26 @@ export async function createTable<Document extends DocType>(options: DbOptions<D
     },
 
     async count(options: { where?: Where<Document> } = {}) {
-      const { where } = options
-      let query = `SELECT COUNT(*) as count FROM ${tableName}`
-      if (where) query += ' ' + getWhereQuery(where)
+      const whereSql = getWhereQuery<Document>(options.where)
+      const query = `SELECT COUNT(*) as count FROM ${tableName} ${whereSql}`
       const result = await backend.select<Array<{ count: number }>>(query)
       return result[0]?.count ?? 0
     },
 
     async deleteBy(where: Where<Document>) {
-      const whereQuery = getWhereQuery(where)
+      const whereSql = getWhereQuery<Document>(where)
       const keyCol = hasUserKey ? 'key' : 'rowid'
-
       const results: MutationResult[] = []
+
       await backend.transaction(async (tx) => {
-        const rows = await tx.select<Array<{ k: Key }>>(`SELECT ${keyCol} AS k, rowid FROM ${tableName} ${whereQuery}`)
+        const rows = await tx.select<Array<{ k: Key }>>(`SELECT ${keyCol} AS k FROM ${tableName} ${whereSql}`)
         if (rows.length === 0) return
 
         const allKeys = rows.map((r) => r.k)
-
         for (let index = 0; index < allKeys.length; index += DELETE_IN_CHUNK) {
           const chunk = allKeys.slice(index, index + DELETE_IN_CHUNK)
           const placeholders = chunk.map(() => '?').join(',')
-          await tx.execute(`DELETE FROM ${tableName} WHERE ${keyCol} IN (${placeholders})`, chunk as unknown as unknown[])
+          await tx.execute(`DELETE FROM ${tableName} WHERE ${keyCol} IN (${placeholders})`, chunk as unknown[])
         }
 
         for (const k of allKeys) results.push({ key: k, op: 'delete' })

@@ -1,267 +1,182 @@
+/* eslint-disable unicorn/no-array-callback-reference */
+/* eslint-disable unicorn/no-nested-ternary */
+/* eslint-disable no-nested-ternary */
 /* eslint-disable sonarjs/no-nested-conditional */
 /* eslint-disable sonarjs/cognitive-complexity */
-// -------------------------------------------------------------
-// Simplified `Where` type: each field may be a `Condition`
-// *or* directly a `Document[K]`/`Document[K][]`, shorthand for "is"/"in".
-// We also allow the special literal "KEY" to filter by the primary‐key column.
-// -------------------------------------------------------------
 
-export interface Field {
-  readonly table: string
-  readonly field: string
+// -------------------------------------------------------------
+// Condition operators for each field
+// -------------------------------------------------------------
+interface Condition<T> {
+  readonly is?: T | T[]
+  readonly isNot?: T | T[]
+  readonly gt?: T
+  readonly gte?: T
+  readonly lt?: T
+  readonly lte?: T
+  readonly in?: T[]
+  readonly notIn?: T[]
+  readonly like?: T | T[]
 }
 
-interface Condition<Document extends Record<string, unknown>, K extends keyof Document = keyof Document> {
-  readonly is?: Document[K] | Array<Document[K]>
-  readonly isNot?: Document[K] | Array<Document[K]>
-  readonly gt?: Document[K] | Array<Document[K]>
-  readonly gte?: Document[K] | Array<Document[K]>
-  readonly lt?: Document[K] | Array<Document[K]>
-  readonly lte?: Document[K] | Array<Document[K]>
-  readonly in?: Document[K] | Array<Document[K]>
-  readonly notIn?: Document[K] | Array<Document[K]>
-  readonly like?: Document[K] | Array<Document[K]>
-}
-
-/**
- * We extend `keyof Document` by the special literal "KEY".
- * That means users can write `{ KEY: ... }` in addition to `{ someField: ... }`.
- *
- * - If K extends keyof Document, then primitive values must match Document[K].
- * - If K === "KEY", then primitive values are treated as strings/Array<string>.
- */
-export type Where<Document extends Record<string, unknown>> =
+// -------------------------------------------------------------
+// Where type: recursive object with operators or nested fields
+// -------------------------------------------------------------
+export type Where<T extends Record<string, unknown>> =
   | {
-      [K in keyof Document | 'KEY']?:
-        | Condition<Document, K extends keyof Document ? K : keyof Document>
-        | (K extends keyof Document ? Document[K] : string)
-        | (K extends keyof Document ? Array<Document[K]> : string[])
+      [K in keyof T]?: T[K] extends Record<string, unknown>
+        ? Where<T[K]> // nested object
+        : Condition<T[K]> | T[K] | T[K][]
     }
   | {
-      readonly AND?: Array<Where<Document>>
-      readonly OR?: Array<Where<Document>>
-      readonly NOT?: Where<Document>
+      readonly AND?: Array<Where<T>>
+      readonly OR?: Array<Where<T>>
+      readonly NOT?: Where<T>
     }
 
 // -------------------------------------------------------------
-// A tiny helper to escape/inline a single primitive into SQL.
+// Tiny helpers
 // -------------------------------------------------------------
 function inlineValue(value: unknown): string {
-  if (typeof value === 'string') {
-    return `'${(value as string).split("'").join("''")}'`
-  }
-  if (typeof value === 'number') {
-    return (value as number).toString()
-  }
-  if (typeof value === 'boolean') {
-    return (value as boolean) ? '1' : '0'
-  }
-  return `'${String(value).split("'").join("''")}'`
+  if (typeof value === 'string') return `'${value.replaceAll("'", "''")}'`
+  if (typeof value === 'number') return value.toString()
+  if (typeof value === 'boolean') return value ? '1' : '0'
+  return `'${String(value).replaceAll("'", "''")}'`
 }
 
-// -------------------------------------------------------------
-// Build the expression for a given field.
-// If field === "KEY", refer directly to the primary‐key column (`key`).
-// Otherwise, extract from JSON `data`.
-// -------------------------------------------------------------
 function getFieldExpr(field: string, value: unknown, tableAlias?: string): string {
   const prefix = tableAlias ? `${tableAlias}.` : ''
   if (field === 'KEY') {
-    // Use double‐quotes around key to avoid conflicts with reserved words
     return `"${prefix}key"`
   }
-
-  // Otherwise, treat as JSON field under "data"
-  if (typeof value === 'string') {
-    return `CAST(json_extract(${prefix}data, '$.${field}') AS TEXT)`
-  }
-  if (typeof value === 'boolean') {
-    return `CAST(json_extract(${prefix}data, '$.${field}') AS INTEGER)`
-  }
-  if (typeof value === 'number') {
-    return `CAST(json_extract(${prefix}data, '$.${field}') AS NUMERIC)`
-  }
+  if (typeof value === 'string') return `CAST(json_extract(${prefix}data, '$.${field}') AS TEXT)`
+  if (typeof value === 'number') return `CAST(json_extract(${prefix}data, '$.${field}') AS NUMERIC)`
+  if (typeof value === 'boolean') return `CAST(json_extract(${prefix}data, '$.${field}') AS INTEGER)`
   return `json_extract(${prefix}data, '$.${field}')`
 }
 
-// -------------------------------------------------------------
-// Valid operators set (for quick membership checks).
-// -------------------------------------------------------------
 const OPS_SET: ReadonlySet<string> = new Set(['is', 'isNot', 'gt', 'gte', 'lt', 'lte', 'in', 'notIn', 'like'])
 
-function isUndefined(value: unknown): value is undefined {
-  return value === undefined
+// -------------------------------------------------------------
+// Flatten nested objects to dot-paths
+// -------------------------------------------------------------
+function flattenWhere(object: Record<string, unknown>, prefix = ''): Record<string, unknown> {
+  const result: Record<string, unknown> = {}
+
+  for (const [k, v] of Object.entries(object)) {
+    if (k === 'AND' || k === 'OR' || k === 'NOT') {
+      result[k] = v
+      continue
+    }
+
+    const path = prefix ? `${prefix}.${k}` : k
+
+    if (v && typeof v === 'object' && !Array.isArray(v) && !Object.keys(v).some((kk) => OPS_SET.has(kk))) {
+      Object.assign(result, flattenWhere(v as Record<string, unknown>, path))
+    } else {
+      result[path] = v
+    }
+  }
+
+  return result
 }
 
 // -------------------------------------------------------------
-// Main recursive parser: turn a `Where<Document>` into a SQL clause
-// (without the leading "WHERE").
+// Main recursive builder
 // -------------------------------------------------------------
-export function getWhere<Document extends Record<string, unknown>>(where: Where<Document>, tableAlias?: string): string {
-  if (!where || typeof where !== 'object') {
-    return ''
+export function getWhere<T extends Record<string, unknown>>(where: Where<T>, tableAlias?: string): string {
+  if (!where || typeof where !== 'object') return ''
+
+  // ----- Logical branches -----
+  if (where.AND) {
+    const clauses = Array.isArray(where.AND) ? where.AND.map((w) => getWhere(w, tableAlias)).filter(Boolean) : []
+    return clauses.length > 0 ? `(${clauses.join(' AND ')})` : ''
   }
 
-  // ----- Logical branches: AND / OR / NOT -----
-  if (!isUndefined(where.AND)) {
-    const array = where.AND as Array<Where<Document>>
-    if (Array.isArray(array) && array.length > 0) {
-      let combined = ''
-      let firstAdded = false
-      for (const sub of array) {
-        const clause = getWhere(sub, tableAlias)
-        if (!clause) continue
-        if (firstAdded) combined += ' AND '
-        combined += clause
-        firstAdded = true
-      }
-      return firstAdded ? `(${combined})` : ''
-    }
-    return ''
+  if (where.OR) {
+    const clauses = Array.isArray(where.OR) ? where.OR.map((w) => getWhere(w, tableAlias)).filter(Boolean) : []
+    return clauses.length > 0 ? `(${clauses.join(' OR ')})` : ''
   }
 
-  if (!isUndefined(where.OR)) {
-    const array = where.OR as Array<Where<Document>>
-    if (Array.isArray(array) && array.length > 0) {
-      let combined = ''
-      let firstAdded = false
-      for (const sub of array) {
-        const clause = getWhere(sub, tableAlias)
-        if (!clause) continue
-        if (firstAdded) combined += ' OR '
-        combined += clause
-        firstAdded = true
-      }
-      return firstAdded ? `(${combined})` : ''
-    }
-    return ''
+  if (where.NOT) {
+    const clause = getWhere(where.NOT, tableAlias)
+    return clause ? `(NOT ${clause})` : ''
   }
 
-  if (!isUndefined(where.NOT)) {
-    const sub = where.NOT as Where<Document>
-    if (sub && typeof sub === 'object') {
-      const clause = getWhere(sub, tableAlias)
-      return clause ? `(NOT ${clause})` : ''
-    }
-    return ''
-  }
-
-  // ----- Field‐based conditions: default is AND across fields -----
+  // ----- Field conditions -----
+  const flat = flattenWhere(where as Record<string, unknown>)
   let fieldClauses = ''
-  let anyFieldClause = false
+  let anyField = false
 
-  for (const key in where as Record<string, unknown>) {
-    if (key === 'AND' || key === 'OR' || key === 'NOT') continue
-
-    const rawValue = (where as Record<string, unknown>)[key]
+  for (const [key, rawValue] of Object.entries(flat)) {
     if (rawValue == null) continue
 
-    // If the user provided a primitive or an array, coerce it to a Condition:
-    //  - single primitive → { is: rawVal }
-    //  - array           → { in: rawVal }
-    let cond: Condition<Document, typeof key>
+    // coerce primitive/array into Condition
+    let cond: Condition<unknown>
     if (typeof rawValue !== 'object' || Array.isArray(rawValue)) {
-      cond = Array.isArray(rawValue) ? { in: rawValue } : ({ is: rawValue } as Condition<Document, typeof key>)
+      cond = Array.isArray(rawValue) ? { in: rawValue } : { is: rawValue }
     } else {
-      cond = rawValue as Condition<Document, typeof key>
+      cond = rawValue as Condition<unknown>
     }
 
-    // Iterate only over real operator keys that exist on this `cond`
-    for (const opKey of Object.keys(cond) as Array<keyof typeof cond>) {
-      if (!OPS_SET.has(opKey as string)) continue
-      const rawOpValue = cond[opKey]
-      if (rawOpValue == null) continue
+    for (const opKey of Object.keys(cond)) {
+      if (!OPS_SET.has(opKey)) continue
+      const opValue = cond[opKey as keyof Condition<unknown>]
+      if (opValue == null) continue
 
-      // Always treat it as an array for uniformity:
-      const array = Array.isArray(rawOpValue) ? (rawOpValue as unknown[]) : [rawOpValue]
-      if (array.length === 0) continue
+      const values = Array.isArray(opValue) ? opValue : [opValue]
+      if (values.length === 0) continue
 
-      // Handle `is` / `isNot` / `in` / `notIn`
+      // is / isNot / in / notIn
       if (opKey === 'is' || opKey === 'isNot' || opKey === 'in' || opKey === 'notIn') {
-        const [firstValue] = array
-        const fieldExpr = getFieldExpr(key, firstValue, tableAlias)
+        const fieldExpr = getFieldExpr(key, values[0], tableAlias)
+        const inList = values.map(inlineValue).join(',')
 
-        // Build comma‐separated list without using `.map()`
-        let inList = ''
-        if (array.length > 1) {
-          for (const [index, elt] of array.entries()) {
-            if (index > 0) inList += ','
-            inList += inlineValue(elt)
-          }
-        }
+        const clause =
+          opKey === 'is'
+            ? values.length > 1
+              ? `${fieldExpr} IN (${inList})`
+              : `${fieldExpr} = ${inlineValue(values[0])}`
+            : opKey === 'isNot'
+              ? values.length > 1
+                ? `${fieldExpr} NOT IN (${inList})`
+                : `${fieldExpr} <> ${inlineValue(values[0])}`
+              : opKey === 'in'
+                ? `${fieldExpr} IN (${inList})`
+                : `${fieldExpr} NOT IN (${inList})`
 
-        switch (opKey) {
-          case 'is': {
-            fieldClauses +=
-              array.length > 1
-                ? (anyFieldClause ? ' AND ' : '') + `${fieldExpr} IN (${inList})`
-                : (anyFieldClause ? ' AND ' : '') + `${fieldExpr} = ${inlineValue(array[0])}`
-            break
-          }
-          case 'isNot': {
-            fieldClauses +=
-              array.length > 1
-                ? (anyFieldClause ? ' AND ' : '') + `${fieldExpr} NOT IN (${inList})`
-                : (anyFieldClause ? ' AND ' : '') + `${fieldExpr} <> ${inlineValue(array[0])}`
-            break
-          }
-          case 'in': {
-            fieldClauses +=
-              array.length > 1
-                ? (anyFieldClause ? ' AND ' : '') + `${fieldExpr} IN (${inList})`
-                : (anyFieldClause ? ' AND ' : '') + `${fieldExpr} IN (${inlineValue(array[0])})`
-            break
-          }
-          case 'notIn': {
-            fieldClauses +=
-              array.length > 1
-                ? (anyFieldClause ? ' AND ' : '') + `${fieldExpr} NOT IN (${inList})`
-                : (anyFieldClause ? ' AND ' : '') + `${fieldExpr} NOT IN (${inlineValue(array[0])})`
-            break
-          }
-        }
-
-        anyFieldClause = true
+        fieldClauses += (anyField ? ' AND ' : '') + clause
+        anyField = true
         continue
       }
 
-      // Handle comparisons: gt, gte, lt, lte, like
-      for (const v of array) {
+      // gt / gte / lt / lte / like
+      for (const v of values) {
         const fieldExpr = getFieldExpr(key, v, tableAlias)
-        switch (opKey) {
-          case 'gt': {
-            fieldClauses += (anyFieldClause ? ' AND ' : '') + `${fieldExpr} > ${inlineValue(v)}`
-            break
-          }
-          case 'gte': {
-            fieldClauses += (anyFieldClause ? ' AND ' : '') + `${fieldExpr} >= ${inlineValue(v)}`
-            break
-          }
-          case 'lt': {
-            fieldClauses += (anyFieldClause ? ' AND ' : '') + `${fieldExpr} < ${inlineValue(v)}`
-            break
-          }
-          case 'lte': {
-            fieldClauses += (anyFieldClause ? ' AND ' : '') + `${fieldExpr} <= ${inlineValue(v)}`
-            break
-          }
-          case 'like': {
-            fieldClauses += (anyFieldClause ? ' AND ' : '') + `${fieldExpr} LIKE ${inlineValue(v)}`
-            break
-          }
-        }
-        anyFieldClause = true
+        const clause =
+          opKey === 'gt'
+            ? `${fieldExpr} > ${inlineValue(v)}`
+            : opKey === 'gte'
+              ? `${fieldExpr} >= ${inlineValue(v)}`
+              : opKey === 'lt'
+                ? `${fieldExpr} < ${inlineValue(v)}`
+                : opKey === 'lte'
+                  ? `${fieldExpr} <= ${inlineValue(v)}`
+                  : `${fieldExpr} LIKE ${inlineValue(v)}`
+        fieldClauses += (anyField ? ' AND ' : '') + clause
+        anyField = true
       }
     }
   }
 
-  return anyFieldClause ? `(${fieldClauses})` : ''
+  return anyField ? `(${fieldClauses})` : ''
 }
 
 // -------------------------------------------------------------
-// Wrap `parse(...)` in "WHERE (…)". If empty, return "".
+// Public wrapper: adds "WHERE" if needed
 // -------------------------------------------------------------
-export function getWhereQuery<Document extends Record<string, unknown>>(where: Where<Document>): string {
+export function getWhereQuery<T extends Record<string, unknown>>(where?: Where<T>): string {
+  if (!where) return ''
   const clause = getWhere(where)
   return clause ? `WHERE ${clause}` : ''
 }

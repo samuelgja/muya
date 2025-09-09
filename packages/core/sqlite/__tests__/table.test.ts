@@ -12,9 +12,19 @@ interface Person {
   age: number
   city: string
 }
+
+interface PersonNested {
+  info: {
+    name: string
+    age: number
+    city: string
+  }
+}
 describe('table', () => {
   let backend = bunMemoryBackend()
   let table: ReturnType<typeof createTable<Person>> extends Promise<infer T> ? T : never
+
+  let tableNested: ReturnType<typeof createTable<PersonNested>> extends Promise<infer T> ? T : never
 
   beforeEach(async () => {
     backend = bunMemoryBackend()
@@ -22,6 +32,12 @@ describe('table', () => {
       backend,
       tableName: 'TestTable',
       key: 'name',
+    })
+    tableNested = await createTable<PersonNested>({
+      backend,
+      tableName: 'TestTableNested',
+      key: 'info.name',
+      indexes: ['info.age', 'info.city'],
     })
   })
 
@@ -37,6 +53,29 @@ describe('table', () => {
     expect(updateMutation.op).toBe('update')
     const updatedResult = await table.get('Alice')
     expect(updatedResult).toEqual({ name: 'Alice', age: 31, city: 'Paris' })
+  })
+
+  it('should set and get nested key', async () => {
+    const mutation = await tableNested.set({ info: { name: 'Bob', age: 25, city: 'London' } })
+    expect(mutation.key).toBe('Bob')
+    expect(mutation.op).toBe('insert')
+    const result = await tableNested.get('Bob')
+    expect(result).toEqual({ info: { name: 'Bob', age: 25, city: 'London' } })
+
+    const updateMutation = await tableNested.set({ info: { name: 'Bob', age: 26, city: 'London' } })
+    expect(updateMutation.key).toBe('Bob')
+    expect(updateMutation.op).toBe('update')
+    const updatedResult = await tableNested.get('Bob')
+    expect(updatedResult).toEqual({ info: { name: 'Bob', age: 26, city: 'London' } })
+
+    // nested where query
+    const results: PersonNested[] = []
+    for await (const person of tableNested.search({
+      where: { info: { city: { like: 'London' } } },
+    })) {
+      results.push(person)
+    }
+    expect(results.length).toBe(1)
   })
 
   it('should count items and count with where', async () => {
