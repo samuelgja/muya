@@ -1,13 +1,13 @@
 import { createState } from '../create-state'
 import type { GetState } from '../types'
 import type { SyncTable } from './create-sqlite'
-import type { DocType } from './table/table.types'
+import type { DocType, DotPath } from './table/table.types'
 import type { Where } from './table/where'
 
 export type CreateState<Document, Params extends unknown[]> = (...params: Params) => GetState<Document[]>
 
 export interface SqlSeachOptions<Document extends DocType> {
-  readonly sorBy?: keyof Document
+  readonly sortBy?: DotPath<Document>
   readonly order?: 'asc' | 'desc'
   readonly limit?: number
   readonly offset?: number

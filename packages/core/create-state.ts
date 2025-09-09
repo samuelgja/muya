@@ -2,6 +2,7 @@ import { select } from './select'
 import type { GetState, SetValue, State, Cache } from './types'
 import { useValue } from './use-value'
 import { createEmitter } from './utils/create-emitter'
+import { getId } from './utils/id'
 import { isEqualBase, isPromise } from './utils/is'
 
 interface GetStateOptions<T> {
@@ -9,16 +10,6 @@ interface GetStateOptions<T> {
   readonly set?: (value: SetValue<T>) => void
   readonly destroy: () => void
   readonly getSnapshot: () => T
-}
-
-let stateId = 0
-
-/**
- * Generate a unique state ID
- * @returns A unique state ID
- */
-function getStateId() {
-  return stateId++
 }
 
 type FullState<T> = GetStateOptions<T>['set'] extends undefined ? GetState<T> : State<T>
@@ -36,7 +27,7 @@ export function createState<T>(options: GetStateOptions<T>): FullState<T> {
     return useValue(state, selector)
   }
   state.isSet = isSet as true
-  state.id = getStateId()
+  state.id = getId()
   state.emitter = createEmitter<T>(getSnapshot)
   state.destroy = destroy
   state.listen = function (listener) {
