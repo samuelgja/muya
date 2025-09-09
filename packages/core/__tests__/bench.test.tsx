@@ -12,6 +12,13 @@ import { useValue } from '../use-value'
 import { atom, useAtom } from 'jotai'
 import { create } from '../create'
 
+/**
+ * Utility to render a hook and measure the time it takes to reach a certain state
+ * @param hook The hook to render
+ * @param getValue Function to extract the value to monitor from the hook's return data
+ * @param toBe The target value to wait for
+ * @returns An object containing the hook's result, a waitFor function, and a promise that resolves with the time taken
+ */
 function renderPerfHook<T>(hook: () => T, getValue: (data: T) => number, toBe: number) {
   let onResolve = (_value: number) => {}
   const resolvePromise = new Promise<number>((resolve) => {

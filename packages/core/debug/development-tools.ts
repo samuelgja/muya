@@ -20,6 +20,10 @@ interface SendOptions {
   value: unknown
   name: string
 }
+/**
+ * Send state information to Redux DevTools if available
+ * @param options Options containing message, type, value, and name
+ */
 function sendToDevelopmentTools(options: SendOptions) {
   if (!reduxDevelopmentTools) {
     return
@@ -31,12 +35,23 @@ function sendToDevelopmentTools(options: SendOptions) {
   reduxDevelopmentTools.send(name, { value, type, message }, type)
 }
 
+/**
+ * Create a listener function for development tools that sends state updates
+ * @param name The name of the state
+ * @param type The type of the state ('state' or 'derived')
+ * @returns A listener function that sends updates to development tools
+ */
 function developmentToolsListener(name: string, type: StateType) {
   return (value: unknown) => {
     sendToDevelopmentTools({ name, type, value, message: 'update' })
   }
 }
 
+/**
+ * Subscribe a state to development tools if available
+ * @param state The state to subscribe
+ * @returns A function to unsubscribe from development tools
+ */
 export function subscribeToDevelopmentTools<T>(state: State<T> | GetState<T>) {
   if (process.env.NODE_ENV === 'production') {
     return

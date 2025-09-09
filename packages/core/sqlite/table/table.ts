@@ -11,11 +11,21 @@ import { getWhereQuery } from './where'
 const DELETE_IN_CHUNK = 500 // keep well below SQLite's default 999 parameter limit
 export const DEFAULT_STEP_SIZE = 100
 
-// --- Helpers for JSON dot paths ---
-function toJsonPath(dot: string) {
+/**
+ * Convert a dot-separated path to a JSON path
+ * @param dot The dot-separated path
+ * @returns The JSON path
+ */
+export function toJsonPath(dot: string) {
   return '$.' + dot
 }
 
+/**
+ * Get a nested value from an object using a dot-separated path
+ * @param object The object to get the value from
+ * @param path The dot-separated path to the value
+ * @returns The value at the specified path, or undefined if not found
+ */
 export function getByPath<T extends object>(object: T, path: string): unknown {
   if (!object || !path) return undefined
   // eslint-disable-next-line unicorn/no-array-reduce
@@ -27,6 +37,11 @@ export function getByPath<T extends object>(object: T, path: string): unknown {
   }, object)
 }
 
+/**
+ * Create a new table in the database with the given options
+ * @param options The options for creating the table
+ * @returns The created table
+ */
 export async function createTable<Document extends DocType>(options: DbOptions<Document>): Promise<Table<Document>> {
   const { backend, tableName, indexes, key, disablePragmaOptimization } = options
   const hasUserKey = key !== undefined
@@ -64,11 +79,21 @@ export async function createTable<Document extends DocType>(options: DbOptions<D
     )
   }
 
+  /**
+   * Get the key value from a document
+   * @param document The document to extract the key from
+   * @returns The key value or undefined if no user key is configured
+   */
   function getKeyFromDocument(document: Document): Key | undefined {
     if (!hasUserKey) return undefined
     return getByPath(document, String(key)) as Key | undefined
   }
 
+  /**
+   * Get the number of rows changed by the last operation
+   * @param conn The database connection
+   * @returns The number of rows changed
+   */
   async function getChanges(conn: typeof backend): Promise<number> {
     const r = await conn.select<Array<{ c: number }>>(`SELECT changes() AS c`)
     return r[0]?.c ?? 0

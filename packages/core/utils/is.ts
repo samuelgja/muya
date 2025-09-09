@@ -1,3 +1,4 @@
+/* eslint-disable jsdoc/require-jsdoc */
 import type { SetStateCb, SetValue, State } from '../types'
 import { AbortError } from './common'
 
@@ -27,9 +28,11 @@ export function isEqualBase<T>(valueA: T, valueB: T): boolean {
   }
   return !!Object.is(valueA, valueB)
 }
+
 export function isSetValueFunction<T>(value: SetValue<T>): value is SetStateCb<T> {
   return typeof value === 'function'
 }
+
 export function isAbortError(value: unknown): value is AbortError {
   return value instanceof AbortError
 }

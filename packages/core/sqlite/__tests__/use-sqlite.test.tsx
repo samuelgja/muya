@@ -1,3 +1,4 @@
+/* eslint-disable jsdoc/require-jsdoc */
 import { act, renderHook } from '@testing-library/react-hooks'
 import { createSqliteState } from '../create-sqlite'
 import { useSqliteValue } from '../use-sqlite'

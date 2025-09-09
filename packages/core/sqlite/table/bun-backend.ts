@@ -2,9 +2,18 @@ import { Database, type Statement } from 'bun:sqlite'
 import type { Backend } from './backend'
 import { MapDeque } from './map-deque'
 
+/**
+ * Create an in-memory SQLite backend using Bun's SQLite implementation
+ * @returns A Backend instance for in-memory SQLite operations
+ */
 export function bunMemoryBackend(): Backend {
   const db = Database.open(':memory:')
   const prepares = new MapDeque<string, Statement>(100)
+  /**
+   * Get or prepare a SQLite statement, caching it for future use
+   * @param query The SQL query string
+   * @returns The prepared SQLite statement
+   */
   function getStatement(query: string): Statement {
     if (prepares.has(query)) {
       return prepares.get(query)!

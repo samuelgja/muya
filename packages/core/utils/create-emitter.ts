@@ -15,8 +15,9 @@ export interface Emitter<T, P = undefined> {
  * T: Type of the state
  * R: Type of the snapshot
  * P: Type of the parameters
- * @param getSnapshot
- * @returns
+ * @param getSnapshot Function to get the current snapshot
+ * @param getInitialSnapshot Optional function to get the initial snapshot
+ * @returns An emitter object with methods to manage listeners and emit events
  */
 export function createEmitter<T, P = undefined>(getSnapshot: () => T, getInitialSnapshot?: () => T): Emitter<T, P> {
   const listeners = new Set<(...params: P[]) => void>()

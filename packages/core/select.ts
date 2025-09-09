@@ -13,14 +13,23 @@ type AwaitedArray<T extends Array<unknown>> = {
   [K in keyof T]: Awaited<T[K]>
 }
 /**
- * Selecting state from multiple states.
- * It will create new state in read-only mode (without set).
+ * Create a derived state from multiple dependency states using a selector function
+ * @param states An array of dependency states
+ * @param selector A function that takes the values of the dependency states and returns a derived value
+ * @param isEqual Optional custom equality check function to prevent unnecessary updates
+ * @returns A GetState<T> representing the derived state
  */
 export function select<T = unknown, S extends Array<unknown> = []>(
   states: StateDependencies<S>,
   selector: (...values: AwaitedArray<S>) => T,
   isEqual?: IsEqual<T>,
 ): GetState<T> {
+  /**
+   * Compute the derived value based on the current values of the dependency states.
+   * If any dependency state is a promise, the result will be a promise that resolves
+   * once all dependencies are resolved.
+   * @returns The computed value or a promise that resolves to the computed value
+   */
   function computedValue(): T {
     let hasPromise = false
     const values = states.map((state) => {
@@ -47,6 +56,11 @@ export function select<T = unknown, S extends Array<unknown> = []>(
     const result = selector(...(values as AwaitedArray<S>))
     return result
   }
+  /**
+   * Get the current snapshot of the derived state.
+   * If the current cached value is undefined, it computes a new value.
+   * @returns The current snapshot value of the derived state
+   */
   function getSnapshot(): T {
     if (isUndefined(state.cache.current)) {
       const newValue = computedValue()
@@ -54,6 +68,12 @@ export function select<T = unknown, S extends Array<unknown> = []>(
     }
     return state.cache.current
   }
+  /**
+   * Get the current value of the derived state, initializing it if necessary.
+   * If the current cached value is a promise, it returns a new promise that resolves
+   * once the cached promise resolves, ensuring that undefined values are re-evaluated.
+   * @returns The current value of the derived state or a promise that resolves to it
+   */
   function getValue(): T {
     if (isUndefined(state.cache.current)) {
       const newValue = computedValue()

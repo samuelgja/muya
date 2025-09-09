@@ -16,11 +16,21 @@ export interface SqlSeachOptions<Document extends DocType> {
 }
 
 let stateId = 0
+/**
+ * Generate a unique state ID
+ * @returns A unique state ID
+ */
 function getStateId() {
   stateId++
   return `${stateId.toString(36)}-sql`
 }
 
+/**
+ * Create a state that derives its value from a SyncTable using a compute function
+ * @param state The SyncTable to derive from
+ * @param compute A function that takes parameters and returns SqlSeachOptions to filter the SyncTable
+ * @returns A function that takes parameters and returns a GetState of the derived documents
+ */
 export function selectSql<Document extends DocType, Params extends unknown[] = []>(
   state: SyncTable<Document>,
   compute: (...args: Params) => SqlSeachOptions<Document>,
