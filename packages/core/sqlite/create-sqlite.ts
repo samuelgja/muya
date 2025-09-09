@@ -4,6 +4,7 @@
 import { createScheduler } from '../scheduler'
 import { shallow } from '../utils/shallow'
 import { selectSql, type CreateState } from './select-sql'
+import type { Backend } from './table'
 import { createTable, DEFAULT_STEP_SIZE } from './table/table'
 import type { DbOptions, DocType, Key, MutationResult, SearchOptions, Table } from './table/table.types'
 import type { Where } from './table/where'
@@ -14,6 +15,10 @@ const STATE_SCHEDULER = createScheduler()
 let stateId = 0
 function getStateId() {
   return stateId++
+}
+
+export interface CreateSqliteOptions<Document extends DocType> extends Omit<DbOptions<Document>, 'backend'> {
+  readonly backend: Backend | Promise<Backend>
 }
 
 export interface SyncTable<Document extends DocType> {
@@ -45,9 +50,7 @@ interface DataItems<Document extends DocType> {
   options?: SearchOptions<Document, unknown>
 }
 
-export function createSqliteState<Document extends DocType>(options: DbOptions<Document>): SyncTable<Document> {
-  // const table = await createTable<Document>(options)
-
+export function createSqliteState<Document extends DocType>(options: CreateSqliteOptions<Document>): SyncTable<Document> {
   const id = getStateId()
   function getScheduleId(searchId: SearchId) {
     return `state-${id}-search-${searchId}`
@@ -56,7 +59,9 @@ export function createSqliteState<Document extends DocType>(options: DbOptions<D
   let cachedTable: Table<Document> | undefined
   async function getTable() {
     if (!cachedTable) {
-      cachedTable = await createTable<Document>(options)
+      const { backend, ...rest } = options
+      const resolvedBackend = backend instanceof Promise ? await backend : backend
+      cachedTable = await createTable<Document>({ backend: resolvedBackend, ...rest })
     }
     return cachedTable
   }
