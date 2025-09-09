@@ -317,4 +317,35 @@ describe('table', () => {
     }
     expect(results2.length).toBe(2)
   })
+
+  it('should test fts index with nested fields', async () => {
+    const tableFts = await createTable<{ id: string; info: { content: string } }>({
+      backend,
+      tableName: 'TestTableFTSNested',
+      key: 'id',
+      indexes: ['fts:info.content'],
+    })
+    await tableFts.set({ id: '1', info: { content: 'The quick brown fox' } })
+    await tableFts.set({ id: '2', info: { content: 'jumps over the lazy dog' } })
+    await tableFts.set({ id: '3', info: { content: 'hello world' } })
+
+    const results: { id: string; info: { content: string } }[] = []
+    for await (const doc of tableFts.search({
+      where: {
+        info: {
+          content: { fts: ['quick', 'fox'] },
+        },
+      },
+    })) {
+      results.push(doc)
+    }
+    expect(results.length).toBe(1)
+    expect(results[0].id).toBe('1')
+
+    const results2: { id: string; info: { content: string } }[] = []
+    for await (const doc of tableFts.search({ where: { info: { content: { fts: ['the'] } } } })) {
+      results2.push(doc)
+    }
+    expect(results2.length).toBe(2)
+  })
 })

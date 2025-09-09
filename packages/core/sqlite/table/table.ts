@@ -69,15 +69,22 @@ export async function createTable<Document extends DocType>(options: DbOptions<D
     `)
   }
 
-  // Track FTS fields
+  // Track FTS fields and map dot paths to valid SQLite column names
   let ftsTokenizer: string | undefined | FtsTokenizerOptions
   const ftsFields: string[] = []
+  const ftsFieldMap: Record<string, string> = {} // dot path -> column name
 
   for (const index of indexes ?? []) {
     if (typeof index === 'string' && index.startsWith('fts:')) {
-      ftsFields.push(index.slice(4))
+      const path = index.slice(4)
+      const col = path.replaceAll('.', '_')
+      ftsFields.push(path)
+      ftsFieldMap[path] = col
     } else if (typeof index === 'object' && index.type === 'fts') {
-      ftsFields.push(index.path)
+      const path = index.path
+      const col = path.replaceAll('.', '_')
+      ftsFields.push(path)
+      ftsFieldMap[path] = col
       if (index.tokenizer) {
         if (!ftsTokenizer) {
           ftsTokenizer = index.tokenizer
@@ -96,7 +103,6 @@ export async function createTable<Document extends DocType>(options: DbOptions<D
 
   // Create FTS table + triggers
   if (ftsFields.length > 0) {
-    // const tokenizerSpec = ftsTokenizer ?? '"unicode61", "remove_diacritics=1"'
     let tokenizerSpec: string
     if (typeof ftsTokenizer === 'object') {
       tokenizerSpec = unicodeTokenizer(ftsTokenizer)
@@ -105,8 +111,8 @@ export async function createTable<Document extends DocType>(options: DbOptions<D
     } else {
       tokenizerSpec = ftsTokenizer
     }
-    // Use actual field names for FTS columns
-    const ftsColumns = ftsFields.map((f) => f).join(', ')
+    // Use mapped column names for FTS columns
+    const ftsColumns = ftsFields.map((f) => ftsFieldMap[f]).join(', ')
     const query = `
         CREATE VIRTUAL TABLE IF NOT EXISTS ${tableName}_fts
         USING fts5(${ftsColumns}, tokenize=${tokenizerSpec});
@@ -142,7 +148,7 @@ export async function createTable<Document extends DocType>(options: DbOptions<D
       AFTER UPDATE ON ${tableName}
       BEGIN
         UPDATE ${tableName}_fts
-        SET ${ftsFields.map((f) => `${f}=json_extract(new.data, '${toJsonPath(f)}')`).join(', ')}
+        SET ${ftsFields.map((f) => `${ftsFieldMap[f]}=json_extract(new.data, '${toJsonPath(f)}')`).join(', ')}
         WHERE rowid = old.rowid;
       END;
     `)
