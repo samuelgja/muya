@@ -79,11 +79,11 @@ describe('use-sqlite-state', () => {
     const { result } = renderHook(() => {
       reRenders++
       const [minAge, setMinAge] = useState(20)
-      return [useSqliteValue(sql, { where: { age: { gt: minAge } }, sorBy: 'age' }, [minAge]), setMinAge] as const
+      return [useSqliteValue(sql, { where: { age: { gt: minAge } }, sortBy: 'age' }, [minAge]), setMinAge] as const
     })
 
     await waitFor(() => {
-      expect(result.current[0][0].map((p) => p.name)).toEqual(['Alice', 'Bob', 'Carol'])
+      expect(result.current[0][0].map((p) => p.name)).toEqual(['Bob', 'Alice', 'Carol'])
       expect(reRenders).toBe(2)
     })
 
@@ -132,17 +132,17 @@ describe('use-sqlite-state', () => {
       { id: '3', name: 'Carol', age: 40 },
     ])
     const { result, rerender } = renderHook(
-      ({ order, limit }) => useSqliteValue(sql, { sorBy: 'age', order, limit }, [order, limit]),
+      ({ order, limit }) => useSqliteValue(sql, { sortBy: 'age', order, limit }, [order, limit]),
       { initialProps: { order: 'asc' as 'asc' | 'desc', limit: 2 } },
     )
     await waitFor(() => {
-      expect(result.current[0].map((p) => p.name)).toEqual(['Alice', 'Bob'])
+      expect(result.current[0].map((p) => p.name)).toEqual(['Bob', 'Alice'])
     })
     act(() => {
       rerender({ order: 'desc', limit: 2 })
     })
     await waitFor(() => {
-      expect(result.current[0].map((p) => p.name)).toEqual(['Alice', 'Bob'])
+      expect(result.current[0].map((p) => p.name)).toEqual(['Carol', 'Alice'])
     })
     act(() => {
       rerender({ order: 'desc', limit: 1 })
@@ -243,11 +243,11 @@ describe('use-sqlite-state', () => {
       people.push({ id: index.toString(), name: `Person${index}`, age: 20 + (index % 50) })
     }
     await sql.batchSet(people)
-    const { result, rerender } = renderHook(({ order }) => useSqliteValue(sql, { sorBy: 'age', order }, [order]), {
+    const { result, rerender } = renderHook(({ order }) => useSqliteValue(sql, { sortBy: 'age', order }, [order]), {
       initialProps: { order: 'asc' as 'asc' | 'desc' },
     })
     await waitFor(() => {
-      expect(result.current[0][0].age).toBe(21)
+      expect(result.current[0][0].age).toBe(20)
     })
     act(() => {
       rerender({ order: 'desc' })
@@ -268,14 +268,14 @@ describe('use-sqlite-state', () => {
       useSqliteValue(
         sql,
         {
-          sorBy: 'age',
+          sortBy: 'age',
           select: (d) => d.name,
         },
         [],
       ),
     )
     await waitFor(() => {
-      expect(result.current[0]).toEqual(['Alice', 'Bob', 'Carol'])
+      expect(result.current[0]).toEqual(['Bob', 'Alice', 'Carol'])
     })
   })
   it('should add 50 documents and then load with another hook', async () => {
@@ -286,7 +286,7 @@ describe('use-sqlite-state', () => {
       return useSqliteValue(
         sql,
         {
-          sorBy: 'age',
+          sortBy: 'age',
           order: 'desc',
         },
         [],

@@ -1,4 +1,5 @@
 // table.types.ts
+import type { SqlSeachOptions } from '../select-sql'
 import type { Backend } from './backend'
 import type { Where } from './where'
 
@@ -27,13 +28,7 @@ export interface DbOptions<Document extends DocType> {
   readonly disablePragmaOptimization?: boolean
 }
 
-export interface SearchOptions<Document extends DocType, Selected = Document> {
-  readonly sortBy?: DotPath<Document>
-  readonly order?: 'asc' | 'desc'
-  readonly limit?: number
-  readonly offset?: number
-  readonly where?: Where<Document>
-  readonly stepSize?: number
+export interface SearchOptions<Document extends DocType, Selected = Document> extends SqlSeachOptions<Document> {
   readonly select?: (document: Document, meta: { rowId: number }) => Selected
 }
 
