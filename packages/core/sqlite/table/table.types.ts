@@ -58,4 +58,5 @@ export interface Table<Document extends DocType> extends DbNotGeneric {
   readonly search: <Selected = Document>(options?: SearchOptions<Document, Selected>) => AsyncIterableIterator<Selected>
   readonly count: (options?: { where?: Where<Document> }) => Promise<number>
   readonly deleteBy: (where: Where<Document>) => Promise<MutationResult[]>
+  readonly clear: () => Promise<void>
 }

@@ -208,6 +208,9 @@ export async function createTable<Document extends DocType>(options: DbOptions<D
       return results
     },
 
+    async clear() {
+      await backend.execute(`DELETE FROM ${tableName}`)
+    },
     async batchSet(documents: Document[]) {
       const mutations: MutationResult[] = []
       await backend.transaction(async (tx) => {

@@ -39,32 +39,32 @@ describe('use-sqlite-state', () => {
       expect(reRenders).toBe(3)
     })
 
-    // act(() => {
-    //   sql.set({ id: '1', name: 'Alice2', age: 30 })
-    // })
-    // await waitFor(() => {
-    //   expect(result.current[0]).toEqual([{ id: '1', name: 'Alice2', age: 30 }])
-    //   expect(reRenders).toBe(4)
-    // })
+    act(() => {
+      sql.set({ id: '1', name: 'Alice2', age: 30 })
+    })
+    await waitFor(() => {
+      expect(result.current[0]).toEqual([{ id: '1', name: 'Alice2', age: 30 }])
+      expect(reRenders).toBe(4)
+    })
 
-    // // delete item
-    // act(() => {
-    //   sql.delete('1')
-    // })
-    // await waitFor(() => {
-    //   expect(result.current[0]).toEqual([])
-    //   expect(reRenders).toBe(5)
-    // })
+    // delete item
+    act(() => {
+      sql.delete('1')
+    })
+    await waitFor(() => {
+      expect(result.current[0]).toEqual([])
+      expect(reRenders).toBe(5)
+    })
 
-    // // add two items
-    // act(() => {
-    //   sql.set({ id: '1', name: 'Alice', age: 30 })
-    //   sql.set({ id: '2', name: 'Bob', age: 25 })
-    // })
-    // await waitFor(() => {
-    //   expect(result.current[0].length).toBe(2)
-    //   expect(reRenders).toBe(6)
-    // })
+    // add two items
+    act(() => {
+      sql.set({ id: '1', name: 'Alice', age: 30 })
+      sql.set({ id: '2', name: 'Bob', age: 25 })
+    })
+    await waitFor(() => {
+      expect(result.current[0].length).toBe(2)
+      expect(reRenders).toBe(6)
+    })
   })
 
   it('should use where clause changed via state', async () => {
@@ -275,6 +275,40 @@ describe('use-sqlite-state', () => {
     )
     await waitFor(() => {
       expect(result.current[0]).toEqual(['Alice', 'Bob', 'Carol'])
+    })
+  })
+  it('should add 50 documents and then load with another hook', async () => {
+    const sql = createSqliteState<Person>({ backend, tableName: 'State9', key: 'id' })
+    let reRenders = 0
+    const { result: result1 } = renderHook(() => {
+      reRenders++
+      return useSqliteValue(
+        sql,
+        {
+          sorBy: 'age',
+          order: 'desc',
+        },
+        [],
+      )
+    })
+    await waitFor(() => {
+      expect(reRenders).toBe(2)
+      expect(result1.current[0].length).toBe(0)
+    })
+
+    const people: Person[] = []
+    for (let index = 1; index <= 50; index++) {
+      people.push({ id: index.toString(), name: `Person${index}`, age: 20 + (index % 50) })
+    }
+    await sql.batchSet(people)
+    await waitFor(() => {
+      expect(reRenders).toBe(3)
+      expect(result1.current[0].length).toBe(50)
+    })
+
+    const { result: result2 } = renderHook(() => useSqliteValue(sql, {}, []))
+    await waitFor(() => {
+      expect(result2.current[0].length).toBe(50)
     })
   })
 })

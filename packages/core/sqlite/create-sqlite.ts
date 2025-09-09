@@ -88,8 +88,11 @@ export function createSqliteState<Document extends DocType>(options: CreateSqlit
         iterators.delete(searchId)
         break
       }
-      newItems.push(result.value.document)
-      data.keys.add(String(result.value.rowId))
+
+      if (!data.keys.has(String(result.value.rowId))) {
+        newItems.push(result.value.document)
+        data.keys.add(String(result.value.rowId))
+      }
     }
 
     if (newItems.length === 0) return false
