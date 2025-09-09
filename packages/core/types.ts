@@ -22,7 +22,7 @@ export interface GetState<T, IsFroMPromise extends boolean = false> {
   /**
    * Get the unique id of the state.
    */
-  id: number
+  id: string
   /**
    * Emitter to listen to changes with snapshots.
    */

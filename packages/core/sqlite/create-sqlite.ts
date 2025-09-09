@@ -1,7 +1,6 @@
 /* eslint-disable sonarjs/redundant-type-aliases */
-/* eslint-disable @typescript-eslint/no-shadow */
-/* eslint-disable no-shadow */
-import { createScheduler } from '../scheduler'
+import { STATE_SCHEDULER } from '../create'
+import { getId } from '../utils/id'
 import { shallow } from '../utils/shallow'
 import { selectSql, type CreateState } from './select-sql'
 import type { Backend } from './table'
@@ -10,16 +9,6 @@ import type { DbOptions, DocType, Key, MutationResult, SearchOptions, Table } fr
 import type { Where } from './table/where'
 
 type SearchId = string
-const STATE_SCHEDULER = createScheduler()
-
-let stateId = 0
-/**
- * Get a unique state ID
- * @returns The unique state ID
- */
-function getStateId() {
-  return stateId++
-}
 
 export interface CreateSqliteOptions<Document extends DocType> extends Omit<DbOptions<Document>, 'backend'> {
   readonly backend: Backend | Promise<Backend>
@@ -60,7 +49,7 @@ interface DataItems<Document extends DocType> {
  * @returns A SyncTable instance with methods to interact with the underlying Table and manage reactive searches
  */
 export function createSqliteState<Document extends DocType>(options: CreateSqliteOptions<Document>): SyncTable<Document> {
-  const id = getStateId()
+  const id = getId()
 
   /**
    * Get a unique schedule ID for a search ID
@@ -102,8 +91,8 @@ export function createSqliteState<Document extends DocType>(options: CreateSqlit
    */
   async function next(searchId: SearchId, data: DataItems<Document>): Promise<boolean> {
     const iterator = iterators.get(searchId)
-    const { options = {} } = data
-    const { stepSize = DEFAULT_STEP_SIZE } = options
+    const { options: nextOptions = {} } = data
+    const { stepSize = DEFAULT_STEP_SIZE } = nextOptions
     if (!iterator) return false
     const newItems: Document[] = []
 
@@ -145,8 +134,8 @@ export function createSqliteState<Document extends DocType>(options: CreateSqlit
     const table = await getTable()
     const data = cachedData.get(searchId)
     if (!data) return
-    const { options } = data
-    const iterator = table.search({ ...options, select: (document, { rowId }) => ({ document, rowId }) })
+    const { options: refreshOptions } = data
+    const iterator = table.search({ ...refreshOptions, select: (document, { rowId }) => ({ document, rowId }) })
     iterators.set(searchId, iterator)
     data.keys = new Set()
     data.items = []
@@ -214,19 +203,19 @@ export function createSqliteState<Document extends DocType>(options: CreateSqlit
   /**
    * Register data for a search ID
    * @param searchId The search ID
-   * @param options Optional search options
+   * @param registerDataOptions Optional search options
    * @returns The data items for the search ID
    */
-  function registerData(searchId: SearchId, options?: SearchOptions<Document, unknown>) {
+  function registerData(searchId: SearchId, registerDataOptions?: SearchOptions<Document, unknown>) {
     if (!cachedData.has(searchId)) {
-      cachedData.set(searchId, { items: [], options, keys: new Set() })
-      if (options) {
+      cachedData.set(searchId, { items: [], options: registerDataOptions, keys: new Set() })
+      if (registerDataOptions) {
         refresh(searchId)
       }
     }
     const data = cachedData.get(searchId)!
-    if (options) {
-      data.options = options
+    if (registerDataOptions) {
+      data.options = registerDataOptions
     }
     return data
   }
@@ -262,20 +251,20 @@ export function createSqliteState<Document extends DocType>(options: CreateSqlit
       const table = await getTable()
       return table.get(key, selector)
     },
-    async *search(options = {}) {
+    async *search(searchOptions = {}) {
       const table = await getTable()
-      for await (const item of table.search(options)) {
+      for await (const item of table.search(searchOptions)) {
         yield item
       }
     },
-    async count(options) {
+    async count(countOptions) {
       const table = await getTable()
-      return await table.count(options)
+      return await table.count(countOptions)
     },
 
-    updateSearchOptions(searchId, options) {
-      const data = registerData(searchId, options)
-      data.options = options
+    updateSearchOptions(searchId, updateSearchOptions) {
+      const data = registerData(searchId, updateSearchOptions)
+      data.options = updateSearchOptions
       const scheduleId = getScheduleId(searchId)
       STATE_SCHEDULER.schedule(scheduleId, { searchId })
     },
