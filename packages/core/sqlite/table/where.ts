@@ -17,6 +17,7 @@ interface Condition<T> {
   readonly in?: T[]
   readonly notIn?: T[]
   readonly like?: T | T[]
+  readonly fts?: string | string[] // 🔥 NEW
 }
 
 // -------------------------------------------------------------
@@ -55,16 +56,13 @@ function inlineValue(value: unknown): string {
  */
 function getFieldExpr(field: string, value: unknown, tableAlias?: string): string {
   const prefix = tableAlias ? `${tableAlias}.` : ''
-  if (field === 'KEY') {
-    return `"${prefix}key"`
-  }
+  if (field === 'KEY') return `"${prefix}key"`
   if (typeof value === 'string') return `CAST(json_extract(${prefix}data, '$.${field}') AS TEXT)`
   if (typeof value === 'number') return `CAST(json_extract(${prefix}data, '$.${field}') AS NUMERIC)`
   if (typeof value === 'boolean') return `CAST(json_extract(${prefix}data, '$.${field}') AS INTEGER)`
   return `json_extract(${prefix}data, '$.${field}')`
 }
-
-const OPS_SET: ReadonlySet<string> = new Set(['is', 'isNot', 'gt', 'gte', 'lt', 'lte', 'in', 'notIn', 'like'])
+const OPS_SET: ReadonlySet<string> = new Set(['is', 'isNot', 'gt', 'gte', 'lt', 'lte', 'in', 'notIn', 'like', 'fts'])
 
 /**
  * Flatten a nested Where object into a single-level object with dot-separated keys
@@ -97,28 +95,27 @@ function flattenWhere(object: Record<string, unknown>, prefix = ''): Record<stri
  * Write SQL WHERE clause from a Where object
  * @param where The Where object defining the conditions
  * @param tableAlias Optional table alias to prefix field names
+ * @param tableName Optional table name (required for FTS conditions)
  * @returns The SQL WHERE clause string (without the "WHERE" keyword)
  */
-export function getWhere<T extends Record<string, unknown>>(where: Where<T>, tableAlias?: string): string {
+export function getWhere<T extends Record<string, unknown>>(where: Where<T>, tableAlias?: string, tableName?: string): string {
   if (!where || typeof where !== 'object') return ''
 
-  // ----- Logical branches -----
   if (where.AND) {
-    const clauses = Array.isArray(where.AND) ? where.AND.map((w) => getWhere(w, tableAlias)).filter(Boolean) : []
+    const clauses = Array.isArray(where.AND) ? where.AND.map((w) => getWhere(w, tableAlias, tableName)).filter(Boolean) : []
     return clauses.length > 0 ? `(${clauses.join(' AND ')})` : ''
   }
 
   if (where.OR) {
-    const clauses = Array.isArray(where.OR) ? where.OR.map((w) => getWhere(w, tableAlias)).filter(Boolean) : []
+    const clauses = Array.isArray(where.OR) ? where.OR.map((w) => getWhere(w, tableAlias, tableName)).filter(Boolean) : []
     return clauses.length > 0 ? `(${clauses.join(' OR ')})` : ''
   }
 
   if (where.NOT) {
-    const clause = getWhere(where.NOT, tableAlias)
+    const clause = getWhere(where.NOT, tableAlias, tableName)
     return clause ? `(NOT ${clause})` : ''
   }
 
-  // ----- Field conditions -----
   const flat = flattenWhere(where as Record<string, unknown>)
   let fieldClauses = ''
   let anyField = false
@@ -126,7 +123,6 @@ export function getWhere<T extends Record<string, unknown>>(where: Where<T>, tab
   for (const [key, rawValue] of Object.entries(flat)) {
     if (rawValue == null) continue
 
-    // coerce primitive/array into Condition
     let cond: Condition<unknown>
     if (typeof rawValue !== 'object' || Array.isArray(rawValue)) {
       cond = Array.isArray(rawValue) ? { in: rawValue } : { is: rawValue }
@@ -135,18 +131,28 @@ export function getWhere<T extends Record<string, unknown>>(where: Where<T>, tab
     }
 
     for (const opKey of Object.keys(cond)) {
-      if (!OPS_SET.has(opKey)) continue
       const opValue = cond[opKey as keyof Condition<unknown>]
       if (opValue == null) continue
 
       const values = Array.isArray(opValue) ? opValue : [opValue]
       if (values.length === 0) continue
 
-      // is / isNot / in / notIn
+      if (opKey === 'fts') {
+        if (!tableName) throw new Error('FTS requires tableName for JOIN reference')
+        const clause = values
+          .map(
+            (v) =>
+              `EXISTS (SELECT 1 FROM ${tableName}_fts f WHERE f.rowid = ${tableAlias ?? tableName}.rowid AND ${tableName}_fts MATCH ${inlineValue(v)})`,
+          )
+          .join(' AND ')
+        fieldClauses += (anyField ? ' AND ' : '') + clause
+        anyField = true
+        continue
+      }
+
       if (opKey === 'is' || opKey === 'isNot' || opKey === 'in' || opKey === 'notIn') {
         const fieldExpr = getFieldExpr(key, values[0], tableAlias)
         const inList = values.map(inlineValue).join(',')
-
         const clause =
           opKey === 'is'
             ? values.length > 1
@@ -159,13 +165,11 @@ export function getWhere<T extends Record<string, unknown>>(where: Where<T>, tab
               : opKey === 'in'
                 ? `${fieldExpr} IN (${inList})`
                 : `${fieldExpr} NOT IN (${inList})`
-
         fieldClauses += (anyField ? ' AND ' : '') + clause
         anyField = true
         continue
       }
 
-      // gt / gte / lt / lte / like
       for (const v of values) {
         const fieldExpr = getFieldExpr(key, v, tableAlias)
         const clause =
@@ -190,10 +194,11 @@ export function getWhere<T extends Record<string, unknown>>(where: Where<T>, tab
 /**
  * Get SQL WHERE clause from a Where object
  * @param where The Where object defining the conditions
+ * @param tableName Optional table name (required for FTS conditions)
  * @returns The SQL WHERE clause string (without the "WHERE" keyword)
  */
-export function getWhereQuery<T extends Record<string, unknown>>(where?: Where<T>): string {
+export function getWhereQuery<T extends Record<string, unknown>>(where?: Where<T>, tableName?: string): string {
   if (!where) return ''
-  const clause = getWhere(where)
+  const clause = getWhere(where, undefined, tableName)
   return clause ? `WHERE ${clause}` : ''
 }
