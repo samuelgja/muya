@@ -4,7 +4,7 @@ import { createSqliteState } from '../create-sqlite'
 import { useSqliteValue } from '../use-sqlite'
 import { waitFor } from '@testing-library/react'
 import { bunMemoryBackend } from '../table/bun-backend'
-import { Suspense, useState } from 'react'
+import { StrictMode, Suspense, useState } from 'react'
 import { DEFAULT_STEP_SIZE } from '../table/table'
 
 const backend = bunMemoryBackend()
@@ -15,13 +15,17 @@ interface Person {
 }
 
 function Wrapper({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <Suspense fallback={<div>Loading...</div>}>{children}</Suspense>
+  return (
+    <StrictMode>
+      <Suspense fallback={<div>Loading...</div>}>{children}</Suspense>
+    </StrictMode>
+  )
 }
 describe('use-sqlite-state', () => {
   it('should get basic value states', async () => {
     const sql = createSqliteState<Person>({ backend, tableName: 'State1', key: 'id' })
     let reRenders = 0
-    const { result } = renderHook(
+    const { result, rerender } = renderHook(
       () => {
         reRenders++
         const aha = useSqliteValue(sql, {}, [])
@@ -65,6 +69,14 @@ describe('use-sqlite-state', () => {
     await waitFor(() => {
       expect(result.current[0].length).toBe(2)
       expect(reRenders).toBe(6)
+    })
+
+    act(() => {
+      rerender()
+    })
+    await waitFor(() => {
+      expect(reRenders).toBe(7)
+      expect(result.current[0].length).toBe(2)
     })
   })
 

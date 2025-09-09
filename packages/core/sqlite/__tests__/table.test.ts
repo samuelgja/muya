@@ -1,9 +1,6 @@
 /* eslint-disable @typescript-eslint/no-shadow */
 /* eslint-disable no-shadow */
 /* eslint-disable sonarjs/pseudo-random */
-// /* eslint-disable sonarjs/no-unused-vars */
-// /* eslint-disable unicorn/prevent-abbreviations */
-
 import { bunMemoryBackend } from '../table/bun-backend'
 import { createTable } from '../table/table'
 
@@ -177,5 +174,178 @@ describe('table', () => {
     expect(nullSelector).toBeNull()
     const undefinedSelector = await table.get('Charlie', () => void 0)
     expect(undefinedSelector).toBeUndefined()
+  })
+
+  it('should clear the table', async () => {
+    await table.set({ name: 'Alice', age: 30, city: 'Paris' })
+    await table.set({ name: 'Bob', age: 25, city: 'London' })
+    expect(await table.count()).toBe(2)
+    await table.clear()
+    expect(await table.count()).toBe(0)
+  })
+  it('should use fts index', async () => {
+    const tableFts = await createTable<{ id: string; content: string }>({
+      backend,
+      tableName: 'TestTableFTS',
+      key: 'id',
+      indexes: ['fts:content'],
+    })
+    await tableFts.set({ id: '1', content: 'The Čoho brown fox' })
+    await tableFts.set({ id: '2', content: 'jumps over the lazy dog' })
+    await tableFts.set({ id: '3', content: 'hello world' })
+
+    const results: { id: string; content: string }[] = []
+    for await (const doc of tableFts.search({ where: { content: { fts: ['coho', 'fox'] } } })) {
+      results.push(doc)
+    }
+    expect(results.length).toBe(1)
+    expect(results[0].id).toBe('1')
+
+    const results2: { id: string; content: string }[] = []
+    for await (const doc of tableFts.search({ where: { content: { fts: ['the'] } } })) {
+      results2.push(doc)
+    }
+    expect(results2.length).toBe(2)
+  })
+
+  it('should use fts index with custom tokenizer options', async () => {
+    // Use only ASCII letters for tokenchars/separators to avoid SQLite errors
+    const tableFts = await createTable<{ id: string; content: string }>({
+      backend,
+      tableName: 'TestTableFTS2',
+      key: 'id',
+      indexes: [
+        {
+          type: 'fts',
+          path: 'content',
+          tokenizer: { removeDiacritics: 0, tokenChars: 'abc', separators: 'xyz' },
+        },
+      ],
+    })
+    await tableFts.set({ id: '1', content: 'abc xyz' })
+    await tableFts.set({ id: '2', content: 'abc' })
+    await tableFts.set({ id: '3', content: 'other' })
+
+    const results: { id: string; content: string }[] = []
+    for await (const doc of tableFts.search({ where: { content: { fts: ['abc'] } } })) {
+      results.push(doc)
+    }
+    expect(results.length).toBe(2)
+
+    const results2: { id: string; content: string }[] = []
+    for await (const doc of tableFts.search({ where: { content: { fts: ['xyz'] } } })) {
+      results2.push(doc)
+    }
+    expect(results2.length).toBe(1)
+    expect(results2[0].id).toBe('1')
+  })
+
+  it('should support multiple fts fields', async () => {
+    // Use a single FTS index with multiple fields (title, body) in one index
+    const tableFts = await createTable<{ id: string; title: string; body: string }>({
+      backend,
+      tableName: 'TestTableFTSMulti',
+      key: 'id',
+      indexes: [
+        { type: 'fts', path: 'title' },
+        { type: 'fts', path: 'body' },
+      ],
+    })
+    await tableFts.set({ id: '1', title: 'Hello', body: 'World' })
+    await tableFts.set({ id: '2', title: 'Foo', body: 'Bar' })
+    await tableFts.set({ id: '3', title: 'Hello', body: 'Bar' })
+
+    // FTS search on title
+    const results: { id: string; title: string; body: string }[] = []
+    for await (const doc of tableFts.search({ where: { title: { fts: ['Hello'] } } })) {
+      results.push(doc)
+    }
+    expect(results.length).toBe(2)
+
+    // FTS search on body
+    const results2: { id: string; title: string; body: string }[] = []
+    for await (const doc of tableFts.search({ where: { body: { fts: ['Bar'] } } })) {
+      results2.push(doc)
+    }
+    expect(results2.length).toBe(2)
+  })
+
+  it('should handle fts search with no results', async () => {
+    const tableFts = await createTable<{ id: string; content: string }>({
+      backend,
+      tableName: 'TestTableFTSNone',
+      key: 'id',
+      indexes: ['fts:content'],
+    })
+    await tableFts.set({ id: '1', content: 'foo bar' })
+    const results: { id: string; content: string }[] = []
+    for await (const doc of tableFts.search({ where: { content: { fts: ['notfound'] } } })) {
+      results.push(doc)
+    }
+    expect(results.length).toBe(0)
+  })
+
+  it('should  custom fn fts index', async () => {
+    const tableFts = await createTable<{ id: string; content: string }>({
+      backend,
+      tableName: 'TestTableFTS',
+      key: 'id',
+      indexes: [
+        {
+          type: 'fts',
+          path: 'content',
+          tokenizer: {
+            removeDiacritics: 1,
+          },
+        },
+      ],
+    })
+    await tableFts.set({ id: '1', content: 'The Čoho brown fox' })
+    await tableFts.set({ id: '2', content: 'jumps over the lazy dog' })
+    await tableFts.set({ id: '3', content: 'hello world' })
+
+    const results: { id: string; content: string }[] = []
+    for await (const doc of tableFts.search({ where: { content: { fts: ['coho', 'fox'] } } })) {
+      results.push(doc)
+    }
+    expect(results.length).toBe(1)
+    expect(results[0].id).toBe('1')
+
+    const results2: { id: string; content: string }[] = []
+    for await (const doc of tableFts.search({ where: { content: { fts: ['the'] } } })) {
+      results2.push(doc)
+    }
+    expect(results2.length).toBe(2)
+  })
+
+  it('should test fts index with nested fields', async () => {
+    const tableFts = await createTable<{ id: string; info: { content: string } }>({
+      backend,
+      tableName: 'TestTableFTSNested',
+      key: 'id',
+      indexes: ['fts:info.content'],
+    })
+    await tableFts.set({ id: '1', info: { content: 'The quick brown fox' } })
+    await tableFts.set({ id: '2', info: { content: 'jumps over the lazy dog' } })
+    await tableFts.set({ id: '3', info: { content: 'hello world' } })
+
+    const results: { id: string; info: { content: string } }[] = []
+    for await (const doc of tableFts.search({
+      where: {
+        info: {
+          content: { fts: ['quick', 'fox'] },
+        },
+      },
+    })) {
+      results.push(doc)
+    }
+    expect(results.length).toBe(1)
+    expect(results[0].id).toBe('1')
+
+    const results2: { id: string; info: { content: string } }[] = []
+    for await (const doc of tableFts.search({ where: { info: { content: { fts: ['the'] } } } })) {
+      results2.push(doc)
+    }
+    expect(results2.length).toBe(2)
   })
 })

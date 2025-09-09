@@ -3,18 +3,18 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 /* eslint-disable @typescript-eslint/no-shadow */
 /* eslint-disable no-shadow */
-
 import type { Table, DbOptions, DocType, Key, SearchOptions, MutationResult } from './table.types'
+import { unicodeTokenizer, type FtsTokenizerOptions } from './tokenizer'
 import type { Where } from './where'
 import { getWhereQuery } from './where'
 
-const DELETE_IN_CHUNK = 500 // keep well below SQLite's default 999 parameter limit
+const DELETE_IN_CHUNK = 500
 export const DEFAULT_STEP_SIZE = 100
 
 /**
  * Convert a dot-separated path to a JSON path
- * @param dot The dot-separated path
- * @returns The JSON path
+ * @param dot The dot-separated path string
+ * @returns The JSON path string
  */
 export function toJsonPath(dot: string) {
   return '$.' + dot
@@ -22,8 +22,8 @@ export function toJsonPath(dot: string) {
 
 /**
  * Get a nested value from an object using a dot-separated path
- * @param object The object to get the value from
- * @param path The dot-separated path to the value
+ * @param object The object to retrieve the value from
+ * @param path The dot-separated path string
  * @returns The value at the specified path, or undefined if not found
  */
 export function getByPath<T extends object>(object: T, path: string): unknown {
@@ -38,15 +38,14 @@ export function getByPath<T extends object>(object: T, path: string): unknown {
 }
 
 /**
- * Create a new table in the database with the given options
- * @param options The options for creating the table
- * @returns The created table
+ * Create and initialize a table in the database with the specified options
+ * @param options The options for creating the table, including table name, indexes, backend, and key
+ * @returns A promise that resolves to the created Table instance
  */
 export async function createTable<Document extends DocType>(options: DbOptions<Document>): Promise<Table<Document>> {
   const { backend, tableName, indexes, key, disablePragmaOptimization } = options
   const hasUserKey = key !== undefined
 
-  // --- Apply performance PRAGMAs unless explicitly disabled ---
   if (!disablePragmaOptimization) {
     await backend.execute(`PRAGMA journal_mode=WAL;`)
     await backend.execute(`PRAGMA synchronous=NORMAL;`)
@@ -54,7 +53,7 @@ export async function createTable<Document extends DocType>(options: DbOptions<D
     await backend.execute(`PRAGMA cache_size=-20000;`)
   }
 
-  // Schema
+  // Base JSON table
   if (hasUserKey) {
     await backend.execute(`
       CREATE TABLE IF NOT EXISTS ${tableName} (
@@ -70,19 +69,95 @@ export async function createTable<Document extends DocType>(options: DbOptions<D
     `)
   }
 
-  // JSON expression indexes
+  // Track FTS fields and map dot paths to valid SQLite column names
+  let ftsTokenizer: string | undefined | FtsTokenizerOptions
+  const ftsFields: string[] = []
+  const ftsFieldMap: Record<string, string> = {} // dot path -> column name
+
   for (const index of indexes ?? []) {
-    const idx = String(index)
-    await backend.execute(
-      `CREATE INDEX IF NOT EXISTS idx_${tableName}_${idx.replaceAll(/\W/g, '_')}
+    if (typeof index === 'string' && index.startsWith('fts:')) {
+      const path = index.slice(4)
+      const col = path.replaceAll('.', '_')
+      ftsFields.push(path)
+      ftsFieldMap[path] = col
+    } else if (typeof index === 'object' && index.type === 'fts') {
+      const path = index.path
+      const col = path.replaceAll('.', '_')
+      ftsFields.push(path)
+      ftsFieldMap[path] = col
+      if (index.tokenizer) {
+        if (!ftsTokenizer) {
+          ftsTokenizer = index.tokenizer
+        } else if (ftsTokenizer !== index.tokenizer) {
+          throw new Error(`Conflicting FTS tokenizers: already using "${ftsTokenizer}", got "${index.tokenizer}"`)
+        }
+      }
+    } else {
+      const idx = String(index)
+      await backend.execute(
+        `CREATE INDEX IF NOT EXISTS idx_${tableName}_${idx.replaceAll(/\W/g, '_')}
        ON ${tableName} (json_extract(data, '${toJsonPath(idx)}'));`,
-    )
+      )
+    }
+  }
+
+  // Create FTS table + triggers
+  if (ftsFields.length > 0) {
+    let tokenizerSpec: string
+    if (typeof ftsTokenizer === 'object') {
+      tokenizerSpec = unicodeTokenizer(ftsTokenizer)
+    } else if (ftsTokenizer === undefined) {
+      tokenizerSpec = '"unicode61", "remove_diacritics=1"'
+    } else {
+      tokenizerSpec = ftsTokenizer
+    }
+    // Use mapped column names for FTS columns
+    const ftsColumns = ftsFields.map((f) => ftsFieldMap[f]).join(', ')
+    const query = `
+        CREATE VIRTUAL TABLE IF NOT EXISTS ${tableName}_fts
+        USING fts5(${ftsColumns}, tokenize=${tokenizerSpec});
+`
+
+    await backend.execute(query)
+
+    // Insert trigger
+    await backend.execute(`
+      CREATE TRIGGER IF NOT EXISTS ${tableName}_ai
+      AFTER INSERT ON ${tableName}
+      BEGIN
+        INSERT INTO ${tableName}_fts(rowid, ${ftsColumns})
+        VALUES (
+          new.rowid,
+          ${ftsFields.map((f) => `json_extract(new.data, '${toJsonPath(f)}')`).join(', ')}
+        );
+      END;
+    `)
+
+    // Delete trigger
+    await backend.execute(`
+      CREATE TRIGGER IF NOT EXISTS ${tableName}_ad
+      AFTER DELETE ON ${tableName}
+      BEGIN
+        DELETE FROM ${tableName}_fts WHERE rowid = old.rowid;
+      END;
+    `)
+
+    // Update trigger
+    await backend.execute(`
+      CREATE TRIGGER IF NOT EXISTS ${tableName}_au
+      AFTER UPDATE ON ${tableName}
+      BEGIN
+        UPDATE ${tableName}_fts
+        SET ${ftsFields.map((f) => `${ftsFieldMap[f]}=json_extract(new.data, '${toJsonPath(f)}')`).join(', ')}
+        WHERE rowid = old.rowid;
+      END;
+    `)
   }
 
   /**
-   * Get the key value from a document
+   * Get the value of the configured key from a document
    * @param document The document to extract the key from
-   * @returns The key value or undefined if no user key is configured
+   * @returns The value of the key, or undefined if not found or no key is configured
    */
   function getKeyFromDocument(document: Document): Key | undefined {
     if (!hasUserKey) return undefined
@@ -90,9 +165,9 @@ export async function createTable<Document extends DocType>(options: DbOptions<D
   }
 
   /**
-   * Get the number of rows changed by the last operation
-   * @param conn The database connection
-   * @returns The number of rows changed
+   * Get the number of rows changed by the last operation on the given connection
+   * @param conn The database connection to check for changes
+   * @returns A promise that resolves to the number of changed rows
    */
   async function getChanges(conn: typeof backend): Promise<number> {
     const r = await conn.select<Array<{ c: number }>>(`SELECT changes() AS c`)
@@ -109,17 +184,13 @@ export async function createTable<Document extends DocType>(options: DbOptions<D
       if (hasUserKey) {
         const id = getKeyFromDocument(document)
         if (id === undefined || id === null) {
-          throw new Error(
-            `Document is missing the configured key "${String(key)}". Provide it or create the table without "key".`,
-          )
+          throw new Error(`Document is missing the configured key "${String(key)}".`)
         }
 
-        // Fast path: UPDATE first
         await db.execute(`UPDATE ${tableName} SET data = ? WHERE key = ?`, [json, id])
         const updated = await getChanges(db)
         if (updated === 1) return { key: id, op: 'update' }
 
-        // No row updated => try INSERT
         try {
           await db.execute(`INSERT INTO ${tableName} (key, data) VALUES (?, ?)`, [id, json])
           return { key: id, op: 'insert' }
@@ -129,7 +200,6 @@ export async function createTable<Document extends DocType>(options: DbOptions<D
         }
       }
 
-      // ROWID mode
       await db.execute(`INSERT INTO ${tableName} (data) VALUES (?)`, [json])
       const rows = await db.select<Array<{ id: number }>>(`SELECT last_insert_rowid() AS id`)
       const rowid = rows[0]?.id
@@ -139,7 +209,6 @@ export async function createTable<Document extends DocType>(options: DbOptions<D
 
     async get<Selected = Document>(
       keyValue: Key,
-      // keep meta available and consistent with search() { rowId }
       selector: (document: Document, meta: { rowId: number }) => Selected = (d) => d as unknown as Selected,
     ) {
       const whereKey = hasUserKey ? `key = ?` : `rowid = ?`
@@ -172,7 +241,7 @@ export async function createTable<Document extends DocType>(options: DbOptions<D
         stepSize = DEFAULT_STEP_SIZE,
       } = options
 
-      const whereSql = getWhereQuery<Document>(where)
+      const whereSql = getWhereQuery<Document>(where, tableName)
       const baseQuery = `SELECT rowid, data FROM ${tableName} ${whereSql}`
 
       let yielded = 0
@@ -205,14 +274,14 @@ export async function createTable<Document extends DocType>(options: DbOptions<D
     },
 
     async count(options: { where?: Where<Document> } = {}) {
-      const whereSql = getWhereQuery<Document>(options.where)
+      const whereSql = getWhereQuery<Document>(options.where, tableName)
       const query = `SELECT COUNT(*) as count FROM ${tableName} ${whereSql}`
       const result = await backend.select<Array<{ count: number }>>(query)
       return result[0]?.count ?? 0
     },
 
     async deleteBy(where: Where<Document>) {
-      const whereSql = getWhereQuery<Document>(where)
+      const whereSql = getWhereQuery<Document>(where, tableName)
       const keyCol = hasUserKey ? 'key' : 'rowid'
       const results: MutationResult[] = []
 
@@ -236,6 +305,7 @@ export async function createTable<Document extends DocType>(options: DbOptions<D
     async clear() {
       await backend.execute(`DELETE FROM ${tableName}`)
     },
+
     async batchSet(documents: Document[]) {
       const mutations: MutationResult[] = []
       await backend.transaction(async (tx) => {

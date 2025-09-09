@@ -1,6 +1,6 @@
-// table.types.ts
 import type { SqlSeachOptions } from '../select-sql'
 import type { Backend } from './backend'
+import type { FtsTokenizerOptions } from './tokenizer'
 import type { Where } from './where'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -19,10 +19,28 @@ export type DotPath<T, D extends number = 5> = [D] extends [never]
         [K in Extract<keyof T, string>]: T[K] extends object ? K | `${K}.${DotPath<T[K], Previous[D]>}` : K
       }[Extract<keyof T, string>]
     : never
-// Replace keyof Document with DotPath<Document>
+
+// Built-in FTS5 tokenizers
+export type FtsTokenizer =
+  | 'porter' // English stemming
+  | 'simple' // basic ASCII tokenizer
+  | 'icu' // requires SQLite compiled with ICU extension
+  | 'unicode61' // Unicode-aware tokenizer with diacritic removal and custom token chars
+  | FtsTokenizerOptions
+
+export interface FtsType<Document extends DocType> {
+  readonly type: 'fts'
+  readonly path: DotPath<Document>
+  readonly tokenizer?: FtsTokenizer
+}
+export type IndexDeclaration<Document extends DocType> =
+  | DotPath<Document> // normal JSON path index
+  | `fts:${DotPath<Document>}` // full-text index
+  | FtsType<Document> // full-text index with options
+
 export interface DbOptions<Document extends DocType> {
   readonly tableName: string
-  readonly indexes?: Array<DotPath<Document>>
+  readonly indexes?: Array<IndexDeclaration<Document>>
   readonly backend: Backend
   readonly key?: DotPath<Document>
   readonly disablePragmaOptimization?: boolean

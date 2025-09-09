@@ -31,6 +31,7 @@ export interface SyncTable<Document extends DocType> {
   readonly deleteBy: (where: Where<Document>) => Promise<MutationResult[]>
   readonly destroy: () => void
   readonly next: (searchId: SearchId) => Promise<boolean>
+  readonly clear: (searchId: SearchId) => void
 
   readonly select: <Params extends unknown[]>(
     compute: (...args: Params) => SearchOptions<Document>,
@@ -221,6 +222,9 @@ export function createSqliteState<Document extends DocType>(options: CreateSqlit
   }
 
   const state: SyncTable<Document> = {
+    clear(searchId: SearchId) {
+      cachedData.delete(searchId)
+    },
     async set(document) {
       const table = await getTable()
       const changes = await table.set(document)
@@ -271,20 +275,19 @@ export function createSqliteState<Document extends DocType>(options: CreateSqlit
 
     subscribe(searchId, listener) {
       const scheduleId = getScheduleId(searchId)
-      const clear = STATE_SCHEDULER.add(scheduleId, {
+      const clearScheduler = STATE_SCHEDULER.add(scheduleId, {
         onScheduleDone() {
           refresh(searchId)
         },
       })
-      clearSchedulers.add(clear)
+      clearSchedulers.add(clearScheduler)
 
       if (!listeners.has(searchId)) {
         listeners.set(searchId, listener)
       }
       return () => {
         listeners.delete(searchId)
-        clear()
-        cachedData.delete(searchId)
+        clearScheduler()
       }
     },
     getSnapshot(searchId) {

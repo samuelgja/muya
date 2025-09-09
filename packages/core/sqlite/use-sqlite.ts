@@ -1,4 +1,4 @@
-import { useCallback, useDebugValue, useId, useLayoutEffect, useMemo, type DependencyList } from 'react'
+import { useCallback, useDebugValue, useEffect, useId, useLayoutEffect, useMemo, type DependencyList } from 'react'
 import type { SyncTable } from './create-sqlite'
 import type { DocType } from './table/table.types'
 import { isError, isPromise } from '../utils/is'
@@ -38,6 +38,13 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
     state.updateSearchOptions(id, { ...options, select: undefined })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps)
+
+  useEffect(() => {
+    return () => {
+      state.clear(id)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const selector = useCallback(
     (documents: Document[]) => {
