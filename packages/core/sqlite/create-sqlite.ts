@@ -212,9 +212,7 @@ export function createSqliteState<Document extends DocType>(options: CreateSqlit
   function registerData(searchId: SearchId, registerDataOptions?: SearchOptions<Document, unknown>) {
     if (!cachedData.has(searchId)) {
       cachedData.set(searchId, { items: [], options: registerDataOptions, keys: new Set() })
-      if (registerDataOptions) {
-        refresh(searchId)
-      }
+      refresh(searchId)
     }
     const data = cachedData.get(searchId)!
     if (registerDataOptions) {
