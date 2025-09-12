@@ -9,7 +9,7 @@ import type { Where } from './where'
 import { getWhereQuery } from './where'
 
 const DELETE_IN_CHUNK = 500
-export const DEFAULT_STEP_SIZE = 100
+export const DEFAULT_PAGE_SIZE = 100
 
 /**
  * Convert a dot-separated path to a JSON path
@@ -239,7 +239,7 @@ export async function createTable<Document extends DocType>(options: DbOptions<D
         offset = 0,
         where,
         select = (document) => document as unknown as Selected,
-        stepSize = DEFAULT_STEP_SIZE,
+        pageSize = DEFAULT_PAGE_SIZE,
       } = options
 
       const whereSql = getWhereQuery<Document>(where, tableName)
@@ -256,7 +256,7 @@ export async function createTable<Document extends DocType>(options: DbOptions<D
           query += hasUserKey ? ` ORDER BY key COLLATE NOCASE ${order.toUpperCase()}` : ` ORDER BY rowid ${order.toUpperCase()}`
         }
 
-        const batchLimit = limit ? Math.min(stepSize, limit - yielded) : stepSize
+        const batchLimit = limit ? Math.min(pageSize, limit - yielded) : pageSize
         query += ` LIMIT ${batchLimit} OFFSET ${currentOffset}`
 
         const results = await backend.select<Array<{ rowid: number; data: string }>>(query)
