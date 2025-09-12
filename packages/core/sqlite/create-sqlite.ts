@@ -17,7 +17,7 @@ export interface CreateSqliteOptions<Document extends DocType> extends Omit<DbOp
 export interface SyncTable<Document extends DocType> {
   // readonly registerSearch: <Selected = Document>(searchId: SearchId, options: SearchOptions<Document, Selected>) => () => void
   readonly updateSearchOptions: <Selected = Document>(searchId: SearchId, options: SearchOptions<Document, Selected>) => void
-  readonly subscribe: (searchId: SearchId, listener: () => void) => () => void
+  readonly subscribe: (searchId: SearchId, componentId: string, listener: () => void) => () => void
   readonly getSnapshot: (searchId: SearchId) => Document[]
   readonly refresh: (searchId: SearchId) => Promise<void>
 
@@ -81,7 +81,7 @@ export function createSqliteState<Document extends DocType>(options: CreateSqlit
   }
   // const emitter = createEmitter<Table<Document>>()
   const cachedData = new Map<SearchId, DataItems<Document>>()
-  const listeners = new Map<SearchId, () => void>()
+  const listeners = new Map<SearchId, Map<string, () => void>>()
   const iterators = new Map<SearchId, AsyncIterableIterator<NextResult>>()
 
   /**
@@ -123,7 +123,9 @@ export function createSqliteState<Document extends DocType>(options: CreateSqlit
   function notifyListeners(searchId: SearchId) {
     const searchListeners = listeners.get(searchId)
     if (searchListeners) {
-      searchListeners()
+      for (const [, listener] of searchListeners) {
+        listener()
+      }
     }
   }
 
@@ -273,7 +275,7 @@ export function createSqliteState<Document extends DocType>(options: CreateSqlit
       STATE_SCHEDULER.schedule(scheduleId, { searchId })
     },
 
-    subscribe(searchId, listener) {
+    subscribe(searchId, componentId, listener) {
       const scheduleId = getScheduleId(searchId)
       const clearScheduler = STATE_SCHEDULER.add(scheduleId, {
         onScheduleDone() {
@@ -283,10 +285,15 @@ export function createSqliteState<Document extends DocType>(options: CreateSqlit
       clearSchedulers.add(clearScheduler)
 
       if (!listeners.has(searchId)) {
-        listeners.set(searchId, listener)
+        listeners.set(searchId, new Map())
       }
+      const searchListeners = listeners.get(searchId)!
+      searchListeners.set(componentId, listener)
       return () => {
-        listeners.delete(searchId)
+        searchListeners.delete(componentId)
+        if (searchListeners.size === 0) {
+          listeners.delete(searchId)
+        }
         clearScheduler()
       }
     },

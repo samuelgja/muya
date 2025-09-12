@@ -1,4 +1,4 @@
-import { useCallback, useDebugValue, useEffect, useLayoutEffect, useMemo, type DependencyList } from 'react'
+import { useCallback, useDebugValue, useEffect, useId, useLayoutEffect, useMemo, type DependencyList } from 'react'
 import type { SyncTable } from './create-sqlite'
 import type { DocType } from './table/table.types'
 import { isError, isPromise } from '../utils/is'
@@ -65,6 +65,7 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
   const { select } = options
 
   const searchId = useMemo(() => generateCacheKey({ ...options, select: undefined }), [options])
+  const componentId = useId()
 
   useLayoutEffect(() => {
     state.updateSearchOptions(searchId, { ...options, select: undefined })
@@ -88,9 +89,9 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
 
   const subscribe = useCallback(
     (onStorageChange: () => void) => {
-      return state.subscribe(searchId, onStorageChange)
+      return state.subscribe(searchId, componentId, onStorageChange)
     },
-    [state, searchId],
+    [state, searchId, componentId],
   )
 
   const getSnapshot = useCallback(() => {
