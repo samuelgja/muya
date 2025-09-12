@@ -209,7 +209,7 @@ export async function createTable<Document extends DocType>(options: DbOptions<D
 
     async get<Selected = Document>(
       keyValue: Key,
-      selector: (document: Document, meta: { rowId: number }) => Selected = (d) => d as unknown as Selected,
+      selector: (document: Document, meta: { rowId: number; key: Key }) => Selected = (d) => d as unknown as Selected,
     ) {
       const whereKey = hasUserKey ? `key = ?` : `rowid = ?`
       const result = await backend.select<Array<{ data: string; rowid: number }>>(
@@ -219,7 +219,8 @@ export async function createTable<Document extends DocType>(options: DbOptions<D
       if (result.length === 0) return
       const { data, rowid } = result[0]
       const document = JSON.parse(data) as Document
-      return selector(document, { rowId: rowid }) as Selected
+      const logicalKey = hasUserKey ? (getKeyFromDocument(document) ?? rowid) : rowid
+      return selector(document, { rowId: rowid, key: logicalKey }) as Selected
     },
 
     async delete(keyValue: Key) {
@@ -264,7 +265,9 @@ export async function createTable<Document extends DocType>(options: DbOptions<D
         for (const { rowid, data } of results) {
           if (limit && yielded >= limit) return
           const document = JSON.parse(data) as Document
-          yield select(document, { rowId: rowid }) as Selected
+          const logicalKey = hasUserKey ? (getKeyFromDocument(document) ?? rowid) : rowid
+          // Pass both rowId and logicalKey
+          yield select(document, { rowId: rowid, key: logicalKey }) as Selected
           yielded++
         }
 

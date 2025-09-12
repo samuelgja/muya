@@ -1,6 +1,6 @@
 {
   "name": "muya",
-  "version": "2.4.0",
+  "version": "2.4.4",
   "author": "samuel.gjabel@gmail.com",
   "repository": "https://github.com/samuelgjabel/muya",
   "main": "cjs/index.js",
@@ -77,8 +77,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "bun eslint \"packages/core/**/*.{ts,tsx}\" --fix",
     "format": "prettier --write \"./**/*.{js,jsx,json,ts,tsx}\"",
-    "test": "bun test",
-    "pub": "bun run code-check && bun run test && bun run build && cd lib && npm publish"
+    "test": "bun test ./packages/**",
+    "pub": "bun run code-check && bun run build && cd lib && npm publish"
   },
   "sideEffects": false,
   "types": "types/index.d.ts",

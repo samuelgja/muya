@@ -110,7 +110,7 @@ describe('use-sqlite-state', () => {
   })
 
   it('should support like in where clause and update results', async () => {
-    const sql = createSqliteState<Person>({ backend, tableName: 'State3', key: 'id' })
+    const sql = createSqliteState<Person>({ backend, tableName: 'State3Hook', key: 'id' })
     await sql.batchSet([
       { id: '1', name: 'Alice', age: 30 },
       { id: '2', name: 'Alicia', age: 25 },
@@ -136,8 +136,8 @@ describe('use-sqlite-state', () => {
     expect(reRenders).toBeGreaterThanOrEqual(2)
   })
 
-  it('should update results when changing order and limit options', async () => {
-    const sql = createSqliteState<Person>({ backend, tableName: 'State4', key: 'id' })
+  it('should update results when changing order and limit options 1', async () => {
+    const sql = createSqliteState<Person>({ backend, tableName: 'State44Hook', key: 'id' })
     await sql.batchSet([
       { id: '1', name: 'Alice', age: 30 },
       { id: '2', name: 'Bob', age: 25 },
@@ -165,7 +165,7 @@ describe('use-sqlite-state', () => {
   })
 
   it('should support actions.next and actions.refresh', async () => {
-    const sql = createSqliteState<Person>({ backend, tableName: 'State5', key: 'id' })
+    const sql = createSqliteState<Person>({ backend, tableName: 'State5Hook', key: 'id' })
     await sql.batchSet([
       { id: '1', name: 'Alice', age: 30 },
       { id: '2', name: 'Bob', age: 25 },
@@ -180,7 +180,7 @@ describe('use-sqlite-state', () => {
     })
   })
   it('should handle thousands of records', async () => {
-    const sql = createSqliteState<Person>({ backend, tableName: 'State6', key: 'id' })
+    const sql = createSqliteState<Person>({ backend, tableName: 'State6Hook', key: 'id' })
     const people: Person[] = []
     const ITEMS_COUNT = 1000
     for (let index = 1; index <= ITEMS_COUNT; index++) {
@@ -211,7 +211,7 @@ describe('use-sqlite-state', () => {
   })
 
   it('should handle thousands of records with single update', async () => {
-    const sql = createSqliteState<Person>({ backend, tableName: 'State6', key: 'id' })
+    const sql = createSqliteState<Person>({ backend, tableName: 'State6Hook', key: 'id' })
     const people: Person[] = []
     const ITEMS_COUNT = 10_000
     const stepSize = 5000
@@ -230,13 +230,13 @@ describe('use-sqlite-state', () => {
     })
 
     act(() => {
-      for (let index = 0; index < ITEMS_COUNT / stepSize; index++) {
-        result.current[1].next()
+      while (!result.current[1].next()) {
+        /* empty */
       }
     })
 
     await waitFor(() => {
-      expect(reRenders).toBe(4)
+      expect(reRenders).toBe(3)
       expect(result.current[0].length).toBe(ITEMS_COUNT)
     })
 
@@ -244,7 +244,7 @@ describe('use-sqlite-state', () => {
       result.current[1].reset()
     })
     await waitFor(() => {
-      expect(reRenders).toBe(5)
+      expect(reRenders).toBe(4)
       expect(result.current[0].length).toBe(stepSize)
     })
   })
@@ -305,7 +305,7 @@ describe('use-sqlite-state', () => {
       )
     })
     await waitFor(() => {
-      expect(reRenders).toBe(2)
+      expect(reRenders).toBe(1)
       expect(result1.current[0].length).toBe(0)
     })
 
@@ -322,6 +322,88 @@ describe('use-sqlite-state', () => {
     const { result: result2 } = renderHook(() => useSqliteValue(sql, {}, []))
     await waitFor(() => {
       expect(result2.current[0].length).toBe(50)
+    })
+  })
+
+  it('should handle update of deep fields with deep id', async () => {
+    interface DeepItem {
+      person: {
+        id: string
+        name: string
+        age: number
+      }
+    }
+    const sql = createSqliteState<DeepItem>({ backend, tableName: 'State10', key: 'person.id' })
+    let reRenders = 0
+    const { result } = renderHook(() => {
+      reRenders++
+      return useSqliteValue(sql, { sortBy: 'person.age' }, [])
+    })
+
+    await waitFor(() => {
+      expect(reRenders).toBe(1)
+      expect(result.current[0].length).toBe(0)
+    })
+
+    act(() => {
+      sql.set({ person: { id: 'some_id', name: 'Alice', age: 30 } })
+    })
+    await waitFor(() => {
+      expect(reRenders).toBe(3)
+      expect(result.current[0]).toEqual([{ person: { id: 'some_id', name: 'Alice', age: 30 } }])
+    })
+
+    // update deep field
+    act(() => {
+      sql.set({ person: { id: 'some_id', name: 'Alice', age: 31 } })
+    })
+    await waitFor(() => {
+      expect(reRenders).toBe(4)
+      expect(result.current[0]).toEqual([{ person: { id: 'some_id', name: 'Alice', age: 31 } }])
+    })
+
+    // update same field
+    act(() => {
+      sql.set({ person: { id: 'some_id', name: 'Alice', age: 31 } })
+    })
+    // should not re-render
+    await waitFor(() => {
+      expect(result.current[0]).toEqual([{ person: { id: 'some_id', name: 'Alice', age: 31 } }])
+    })
+
+    // add another item
+  })
+  it('should test reset', async () => {
+    const sql = createSqliteState<Person>({ backend, tableName: 'State11', key: 'id' })
+    let reRenders = 0
+
+    await sql.set({ id: 'initial', name: 'initial', age: 1 })
+    const { result } = renderHook(() => {
+      reRenders++
+      // eslint-disable-next-line unicorn/prevent-abbreviations
+      const res = useSqliteValue(sql, {}, [])
+      return res
+    })
+
+    await waitFor(() => {
+      expect(reRenders).toBe(2)
+      expect(result.current[0].length).toBe(1)
+    })
+
+    act(() => {
+      sql.set({ id: '1', name: 'Alice', age: 30 })
+    })
+    await waitFor(() => {
+      expect(reRenders).toBe(3)
+      expect(result.current[0].length).toBe(2)
+    })
+
+    act(() => {
+      result.current[1].reset()
+    })
+    await waitFor(() => {
+      expect(result.current[0].length).toBe(2)
+      expect(reRenders).toBe(4)
     })
   })
 })

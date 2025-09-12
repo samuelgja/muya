@@ -6,7 +6,15 @@ import { useSyncExternalStoreWithSelector } from 'use-sync-external-store/shim/w
 import type { SqlSeachOptions } from './select-sql'
 
 export interface SqLiteActions {
+  /**
+   * Load the next page of results and return if isDone to show more results.
+   * @returns isDone: boolean
+   */
   readonly next: () => Promise<boolean>
+  /**
+   * Reset the pagination and load the first page of results.
+   * @returns void
+   */
   readonly reset: () => Promise<void>
 }
 
@@ -15,6 +23,38 @@ export interface UseSearchOptions<Document extends DocType, Selected = Document>
    * Naive projection. Prefer specialized queries for heavy fan-out graphs.
    */
   readonly select?: (document: Document) => Selected
+}
+
+/**
+ * Generate a cache key based on the search options to uniquely identify the query
+ * @param options The search options to generate the key from
+ * @returns A string representing the unique cache key for the given search options
+ */
+function generateCacheKey(options: UseSearchOptions<DocType, unknown>): string {
+  const { limit, offset, order, sortBy, where, stepSize, select } = options
+  let key = ''
+  if (limit !== undefined) {
+    key += `l${limit}`
+  }
+  if (offset !== undefined) {
+    key += `o${offset}`
+  }
+  if (order !== undefined) {
+    key += `r${order}`
+  }
+  if (sortBy !== undefined) {
+    key += `s${sortBy}`
+  }
+  if (where !== undefined) {
+    key += `w${JSON.stringify(where)}`
+  }
+  if (stepSize !== undefined) {
+    key += `t${stepSize}`
+  }
+  if (select !== undefined) {
+    key += `f${select.toString()}`
+  }
+  return key
 }
 
 /**
@@ -32,16 +72,18 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
 ): [undefined extends Selected ? Document[] : Selected[], SqLiteActions] {
   const { select } = options
 
-  const id = useId()
+  const searchId = useMemo(() => generateCacheKey({ ...options, select: undefined }), [options])
+  const componentId = useId()
 
   useLayoutEffect(() => {
-    state.updateSearchOptions(id, { ...options, select: undefined })
+    state.updateSearchOptions(searchId, { ...options, select: undefined })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps)
 
   useEffect(() => {
+    // state.load(searchId)
     return () => {
-      state.clear(id)
+      state.clear(searchId)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -56,14 +98,14 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
 
   const subscribe = useCallback(
     (onStorageChange: () => void) => {
-      return state.subscribe(id, onStorageChange)
+      return state.subscribe(searchId, componentId, onStorageChange)
     },
-    [state, id],
+    [state, searchId, componentId],
   )
 
   const getSnapshot = useCallback(() => {
-    return state.getSnapshot(id)
-  }, [state, id])
+    return state.getSnapshot(searchId)
+  }, [state, searchId])
 
   const value = useSyncExternalStoreWithSelector<Document[], Selected[]>(subscribe, getSnapshot, getSnapshot, selector)
 
@@ -77,9 +119,9 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
 
   const actions = useMemo((): SqLiteActions => {
     return {
-      next: () => state.next(id),
-      reset: () => state.refresh(id),
+      next: () => state.next(searchId),
+      reset: () => state.refresh(searchId),
     }
-  }, [id, state])
+  }, [searchId, state])
   return [value as undefined extends Selected ? Document[] : Selected[], actions]
 }
