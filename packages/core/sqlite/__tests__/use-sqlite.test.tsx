@@ -137,7 +137,7 @@ describe('use-sqlite-state', () => {
   })
 
   it('should update results when changing order and limit options', async () => {
-    const sql = createSqliteState<Person>({ backend, tableName: 'State4', key: 'id' })
+    const sql = createSqliteState<Person>({ backend, tableName: 'State44', key: 'id' })
     await sql.batchSet([
       { id: '1', name: 'Alice', age: 30 },
       { id: '2', name: 'Bob', age: 25 },
