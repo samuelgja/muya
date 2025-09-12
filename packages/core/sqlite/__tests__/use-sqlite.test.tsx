@@ -230,13 +230,13 @@ describe('use-sqlite-state', () => {
     })
 
     act(() => {
-      for (let index = 0; index < ITEMS_COUNT / stepSize; index++) {
-        result.current[1].next()
+      while (!result.current[1].next()) {
+        /* empty */
       }
     })
 
     await waitFor(() => {
-      expect(reRenders).toBe(4)
+      expect(reRenders).toBe(3)
       expect(result.current[0].length).toBe(ITEMS_COUNT)
     })
 
@@ -244,7 +244,7 @@ describe('use-sqlite-state', () => {
       result.current[1].reset()
     })
     await waitFor(() => {
-      expect(reRenders).toBe(5)
+      expect(reRenders).toBe(4)
       expect(result.current[0].length).toBe(stepSize)
     })
   })
@@ -305,7 +305,7 @@ describe('use-sqlite-state', () => {
       )
     })
     await waitFor(() => {
-      expect(reRenders).toBe(2)
+      expect(reRenders).toBe(1)
       expect(result1.current[0].length).toBe(0)
     })
 
@@ -341,7 +341,7 @@ describe('use-sqlite-state', () => {
     })
 
     await waitFor(() => {
-      expect(reRenders).toBe(2)
+      expect(reRenders).toBe(1)
       expect(result.current[0].length).toBe(0)
     })
 
@@ -358,7 +358,7 @@ describe('use-sqlite-state', () => {
       sql.set({ person: { id: 'some_id', name: 'Alice', age: 31 } })
     })
     await waitFor(() => {
-      // expect(reRenders).toBe(4)
+      expect(reRenders).toBe(4)
       expect(result.current[0]).toEqual([{ person: { id: 'some_id', name: 'Alice', age: 31 } }])
     })
 

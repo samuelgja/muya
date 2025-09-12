@@ -6,7 +6,15 @@ import { useSyncExternalStoreWithSelector } from 'use-sync-external-store/shim/w
 import type { SqlSeachOptions } from './select-sql'
 
 export interface SqLiteActions {
+  /**
+   * Load the next page of results and return if isDone to show more results.
+   * @returns isDone: boolean
+   */
   readonly next: () => Promise<boolean>
+  /**
+   * Reset the pagination and load the first page of results.
+   * @returns void
+   */
   readonly reset: () => Promise<void>
 }
 
@@ -73,6 +81,7 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
   }, deps)
 
   useEffect(() => {
+    // state.load(searchId)
     return () => {
       state.clear(searchId)
     }

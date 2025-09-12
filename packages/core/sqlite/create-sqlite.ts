@@ -32,16 +32,18 @@ export interface SyncTable<Document extends DocType> {
   readonly destroy: () => void
   readonly next: (searchId: SearchId) => Promise<boolean>
   readonly clear: (searchId: SearchId) => void
+  readonly load: (searchId: SearchId) => void
 
   readonly select: <Params extends unknown[]>(
     compute: (...args: Params) => SearchOptions<Document>,
   ) => CreateState<Document, Params>
 }
 
-interface DataItems<Document extends DocType> {
+interface CachedItem<Document extends DocType> {
   items: Document[]
   keys: Set<Key>
   options?: SearchOptions<Document, unknown>
+  wasInitialized: boolean
 }
 
 /**
@@ -80,22 +82,40 @@ export function createSqliteState<Document extends DocType>(options: CreateSqlit
     key: Key
   }
   // const emitter = createEmitter<Table<Document>>()
-  const cachedData = new Map<SearchId, DataItems<Document>>()
+  const cachedData = new Map<SearchId, CachedItem<Document>>()
   const listeners = new Map<SearchId, Map<string, () => void>>()
   const iterators = new Map<SearchId, AsyncIterableIterator<NextResult>>()
 
+  interface GetNextBase {
+    readonly newItems?: Document[]
+    readonly isOk: boolean
+    readonly isDone?: boolean
+  }
+
+  interface GetNextTrue extends GetNextBase {
+    readonly isOk: true
+    readonly newItems: Document[]
+  }
+  interface GetNextFalse extends GetNextBase {
+    readonly isOk: false
+  }
+  type GetNext = GetNextTrue | GetNextFalse
   /**
    * Next step in the iterator
    * @param searchId The search ID
    * @param data The data items to process
+   * @param shouldReset Whether to reset the items
    * @returns boolean indicating if new items were added
    */
-  async function next(searchId: SearchId, data: DataItems<Document>): Promise<boolean> {
+  async function getNext(searchId: SearchId, data: CachedItem<Document>, shouldReset: boolean): Promise<GetNext> {
     const iterator = iterators.get(searchId)
     const { options: nextOptions = {} } = data
     const { stepSize = DEFAULT_STEP_SIZE } = nextOptions
-    if (!iterator) return false
+    if (!iterator) return { isOk: false }
     const newItems: Document[] = []
+    if (shouldReset) {
+      data.keys.clear()
+    }
 
     for (let index = 0; index < stepSize; index++) {
       const result = await iterator.next()
@@ -110,10 +130,10 @@ export function createSqliteState<Document extends DocType>(options: CreateSqlit
       }
     }
 
-    if (newItems.length === 0) return false
-    if (shallow(data.items, newItems)) return false
-    data.items = [...data.items, ...newItems]
-    return true
+    if (newItems.length === 0) return { isOk: true, newItems: shouldReset ? [] : data.items, isDone: true }
+    if (shallow(data.items, newItems)) return { isOk: false }
+    if (shouldReset) return { isOk: true, newItems }
+    return { newItems: [...data.items, ...newItems], isOk: true }
   }
 
   /**
@@ -140,9 +160,10 @@ export function createSqliteState<Document extends DocType>(options: CreateSqlit
     const { options: refreshOptions } = data
     const iterator = table.search({ ...refreshOptions, select: (document, { rowId, key }) => ({ document, rowId, key }) })
     iterators.set(searchId, iterator)
-    data.keys = new Set()
-    data.items = []
-    await next(searchId, data)
+    const { isOk, newItems } = await getNext(searchId, data, true)
+    if (isOk) {
+      data.items = newItems
+    }
   }
   /**
    * Refresh the data and notify listeners
@@ -158,7 +179,7 @@ export function createSqliteState<Document extends DocType>(options: CreateSqlit
    * @param mutationResult The mutation result
    * @returns A set of search IDs that need to be updated
    */
-  function handleChange(mutationResult: MutationResult) {
+  function getChangedKeys(mutationResult: MutationResult) {
     const { key, op } = mutationResult
     // find all cached data with key
     const searchIds = new Set<SearchId>()
@@ -188,16 +209,15 @@ export function createSqliteState<Document extends DocType>(options: CreateSqlit
   async function handleChanges(mutationResults: MutationResult[]) {
     const updateSearchIds = new Set<SearchId>()
     for (const mutationResult of mutationResults) {
-      const searchIds = handleChange(mutationResult)
+      const searchIds = getChangedKeys(mutationResult)
       for (const searchId of searchIds) {
         updateSearchIds.add(searchId)
       }
     }
 
-    // const promises = []
     for (const searchId of updateSearchIds) {
       const scheduleId = getScheduleId(searchId)
-      STATE_SCHEDULER.schedule(scheduleId, { searchId })
+      STATE_SCHEDULER.schedule(scheduleId, {})
     }
   }
 
@@ -211,17 +231,32 @@ export function createSqliteState<Document extends DocType>(options: CreateSqlit
    */
   function registerData(searchId: SearchId, registerDataOptions?: SearchOptions<Document, unknown>) {
     if (!cachedData.has(searchId)) {
-      cachedData.set(searchId, { items: [], options: registerDataOptions, keys: new Set() })
-      refresh(searchId)
+      const cachedItem: CachedItem<Document> = {
+        items: [],
+        options: registerDataOptions,
+        keys: new Set(),
+        wasInitialized: false,
+      }
+      cachedData.set(searchId, cachedItem)
     }
-    const data = cachedData.get(searchId)!
+    const cachedItem = cachedData.get(searchId)!
+
     if (registerDataOptions) {
-      data.options = registerDataOptions
+      cachedItem.options = registerDataOptions
     }
-    return data
+    return cachedItem
   }
 
   const state: SyncTable<Document> = {
+    load(searchId: SearchId) {
+      const cachedItem = cachedData.get(searchId)
+      if (!cachedItem) return
+      if (!cachedItem.wasInitialized) {
+        cachedItem.wasInitialized = true
+        const scheduleId = getScheduleId(searchId)
+        STATE_SCHEDULER.schedule(scheduleId, { searchId })
+      }
+    },
     clear(searchId: SearchId) {
       cachedData.delete(searchId)
     },
@@ -280,6 +315,8 @@ export function createSqliteState<Document extends DocType>(options: CreateSqlit
           refresh(searchId)
         },
       })
+      // console.log('Subscribing to searchId:', searchId)
+      this.load(searchId)
       clearSchedulers.add(clearScheduler)
 
       if (!listeners.has(searchId)) {
@@ -287,6 +324,7 @@ export function createSqliteState<Document extends DocType>(options: CreateSqlit
       }
       const searchListeners = listeners.get(searchId)!
       searchListeners.set(componentId, listener)
+
       return () => {
         searchListeners.delete(componentId)
         if (searchListeners.size === 0) {
@@ -308,11 +346,12 @@ export function createSqliteState<Document extends DocType>(options: CreateSqlit
     async next(searchId) {
       const data = cachedData.get(searchId)
       if (data) {
-        const hasNext = await next(searchId, data)
-        if (hasNext) {
+        const hasNext = await getNext(searchId, data, false)
+        if (hasNext.isOk) {
+          data.items = hasNext.newItems
           notifyListeners(searchId)
         }
-        return hasNext
+        return hasNext.isDone ?? false
       }
       return false
     },
