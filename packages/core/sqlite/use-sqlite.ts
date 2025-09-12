@@ -1,4 +1,4 @@
-import { useCallback, useDebugValue, useEffect, useId, useLayoutEffect, useMemo, type DependencyList } from 'react'
+import { useCallback, useDebugValue, useEffect, useLayoutEffect, useMemo, type DependencyList } from 'react'
 import type { SyncTable } from './create-sqlite'
 import type { DocType } from './table/table.types'
 import { isError, isPromise } from '../utils/is'
@@ -18,6 +18,38 @@ export interface UseSearchOptions<Document extends DocType, Selected = Document>
 }
 
 /**
+ * Generate a cache key based on the search options to uniquely identify the query
+ * @param options The search options to generate the key from
+ * @returns A string representing the unique cache key for the given search options
+ */
+function generateCacheKey(options: UseSearchOptions<DocType, unknown>): string {
+  const { limit, offset, order, sortBy, where, stepSize, select } = options
+  let key = ''
+  if (limit !== undefined) {
+    key += `l${limit}`
+  }
+  if (offset !== undefined) {
+    key += `o${offset}`
+  }
+  if (order !== undefined) {
+    key += `r${order}`
+  }
+  if (sortBy !== undefined) {
+    key += `s${sortBy}`
+  }
+  if (where !== undefined) {
+    key += `w${JSON.stringify(where)}`
+  }
+  if (stepSize !== undefined) {
+    key += `t${stepSize}`
+  }
+  if (select !== undefined) {
+    key += `f${select.toString()}`
+  }
+  return key
+}
+
+/**
  * React hook to subscribe to a SyncTable and get its current snapshot, with optional search options and selector for derived state
  * @param state The SyncTable to subscribe to
  * @param options Optional search options to filter and sort the documents
@@ -32,16 +64,16 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
 ): [undefined extends Selected ? Document[] : Selected[], SqLiteActions] {
   const { select } = options
 
-  const id = useId()
+  const searchId = useMemo(() => generateCacheKey({ ...options, select: undefined }), [options])
 
   useLayoutEffect(() => {
-    state.updateSearchOptions(id, { ...options, select: undefined })
+    state.updateSearchOptions(searchId, { ...options, select: undefined })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps)
 
   useEffect(() => {
     return () => {
-      state.clear(id)
+      state.clear(searchId)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -56,14 +88,14 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
 
   const subscribe = useCallback(
     (onStorageChange: () => void) => {
-      return state.subscribe(id, onStorageChange)
+      return state.subscribe(searchId, onStorageChange)
     },
-    [state, id],
+    [state, searchId],
   )
 
   const getSnapshot = useCallback(() => {
-    return state.getSnapshot(id)
-  }, [state, id])
+    return state.getSnapshot(searchId)
+  }, [state, searchId])
 
   const value = useSyncExternalStoreWithSelector<Document[], Selected[]>(subscribe, getSnapshot, getSnapshot, selector)
 
@@ -77,9 +109,9 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
 
   const actions = useMemo((): SqLiteActions => {
     return {
-      next: () => state.next(id),
-      reset: () => state.refresh(id),
+      next: () => state.next(searchId),
+      reset: () => state.refresh(searchId),
     }
-  }, [id, state])
+  }, [searchId, state])
   return [value as undefined extends Selected ? Document[] : Selected[], actions]
 }

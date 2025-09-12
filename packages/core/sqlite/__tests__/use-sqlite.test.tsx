@@ -373,4 +373,37 @@ describe('use-sqlite-state', () => {
 
     // add another item
   })
+  it('should test reset', async () => {
+    const sql = createSqliteState<Person>({ backend, tableName: 'State11', key: 'id' })
+    let reRenders = 0
+
+    await sql.set({ id: 'initial', name: 'initial', age: 1 })
+    const { result } = renderHook(() => {
+      reRenders++
+      // eslint-disable-next-line unicorn/prevent-abbreviations
+      const res = useSqliteValue(sql, {}, [])
+      return res
+    })
+
+    await waitFor(() => {
+      expect(reRenders).toBe(2)
+      expect(result.current[0].length).toBe(1)
+    })
+
+    act(() => {
+      sql.set({ id: '1', name: 'Alice', age: 30 })
+    })
+    await waitFor(() => {
+      expect(reRenders).toBe(3)
+      expect(result.current[0].length).toBe(2)
+    })
+
+    act(() => {
+      result.current[1].reset()
+    })
+    await waitFor(() => {
+      expect(result.current[0].length).toBe(2)
+      expect(reRenders).toBe(4)
+    })
+  })
 })
