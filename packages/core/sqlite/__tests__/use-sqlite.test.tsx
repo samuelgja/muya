@@ -342,7 +342,7 @@ describe('use-sqlite-state', () => {
 
     await waitFor(() => {
       expect(reRenders).toBe(2)
-      expect(result.current?.[0]?.length).toBe(undefined)
+      expect(result.current?.[0]?.length).toBe(0)
     })
 
     act(() => {
