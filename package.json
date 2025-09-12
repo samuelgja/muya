@@ -77,7 +77,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "bun eslint \"packages/core/**/*.{ts,tsx}\" --fix",
     "format": "prettier --write \"./**/*.{js,jsx,json,ts,tsx}\"",
-    "test": "bun test",
+    "test": "bun test ./packages/**",
     "pub": "bun run code-check && bun run build && cd lib && npm publish"
   },
   "sideEffects": false,

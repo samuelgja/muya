@@ -110,7 +110,7 @@ describe('use-sqlite-state', () => {
   })
 
   it('should support like in where clause and update results', async () => {
-    const sql = createSqliteState<Person>({ backend, tableName: 'State3', key: 'id' })
+    const sql = createSqliteState<Person>({ backend, tableName: 'State3Hook', key: 'id' })
     await sql.batchSet([
       { id: '1', name: 'Alice', age: 30 },
       { id: '2', name: 'Alicia', age: 25 },
@@ -136,8 +136,8 @@ describe('use-sqlite-state', () => {
     expect(reRenders).toBeGreaterThanOrEqual(2)
   })
 
-  it('should update results when changing order and limit options', async () => {
-    const sql = createSqliteState<Person>({ backend, tableName: 'State44', key: 'id' })
+  it('should update results when changing order and limit options 1', async () => {
+    const sql = createSqliteState<Person>({ backend, tableName: 'State44Hook', key: 'id' })
     await sql.batchSet([
       { id: '1', name: 'Alice', age: 30 },
       { id: '2', name: 'Bob', age: 25 },
@@ -165,7 +165,7 @@ describe('use-sqlite-state', () => {
   })
 
   it('should support actions.next and actions.refresh', async () => {
-    const sql = createSqliteState<Person>({ backend, tableName: 'State5', key: 'id' })
+    const sql = createSqliteState<Person>({ backend, tableName: 'State5Hook', key: 'id' })
     await sql.batchSet([
       { id: '1', name: 'Alice', age: 30 },
       { id: '2', name: 'Bob', age: 25 },
@@ -180,7 +180,7 @@ describe('use-sqlite-state', () => {
     })
   })
   it('should handle thousands of records', async () => {
-    const sql = createSqliteState<Person>({ backend, tableName: 'State6', key: 'id' })
+    const sql = createSqliteState<Person>({ backend, tableName: 'State6Hook', key: 'id' })
     const people: Person[] = []
     const ITEMS_COUNT = 1000
     for (let index = 1; index <= ITEMS_COUNT; index++) {
@@ -211,7 +211,7 @@ describe('use-sqlite-state', () => {
   })
 
   it('should handle thousands of records with single update', async () => {
-    const sql = createSqliteState<Person>({ backend, tableName: 'State6', key: 'id' })
+    const sql = createSqliteState<Person>({ backend, tableName: 'State6Hook', key: 'id' })
     const people: Person[] = []
     const ITEMS_COUNT = 10_000
     const stepSize = 5000
