@@ -15,6 +15,7 @@ export interface SqLiteActions {
    * @returns void
    */
   readonly reset: () => Promise<void>
+  readonly keysIndex: Map<Key, number>
 }
 
 export interface UseSearchOptions<Document extends DocType, Selected = Document> extends SqlSeachOptions<Document> {
@@ -44,6 +45,7 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
   const [, rerender] = useReducer((c: number) => c + 1, 0)
   const keysIndex = useRef(new Map<Key, number>())
   const iteratorRef = useRef<AsyncIterableIterator<{ doc: Document; meta: { key: Key } }>>()
+  // const pageRef = useRef(0)
 
   const updateIterator = useCallback(() => {
     // eslint-disable-next-line sonarjs/no-unused-vars
@@ -59,6 +61,9 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
   }, [updateIterator])
 
   const fillNextPage = useCallback(async (shouldReset: boolean) => {
+    if (itemsRef.current === undefined) {
+      itemsRef.current = []
+    }
     if (shouldReset === true) {
       reset()
     }
@@ -67,16 +72,14 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
     if (!iterator) {
       return true
     }
-
+    let isDone = false
     for (let index = 0; index < pageSize; index++) {
       const result = await iterator.next()
       result.value
       if (result.done) {
         iteratorRef.current = undefined
+        isDone = true
         break
-      }
-      if (!itemsRef.current) {
-        itemsRef.current = []
       }
       if (keysIndex.current.has(result.value.meta.key)) {
         continue
@@ -84,12 +87,14 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
       itemsRef.current.push(select ? select(result.value.doc) : (result.value.doc as unknown as Selected))
       keysIndex.current.set(result.value.meta.key, itemsRef.current.length - 1)
     }
+    return isDone
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const nextPage = useCallback(async () => {
     const isDone = await fillNextPage(false)
     rerender()
+    // console.log('nextPage isDone', isDone)
     return isDone
   }, [fillNextPage])
 
@@ -169,7 +174,7 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
     await nextPage()
   }, [nextPage, reset])
 
-  return [itemsRef.current, { nextPage, reset: resetCb }] as [
+  return [itemsRef.current, { nextPage, reset: resetCb, keysIndex: keysIndex.current }] as [
     (undefined extends Selected ? Document[] : Selected[]) | undefined,
     SqLiteActions,
   ]

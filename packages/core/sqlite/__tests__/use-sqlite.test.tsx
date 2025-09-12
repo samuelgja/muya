@@ -214,7 +214,7 @@ describe('use-sqlite-state', () => {
     const sql = createSqliteState<Person>({ backend, tableName: 'State6Hook', key: 'id' })
     const people: Person[] = []
     const ITEMS_COUNT = 10_000
-    const pageSize = 5000
+    const pageSize = 500
     for (let index = 1; index <= ITEMS_COUNT; index++) {
       people.push({ id: index.toString(), name: `Person${index}`, age: 20 + (index % 50) })
     }
@@ -230,13 +230,13 @@ describe('use-sqlite-state', () => {
     })
 
     act(() => {
-      while (!result.current[1].nextPage()) {
-        /* empty */
+      for (let index = 0; index < (ITEMS_COUNT - pageSize) / pageSize; index++) {
+        result.current[1].nextPage()
       }
     })
 
     await waitFor(() => {
-      expect(reRenders).toBe(3)
+      expect(reRenders).toBe(21)
       expect(result.current?.[0]?.length).toBe(ITEMS_COUNT)
     })
 
@@ -244,7 +244,7 @@ describe('use-sqlite-state', () => {
       result.current[1].reset()
     })
     await waitFor(() => {
-      expect(reRenders).toBe(4)
+      expect(reRenders).toBe(22)
       expect(result.current?.[0]?.length).toBe(pageSize)
     })
   })
@@ -404,6 +404,89 @@ describe('use-sqlite-state', () => {
     await waitFor(() => {
       expect(result.current?.[0]?.length).toBe(2)
       expect(reRenders).toBe(4)
+    })
+  })
+
+  it('should handle no items in the database', async () => {
+    const sql = createSqliteState<Person>({ backend, tableName: 'EmptyState', key: 'id' })
+    const { result } = renderHook(() => useSqliteValue(sql, {}, []))
+
+    await waitFor(() => {
+      expect(result.current[0]).toEqual([])
+    })
+  })
+
+  it('should handle fewer items than page size', async () => {
+    const sql = createSqliteState<Person>({ backend, tableName: 'FewItemsState', key: 'id' })
+    await sql.batchSet([
+      { id: '1', name: 'Alice', age: 30 },
+      { id: '2', name: 'Bob', age: 25 },
+    ])
+
+    const { result } = renderHook(() => useSqliteValue(sql, {}, []))
+
+    await waitFor(() => {
+      expect(result.current[0]).toEqual([
+        { id: '1', name: 'Alice', age: 30 },
+        { id: '2', name: 'Bob', age: 25 },
+      ])
+    })
+  })
+
+  it('should handle exactly page size items', async () => {
+    const sql = createSqliteState<Person>({ backend, tableName: 'ExactPageSizeState', key: 'id' })
+    const items = Array.from({ length: DEFAULT_PAGE_SIZE }, (_, index) => ({
+      id: `${index + 1}`,
+      name: `Person${index + 1}`,
+      age: 20 + (index % 50),
+    }))
+    await sql.batchSet(items)
+
+    const { result } = renderHook(() => useSqliteValue(sql, {}, []))
+
+    await waitFor(() => {
+      expect(result.current[0]?.length).toBe(DEFAULT_PAGE_SIZE)
+    })
+  })
+
+  it('should have thousands items, and update in middle check', async () => {
+    let reRenders = 0
+    const sql = createSqliteState<Person>({ backend, tableName: 'ManyItemsState', key: 'id' })
+    const ITEMS_COUNT = 1000
+    const people: Person[] = []
+    for (let index = 1; index <= ITEMS_COUNT; index++) {
+      people.push({ id: index.toString(), name: `Person${index}`, age: 20 + (index % 50) })
+    }
+    await sql.batchSet(people)
+
+    const { result } = renderHook(() => {
+      reRenders++
+      return useSqliteValue(sql, { pageSize: 100 }, [])
+    })
+
+    await waitFor(() => {
+      expect(result.current[0]?.length).toBe(100)
+      expect(reRenders).toBe(2)
+    })
+    act(() => {
+      for (let index = 0; index < (ITEMS_COUNT - 100) / 100; index++) {
+        result.current[1].nextPage()
+      }
+    })
+    await waitFor(() => {
+      expect(result.current[0]?.length).toBe(ITEMS_COUNT)
+      expect(reRenders).toBe(11)
+    })
+
+    act(() => {
+      sql.set({ id: '500', name: 'UpdatedPerson500', age: 99 })
+    })
+
+    await waitFor(() => {
+      const updated = result.current[0]?.find((p) => p.id === '500')
+      expect(updated).toEqual({ id: '500', name: 'UpdatedPerson500', age: 99 })
+      expect(reRenders).toBe(12)
+      expect(result.current[0]?.length).toBe(ITEMS_COUNT)
     })
   })
 })
