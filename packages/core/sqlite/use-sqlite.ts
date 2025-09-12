@@ -3,6 +3,7 @@ import { useCallback, useLayoutEffect, useReducer, useRef, type DependencyList }
 import type { SyncTable } from './create-sqlite'
 import type { DocType, Key, SqlSeachOptions } from './table/table.types'
 import { DEFAULT_PAGE_SIZE } from './table'
+const MAX_ITERATIONS = 10_000
 
 export interface SqLiteActions {
   /**
@@ -40,12 +41,10 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
 ): [(undefined extends Selected ? Document[] : Selected[]) | undefined, SqLiteActions] {
   const { select, pageSize = DEFAULT_PAGE_SIZE } = options
 
-  // const [items, setItems] = useState<undefined | (Document | Selected)[]>()
   const itemsRef = useRef<undefined | (Document | Selected)[]>()
   const [, rerender] = useReducer((c: number) => c + 1, 0)
   const keysIndex = useRef(new Map<Key, number>())
   const iteratorRef = useRef<AsyncIterableIterator<{ doc: Document; meta: { key: Key } }>>()
-  // const pageRef = useRef(0)
 
   const updateIterator = useCallback(() => {
     // eslint-disable-next-line sonarjs/no-unused-vars
@@ -75,13 +74,14 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
     let isDone = false
     for (let index = 0; index < pageSize; index++) {
       const result = await iterator.next()
-      result.value
       if (result.done) {
         iteratorRef.current = undefined
         isDone = true
         break
       }
       if (keysIndex.current.has(result.value.meta.key)) {
+        // eslint-disable-next-line sonarjs/updated-loop-counter
+        index += -1
         continue
       }
       itemsRef.current.push(select ? select(result.value.doc) : (result.value.doc as unknown as Selected))
@@ -94,7 +94,6 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
   const nextPage = useCallback(async () => {
     const isDone = await fillNextPage(false)
     rerender()
-    // console.log('nextPage isDone', isDone)
     return isDone
   }, [fillNextPage])
 
@@ -147,8 +146,16 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
         await fillNextPage(true)
 
         // here we ensure that if the length changed, we fill the next page
-        while ((itemsRef.current?.length ?? 0) < newLength) {
+
+        let iterations = 0
+        while ((itemsRef.current?.length ?? 0) < newLength && iterations < MAX_ITERATIONS) {
           await fillNextPage(false)
+          iterations++
+        }
+        if (iterations === MAX_ITERATIONS) {
+          // Optionally log a warning to help with debugging
+          // eslint-disable-next-line no-console
+          console.warn('Reached maximum iterations in fillNextPage loop. Possible duplicate or data issue.')
         }
       }
       rerender()
@@ -163,9 +170,7 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
     updateIterator()
     itemsRef.current = undefined
     keysIndex.current.clear()
-    if (itemsRef.current === undefined) {
-      nextPage()
-    }
+    nextPage()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps)
 
