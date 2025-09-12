@@ -36,10 +36,10 @@ export function selectSql<Document extends DocType, Params extends unknown[] = [
   compute: (...args: Params) => SqlSeachOptions<Document>,
 ): CreateState<Document, Params> {
   const { subscribe, updateSearchOptions } = state
-
+  const componentId = getStateId()
   const result: CreateState<Document, Params> = (...params) => {
     const searchId = getStateId()
-    const destroy = subscribe(searchId, () => {
+    const destroy = subscribe(searchId, componentId, () => {
       getState.emitter.emit()
     })
 
