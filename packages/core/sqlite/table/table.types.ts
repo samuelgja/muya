@@ -47,7 +47,7 @@ export interface DbOptions<Document extends DocType> {
 }
 
 export interface SearchOptions<Document extends DocType, Selected = Document> extends SqlSeachOptions<Document> {
-  readonly select?: (document: Document, meta: { rowId: number }) => Selected
+  readonly select?: (document: Document, meta: { rowId: number; key: Key }) => Selected
 }
 
 interface DbNotGeneric {

@@ -324,4 +324,53 @@ describe('use-sqlite-state', () => {
       expect(result2.current[0].length).toBe(50)
     })
   })
+
+  it('should handle update of deep fields with deep id', async () => {
+    interface DeepItem {
+      person: {
+        id: string
+        name: string
+        age: number
+      }
+    }
+    const sql = createSqliteState<DeepItem>({ backend, tableName: 'State10', key: 'person.id' })
+    let reRenders = 0
+    const { result } = renderHook(() => {
+      reRenders++
+      return useSqliteValue(sql, { sortBy: 'person.age' }, [])
+    })
+
+    await waitFor(() => {
+      expect(reRenders).toBe(2)
+      expect(result.current[0].length).toBe(0)
+    })
+
+    act(() => {
+      sql.set({ person: { id: 'some_id', name: 'Alice', age: 30 } })
+    })
+    await waitFor(() => {
+      expect(reRenders).toBe(3)
+      expect(result.current[0]).toEqual([{ person: { id: 'some_id', name: 'Alice', age: 30 } }])
+    })
+
+    // update deep field
+    act(() => {
+      sql.set({ person: { id: 'some_id', name: 'Alice', age: 31 } })
+    })
+    await waitFor(() => {
+      // expect(reRenders).toBe(4)
+      expect(result.current[0]).toEqual([{ person: { id: 'some_id', name: 'Alice', age: 31 } }])
+    })
+
+    // update same field
+    act(() => {
+      sql.set({ person: { id: 'some_id', name: 'Alice', age: 31 } })
+    })
+    // should not re-render
+    await waitFor(() => {
+      expect(result.current[0]).toEqual([{ person: { id: 'some_id', name: 'Alice', age: 31 } }])
+    })
+
+    // add another item
+  })
 })

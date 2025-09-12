@@ -77,7 +77,7 @@ export function createSqliteState<Document extends DocType>(options: CreateSqlit
 
   interface NextResult {
     document: Document
-    rowId: number
+    key: Key
   }
   // const emitter = createEmitter<Table<Document>>()
   const cachedData = new Map<SearchId, DataItems<Document>>()
@@ -104,9 +104,9 @@ export function createSqliteState<Document extends DocType>(options: CreateSqlit
         break
       }
 
-      if (!data.keys.has(String(result.value.rowId))) {
+      if (!data.keys.has(String(result.value.key))) {
         newItems.push(result.value.document)
-        data.keys.add(String(result.value.rowId))
+        data.keys.add(String(result.value.key))
       }
     }
 
@@ -136,7 +136,7 @@ export function createSqliteState<Document extends DocType>(options: CreateSqlit
     const data = cachedData.get(searchId)
     if (!data) return
     const { options: refreshOptions } = data
-    const iterator = table.search({ ...refreshOptions, select: (document, { rowId }) => ({ document, rowId }) })
+    const iterator = table.search({ ...refreshOptions, select: (document, { rowId, key }) => ({ document, rowId, key }) })
     iterators.set(searchId, iterator)
     data.keys = new Set()
     data.items = []
