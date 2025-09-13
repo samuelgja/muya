@@ -24,7 +24,7 @@ export interface SyncTable<Document extends DocType> {
   readonly search: <Selected = Document>(options?: SearchOptions<Document, Selected>) => AsyncIterableIterator<Selected>
   readonly count: (options?: { where?: Where<Document> }) => Promise<number>
   readonly deleteBy: (where: Where<Document>) => Promise<MutationResult[]>
-  readonly clear: () => void
+  readonly clear: () => Promise<void>
 }
 
 /**
@@ -87,9 +87,10 @@ export function createSqliteState<Document extends DocType>(options: CreateSqlit
       listeners.add(listener)
       return () => listeners.delete(listener)
     },
-    clear() {
-      cachedTable?.clear()
+    async clear() {
+      const table = await getTable()
       handleChanges({ removedAll: true })
+      return table.clear()
     },
     async set(document) {
       const table = await getTable()

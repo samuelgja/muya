@@ -164,16 +164,6 @@ export async function createTable<Document extends DocType>(options: DbOptions<D
     return getByPath(document, String(key)) as Key | undefined
   }
 
-  /**
-   * Get the number of rows changed by the last operation on the given connection
-   * @param conn The database connection to check for changes
-   * @returns A promise that resolves to the number of changed rows
-   */
-  async function getChanges(conn: typeof backend): Promise<number> {
-    const r = await conn.select<Array<{ c: number }>>(`SELECT changes() AS c`)
-    return r[0]?.c ?? 0
-  }
-
   const table: Table<Document> = {
     backend,
 
@@ -187,16 +177,14 @@ export async function createTable<Document extends DocType>(options: DbOptions<D
           throw new Error(`Document is missing the configured key "${String(key)}".`)
         }
 
-        await db.execute(`UPDATE ${tableName} SET data = ? WHERE key = ?`, [json, id])
-        const updated = await getChanges(db)
-        if (updated === 1) return { key: id, op: 'update' }
+        const existing = await db.select<Array<{ key: string }>>(`SELECT key FROM ${tableName} WHERE key = ?`, [id])
 
-        try {
-          await db.execute(`INSERT INTO ${tableName} (key, data) VALUES (?, ?)`, [id, json])
-          return { key: id, op: 'insert' }
-        } catch {
+        if (existing.length > 0) {
           await db.execute(`UPDATE ${tableName} SET data = ? WHERE key = ?`, [json, id])
           return { key: id, op: 'update' }
+        } else {
+          await db.execute(`INSERT INTO ${tableName} (key, data) VALUES (?, ?)`, [id, json])
+          return { key: id, op: 'insert' }
         }
       }
 

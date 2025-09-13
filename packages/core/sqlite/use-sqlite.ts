@@ -73,6 +73,7 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
       return true
     }
     let isDone = false
+
     for (let index = 0; index < pageSize; index++) {
       const result = await iterator.next()
       if (result.done) {
@@ -88,6 +89,7 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
       itemsRef.current.push(select ? select(result.value.doc) : (result.value.doc as unknown as Selected))
       keysIndex.current.set(result.value.meta.key, itemsRef.current.length - 1)
     }
+    itemsRef.current = [...itemsRef.current]
     return isDone
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -111,6 +113,7 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
       const oldLength = itemsRef.current?.length ?? 0
       let newLength = oldLength
       let hasUpdate = false
+      const removeIndexes = new Set<number>()
       for (const mutation of mutations) {
         const { key, op } = mutation
         switch (op) {
@@ -119,27 +122,50 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
             break
           }
           case 'delete': {
-            if (itemsRef.current && keysIndex.current.has(key)) {
+            if (itemsRef.current && itemsRef.current.length > 0 && keysIndex.current.has(key)) {
               const index = keysIndex.current.get(key)
               if (index === undefined) break
-              itemsRef.current.splice(index, 1)
-              keysIndex.current.delete(key)
-              itemsRef.current = [...itemsRef.current]
+              removeIndexes.add(index)
               hasUpdate = true
             }
             break
           }
           case 'update': {
-            if (itemsRef.current && keysIndex.current.has(key)) {
+            if (keysIndex.current.has(key)) {
               const index = keysIndex.current.get(key)
-              if (index === undefined) break
-              itemsRef.current[index] = (await state.get(key, select)) as Selected
-              itemsRef.current = [...itemsRef.current]
-              hasUpdate = true
+              if (index !== undefined && itemsRef.current) {
+                itemsRef.current[index] = (await state.get(key, select)) as Selected
+                itemsRef.current = [...itemsRef.current]
+                hasUpdate = true
+              }
+            } else {
+              // Handle updates to non-visible items
+              const updatedItem = await state.get(key, select)
+              if (updatedItem) {
+                itemsRef.current = [...(itemsRef.current ?? []), updatedItem]
+                keysIndex.current.set(key, itemsRef.current.length - 1)
+                hasUpdate = true
+              }
             }
             break
           }
         }
+      }
+
+      if (removeIndexes.size > 0 && itemsRef.current && itemsRef.current.length > 0) {
+        const newIndex = new Map<Key, number>()
+        itemsRef.current = itemsRef.current?.filter((_, index) => {
+          return !removeIndexes.has(index)
+        })
+        let newIdx = 0
+        for (const [key, index] of keysIndex.current) {
+          if (removeIndexes.has(index)) {
+            continue
+          }
+          newIndex.set(key, newIdx)
+          newIdx++
+        }
+        keysIndex.current = newIndex
       }
 
       const isLengthChanged = oldLength !== newLength
@@ -147,9 +173,6 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
       if (!isChanged) return
       if (isLengthChanged) {
         await fillNextPage(true)
-
-        // here we ensure that if the length changed, we fill the next page
-
         let iterations = 0
         while ((itemsRef.current?.length ?? 0) < newLength && iterations < MAX_ITERATIONS) {
           await fillNextPage(false)
