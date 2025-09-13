@@ -5,7 +5,7 @@ import { useSqliteValue } from '../use-sqlite'
 import { waitFor } from '@testing-library/react'
 import { bunMemoryBackend } from '../table/bun-backend'
 import { StrictMode, Suspense, useState } from 'react'
-import { DEFAULT_STEP_SIZE } from '../table/table'
+import { DEFAULT_PAGE_SIZE } from '../table/table'
 
 const backend = bunMemoryBackend()
 interface Person {
@@ -28,7 +28,7 @@ describe('use-sqlite-state', () => {
     const { result, rerender } = renderHook(
       () => {
         reRenders++
-        const aha = useSqliteValue(sql, {}, [])
+        const aha = useSqliteValue(sql)
         return aha
       },
       { wrapper: Wrapper },
@@ -67,7 +67,7 @@ describe('use-sqlite-state', () => {
       sql.set({ id: '2', name: 'Bob', age: 25 })
     })
     await waitFor(() => {
-      expect(result.current[0].length).toBe(2)
+      expect(result.current[0]?.length).toBe(2)
       expect(reRenders).toBe(6)
     })
 
@@ -76,7 +76,7 @@ describe('use-sqlite-state', () => {
     })
     await waitFor(() => {
       expect(reRenders).toBe(7)
-      expect(result.current[0].length).toBe(2)
+      expect(result.current[0]?.length).toBe(2)
     })
   })
 
@@ -95,7 +95,8 @@ describe('use-sqlite-state', () => {
     })
 
     await waitFor(() => {
-      expect(result.current[0][0].map((p) => p.name)).toEqual(['Bob', 'Alice', 'Carol'])
+      const names = result.current?.[0][0]?.map((p) => p.name)
+      expect(names).toEqual(['Bob', 'Alice', 'Carol'])
       expect(reRenders).toBe(2)
     })
 
@@ -104,7 +105,8 @@ describe('use-sqlite-state', () => {
       result.current[1](29)
     })
     await waitFor(() => {
-      expect(result.current[0][0].map((p) => p.name)).toEqual(['Alice', 'Carol'])
+      const names = result.current?.[0][0]?.map((p) => p.name)
+      expect(names).toEqual(['Alice', 'Carol'])
       expect(reRenders).toBe(4)
     })
   })
@@ -125,13 +127,13 @@ describe('use-sqlite-state', () => {
       { initialProps: { like: '%Ali%' } },
     )
     await waitFor(() => {
-      expect(result.current[0].map((p) => p.name)).toEqual(['Alice', 'Alicia'])
+      expect(result.current?.[0]?.map((p) => p.name)).toEqual(['Alice', 'Alicia'])
     })
     act(() => {
       rerender({ like: '%Bob%' })
     })
     await waitFor(() => {
-      expect(result.current[0].map((p) => p.name)).toEqual(['Bob'])
+      expect(result.current?.[0]?.map((p) => p.name)).toEqual(['Bob'])
     })
     expect(reRenders).toBeGreaterThanOrEqual(2)
   })
@@ -148,19 +150,19 @@ describe('use-sqlite-state', () => {
       { initialProps: { order: 'asc' as 'asc' | 'desc', limit: 2 } },
     )
     await waitFor(() => {
-      expect(result.current[0].map((p) => p.name)).toEqual(['Bob', 'Alice'])
+      expect(result.current?.[0]?.map((p) => p.name)).toEqual(['Bob', 'Alice'])
     })
     act(() => {
       rerender({ order: 'desc', limit: 2 })
     })
     await waitFor(() => {
-      expect(result.current[0].map((p) => p.name)).toEqual(['Carol', 'Alice'])
+      expect(result.current?.[0]?.map((p) => p.name)).toEqual(['Carol', 'Alice'])
     })
     act(() => {
       rerender({ order: 'desc', limit: 1 })
     })
     await waitFor(() => {
-      expect(result.current[0].map((p) => p.name)).toEqual(['Carol'])
+      expect(result.current?.[0]?.map((p) => p.name)).toEqual(['Carol'])
     })
   })
 
@@ -173,13 +175,11 @@ describe('use-sqlite-state', () => {
     const { result } = renderHook(() => useSqliteValue(sql, {}, []))
     // actions.next and actions.refresh should be functions
     await waitFor(() => {
-      expect(typeof result.current[1].next).toBe('function')
+      expect(typeof result.current[1].nextPage).toBe('function')
       expect(typeof result.current[1].reset).toBe('function')
-      expect(result.current[1].reset()).resolves.toBeUndefined()
-      expect(result.current[1].next()).resolves.toBeFalsy()
     })
   })
-  it('should handle thousands of records', async () => {
+  it('should handle thousands of records Here', async () => {
     const sql = createSqliteState<Person>({ backend, tableName: 'State6Hook', key: 'id' })
     const people: Person[] = []
     const ITEMS_COUNT = 1000
@@ -189,16 +189,16 @@ describe('use-sqlite-state', () => {
     await sql.batchSet(people)
     const { result } = renderHook(() => useSqliteValue(sql, {}, []))
     await waitFor(() => {
-      expect(result.current[0].length).toBe(DEFAULT_STEP_SIZE)
+      expect(result.current?.[0]?.length ?? 0).toBe(DEFAULT_PAGE_SIZE)
     })
 
-    // loop until we have all ITEMS_COUNT items
-    for (let index = 0; index < ITEMS_COUNT / DEFAULT_STEP_SIZE; index++) {
+    // // loop until we have all ITEMS_COUNT items
+    for (let index = 0; index < ITEMS_COUNT / DEFAULT_PAGE_SIZE; index++) {
       act(() => {
-        result.current[1].next()
+        result.current[1].nextPage()
       })
       await waitFor(() => {
-        expect(result.current[0].length).toBe(Math.min(DEFAULT_STEP_SIZE * (index + 2), ITEMS_COUNT))
+        expect(result.current?.[0]?.length).toBe(Math.min(DEFAULT_PAGE_SIZE * (index + 2), ITEMS_COUNT))
       })
     }
 
@@ -206,7 +206,7 @@ describe('use-sqlite-state', () => {
       result.current[1].reset()
     })
     await waitFor(() => {
-      expect(result.current[0].length).toBe(DEFAULT_STEP_SIZE)
+      expect(result.current?.[0]?.length).toBe(DEFAULT_PAGE_SIZE)
     })
   })
 
@@ -214,7 +214,7 @@ describe('use-sqlite-state', () => {
     const sql = createSqliteState<Person>({ backend, tableName: 'State6Hook', key: 'id' })
     const people: Person[] = []
     const ITEMS_COUNT = 10_000
-    const stepSize = 5000
+    const pageSize = 500
     for (let index = 1; index <= ITEMS_COUNT; index++) {
       people.push({ id: index.toString(), name: `Person${index}`, age: 20 + (index % 50) })
     }
@@ -222,30 +222,30 @@ describe('use-sqlite-state', () => {
     let reRenders = 0
     const { result } = renderHook(() => {
       reRenders++
-      return useSqliteValue(sql, { stepSize }, [])
+      return useSqliteValue(sql, { pageSize }, [])
     })
     await waitFor(() => {
       expect(reRenders).toBe(2)
-      expect(result.current[0].length).toBe(stepSize)
+      expect(result.current?.[0]?.length).toBe(pageSize)
     })
 
     act(() => {
-      while (!result.current[1].next()) {
-        /* empty */
+      for (let index = 0; index < (ITEMS_COUNT - pageSize) / pageSize; index++) {
+        result.current[1].nextPage()
       }
     })
 
     await waitFor(() => {
-      expect(reRenders).toBe(3)
-      expect(result.current[0].length).toBe(ITEMS_COUNT)
+      expect(reRenders).toBe(21)
+      expect(result.current?.[0]?.length).toBe(ITEMS_COUNT)
     })
 
     act(() => {
       result.current[1].reset()
     })
     await waitFor(() => {
-      expect(reRenders).toBe(4)
-      expect(result.current[0].length).toBe(stepSize)
+      expect(reRenders).toBe(22)
+      expect(result.current?.[0]?.length).toBe(pageSize)
     })
   })
   it('should change ordering', async () => {
@@ -259,13 +259,13 @@ describe('use-sqlite-state', () => {
       initialProps: { order: 'asc' as 'asc' | 'desc' },
     })
     await waitFor(() => {
-      expect(result.current[0][0].age).toBe(20)
+      expect(result.current?.[0]?.[0]?.age).toBe(20)
     })
     act(() => {
       rerender({ order: 'desc' })
     })
     await waitFor(() => {
-      expect(result.current[0][0].age).toBe(69)
+      expect(result.current?.[0]?.[0]?.age).toBe(69)
     })
   })
 
@@ -306,7 +306,7 @@ describe('use-sqlite-state', () => {
     })
     await waitFor(() => {
       expect(reRenders).toBe(1)
-      expect(result1.current[0].length).toBe(0)
+      expect(result1.current?.[0]?.length).toBe(undefined)
     })
 
     const people: Person[] = []
@@ -316,12 +316,12 @@ describe('use-sqlite-state', () => {
     await sql.batchSet(people)
     await waitFor(() => {
       expect(reRenders).toBe(3)
-      expect(result1.current[0].length).toBe(50)
+      expect(result1.current?.[0]?.length).toBe(50)
     })
 
     const { result: result2 } = renderHook(() => useSqliteValue(sql, {}, []))
     await waitFor(() => {
-      expect(result2.current[0].length).toBe(50)
+      expect(result2.current?.[0]?.length).toBe(50)
     })
   })
 
@@ -341,8 +341,8 @@ describe('use-sqlite-state', () => {
     })
 
     await waitFor(() => {
-      expect(reRenders).toBe(1)
-      expect(result.current[0].length).toBe(0)
+      expect(reRenders).toBe(2)
+      expect(result.current?.[0]?.length).toBe(0)
     })
 
     act(() => {
@@ -387,7 +387,7 @@ describe('use-sqlite-state', () => {
 
     await waitFor(() => {
       expect(reRenders).toBe(2)
-      expect(result.current[0].length).toBe(1)
+      expect(result.current?.[0]?.length).toBe(1)
     })
 
     act(() => {
@@ -395,15 +395,98 @@ describe('use-sqlite-state', () => {
     })
     await waitFor(() => {
       expect(reRenders).toBe(3)
-      expect(result.current[0].length).toBe(2)
+      expect(result.current?.[0]?.length).toBe(2)
     })
 
     act(() => {
       result.current[1].reset()
     })
     await waitFor(() => {
-      expect(result.current[0].length).toBe(2)
+      expect(result.current?.[0]?.length).toBe(2)
       expect(reRenders).toBe(4)
+    })
+  })
+
+  it('should handle no items in the database', async () => {
+    const sql = createSqliteState<Person>({ backend, tableName: 'EmptyState', key: 'id' })
+    const { result } = renderHook(() => useSqliteValue(sql, {}, []))
+
+    await waitFor(() => {
+      expect(result.current[0]).toEqual([])
+    })
+  })
+
+  it('should handle fewer items than page size', async () => {
+    const sql = createSqliteState<Person>({ backend, tableName: 'FewItemsState', key: 'id' })
+    await sql.batchSet([
+      { id: '1', name: 'Alice', age: 30 },
+      { id: '2', name: 'Bob', age: 25 },
+    ])
+
+    const { result } = renderHook(() => useSqliteValue(sql, {}, []))
+
+    await waitFor(() => {
+      expect(result.current[0]).toEqual([
+        { id: '1', name: 'Alice', age: 30 },
+        { id: '2', name: 'Bob', age: 25 },
+      ])
+    })
+  })
+
+  it('should handle exactly page size items', async () => {
+    const sql = createSqliteState<Person>({ backend, tableName: 'ExactPageSizeState', key: 'id' })
+    const items = Array.from({ length: DEFAULT_PAGE_SIZE }, (_, index) => ({
+      id: `${index + 1}`,
+      name: `Person${index + 1}`,
+      age: 20 + (index % 50),
+    }))
+    await sql.batchSet(items)
+
+    const { result } = renderHook(() => useSqliteValue(sql, {}, []))
+
+    await waitFor(() => {
+      expect(result.current[0]?.length).toBe(DEFAULT_PAGE_SIZE)
+    })
+  })
+
+  it('should have thousands items, and update in middle check', async () => {
+    let reRenders = 0
+    const sql = createSqliteState<Person>({ backend, tableName: 'ManyItemsState', key: 'id' })
+    const ITEMS_COUNT = 1000
+    const people: Person[] = []
+    for (let index = 1; index <= ITEMS_COUNT; index++) {
+      people.push({ id: index.toString(), name: `Person${index}`, age: 20 + (index % 50) })
+    }
+    await sql.batchSet(people)
+
+    const { result } = renderHook(() => {
+      reRenders++
+      return useSqliteValue(sql, { pageSize: 100 }, [])
+    })
+
+    await waitFor(() => {
+      expect(result.current[0]?.length).toBe(100)
+      expect(reRenders).toBe(2)
+    })
+    act(() => {
+      for (let index = 0; index < (ITEMS_COUNT - 100) / 100; index++) {
+        result.current[1].nextPage()
+      }
+    })
+    await waitFor(() => {
+      expect(result.current[0]?.length).toBe(ITEMS_COUNT)
+      expect(reRenders).toBe(11)
+    })
+
+    act(() => {
+      sql.set({ id: '500', name: 'UpdatedPerson500', age: 99 })
+    })
+
+    await waitFor(() => {
+      const updated = result.current[0]?.find((p) => p.id === '500')
+      expect(updated).toEqual({ id: '500', name: 'UpdatedPerson500', age: 99 })
+      expect(reRenders).toBe(12)
+      expect(result.current[0]?.length).toBe(ITEMS_COUNT)
     })
   })
 })

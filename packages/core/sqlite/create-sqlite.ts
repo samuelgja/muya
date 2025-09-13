@@ -1,26 +1,21 @@
-/* eslint-disable sonarjs/redundant-type-aliases */
 import { STATE_SCHEDULER } from '../create'
 import { getId } from '../utils/id'
-import { shallow } from '../utils/shallow'
-import { selectSql, type CreateState } from './select-sql'
 import type { Backend } from './table'
-import { createTable, DEFAULT_STEP_SIZE } from './table/table'
+import { createTable } from './table/table'
 import type { DbOptions, DocType, Key, MutationResult, SearchOptions, Table } from './table/table.types'
 import type { Where } from './table/where'
-
-type SearchId = string
 
 export interface CreateSqliteOptions<Document extends DocType> extends Omit<DbOptions<Document>, 'backend'> {
   readonly backend: Backend | Promise<Backend>
 }
 
-export interface SyncTable<Document extends DocType> {
-  // readonly registerSearch: <Selected = Document>(searchId: SearchId, options: SearchOptions<Document, Selected>) => () => void
-  readonly updateSearchOptions: <Selected = Document>(searchId: SearchId, options: SearchOptions<Document, Selected>) => void
-  readonly subscribe: (searchId: SearchId, componentId: string, listener: () => void) => () => void
-  readonly getSnapshot: (searchId: SearchId) => Document[]
-  readonly refresh: (searchId: SearchId) => Promise<void>
+export interface MutationItems {
+  mutations?: MutationResult[]
+  removedAll?: boolean
+}
 
+export interface SyncTable<Document extends DocType> {
+  readonly subscribe: (listener: (mutation: MutationItems) => void) => () => void
   readonly set: (document: Document) => Promise<MutationResult>
   readonly batchSet: (documents: Document[]) => Promise<MutationResult[]>
   readonly get: <Selected = Document>(key: Key, selector?: (document: Document) => Selected) => Promise<Selected | undefined>
@@ -29,21 +24,7 @@ export interface SyncTable<Document extends DocType> {
   readonly search: <Selected = Document>(options?: SearchOptions<Document, Selected>) => AsyncIterableIterator<Selected>
   readonly count: (options?: { where?: Where<Document> }) => Promise<number>
   readonly deleteBy: (where: Where<Document>) => Promise<MutationResult[]>
-  readonly destroy: () => void
-  readonly next: (searchId: SearchId) => Promise<boolean>
-  readonly clear: (searchId: SearchId) => void
-  readonly load: (searchId: SearchId) => void
-
-  readonly select: <Params extends unknown[]>(
-    compute: (...args: Params) => SearchOptions<Document>,
-  ) => CreateState<Document, Params>
-}
-
-interface CachedItem<Document extends DocType> {
-  items: Document[]
-  keys: Set<Key>
-  options?: SearchOptions<Document, unknown>
-  wasInitialized: boolean
+  readonly clear: () => void
 }
 
 /**
@@ -52,17 +33,6 @@ interface CachedItem<Document extends DocType> {
  * @returns A SyncTable instance with methods to interact with the underlying Table and manage reactive searches
  */
 export function createSqliteState<Document extends DocType>(options: CreateSqliteOptions<Document>): SyncTable<Document> {
-  const id = getId()
-
-  /**
-   * Get a unique schedule ID for a search ID
-   * @param searchId The search ID
-   * @returns The unique schedule ID
-   */
-  function getScheduleId(searchId: SearchId) {
-    return `state-${id}-search-${searchId}`
-  }
-
   let cachedTable: Table<Document> | undefined
   /**
    * Get or create the underlying table
@@ -77,213 +47,74 @@ export function createSqliteState<Document extends DocType>(options: CreateSqlit
     return cachedTable
   }
 
-  interface NextResult {
-    document: Document
-    key: Key
-  }
-  // const emitter = createEmitter<Table<Document>>()
-  const cachedData = new Map<SearchId, CachedItem<Document>>()
-  const listeners = new Map<SearchId, Map<string, () => void>>()
-  const iterators = new Map<SearchId, AsyncIterableIterator<NextResult>>()
-
-  interface GetNextBase {
-    readonly newItems?: Document[]
-    readonly isOk: boolean
-    readonly isDone?: boolean
-  }
-
-  interface GetNextTrue extends GetNextBase {
-    readonly isOk: true
-    readonly newItems: Document[]
-  }
-  interface GetNextFalse extends GetNextBase {
-    readonly isOk: false
-  }
-  type GetNext = GetNextTrue | GetNextFalse
-  /**
-   * Next step in the iterator
-   * @param searchId The search ID
-   * @param data The data items to process
-   * @param shouldReset Whether to reset the items
-   * @returns boolean indicating if new items were added
-   */
-  async function getNext(searchId: SearchId, data: CachedItem<Document>, shouldReset: boolean): Promise<GetNext> {
-    const iterator = iterators.get(searchId)
-    const { options: nextOptions = {} } = data
-    const { stepSize = DEFAULT_STEP_SIZE } = nextOptions
-    if (!iterator) return { isOk: false }
-    const newItems: Document[] = []
-    if (shouldReset) {
-      data.keys.clear()
-    }
-
-    for (let index = 0; index < stepSize; index++) {
-      const result = await iterator.next()
-      if (result.done) {
-        iterators.delete(searchId)
-        break
+  const id = getId()
+  STATE_SCHEDULER.add(id, {
+    onScheduleDone(unknownItems) {
+      if (!unknownItems) {
+        return
       }
-
-      if (!data.keys.has(String(result.value.key))) {
-        newItems.push(result.value.document)
-        data.keys.add(String(result.value.key))
-      }
-    }
-
-    if (newItems.length === 0) return { isOk: true, newItems: shouldReset ? [] : data.items, isDone: true }
-    if (shallow(data.items, newItems)) return { isOk: false }
-    if (shouldReset) return { isOk: true, newItems }
-    return { newItems: [...data.items, ...newItems], isOk: true }
-  }
-
-  /**
-   * Notify listeners of up dates
-   * @param searchId The search ID to notify
-   */
-  function notifyListeners(searchId: SearchId) {
-    const searchListeners = listeners.get(searchId)
-    if (searchListeners) {
-      for (const [, listener] of searchListeners) {
-        listener()
-      }
-    }
-  }
-
-  /**
-   * Refresh the cache for a search ID
-   * @param searchId The search ID to refresh
-   */
-  async function refreshCache(searchId: SearchId) {
-    const table = await getTable()
-    const data = cachedData.get(searchId)
-    if (!data) return
-    const { options: refreshOptions } = data
-    const iterator = table.search({ ...refreshOptions, select: (document, { rowId, key }) => ({ document, rowId, key }) })
-    iterators.set(searchId, iterator)
-    const { isOk, newItems } = await getNext(searchId, data, true)
-    if (isOk) {
-      data.items = newItems
-    }
-  }
-  /**
-   * Refresh the data and notify listeners
-   * @param searchId The search ID to refresh
-   */
-  async function refresh(searchId: SearchId) {
-    await refreshCache(searchId)
-    notifyListeners(searchId)
-  }
-
-  /**
-   * Handle changes to the data
-   * @param mutationResult The mutation result
-   * @returns A set of search IDs that need to be updated
-   */
-  function getChangedKeys(mutationResult: MutationResult) {
-    const { key, op } = mutationResult
-    // find all cached data with key
-    const searchIds = new Set<SearchId>()
-    for (const [searchId, { keys }] of cachedData) {
-      switch (op) {
-        case 'delete':
-        case 'update': {
-          if (keys.has(String(key))) {
-            searchIds.add(searchId)
+      const items = unknownItems as MutationItems[]
+      const merged: MutationItems = {}
+      for (const item of items) {
+        if (item.removedAll) {
+          merged.removedAll = true
+        }
+        if (item.mutations) {
+          if (!merged.mutations) {
+            merged.mutations = []
           }
-          break
-        }
-        case 'insert': {
-          // we do not know about the key
-          searchIds.add(searchId)
-          break
+          merged.mutations.push(...item.mutations)
         }
       }
-    }
-    return searchIds
-  }
-
-  /**
-   * Handle multiple changes
-   * @param mutationResults The array of mutation results
-   */
-  async function handleChanges(mutationResults: MutationResult[]) {
-    const updateSearchIds = new Set<SearchId>()
-    for (const mutationResult of mutationResults) {
-      const searchIds = getChangedKeys(mutationResult)
-      for (const searchId of searchIds) {
-        updateSearchIds.add(searchId)
-      }
-    }
-
-    for (const searchId of updateSearchIds) {
-      const scheduleId = getScheduleId(searchId)
-      STATE_SCHEDULER.schedule(scheduleId, {})
-    }
-  }
-
-  const clearSchedulers = new Set<() => void>()
-
-  /**
-   * Register data for a search ID
-   * @param searchId The search ID
-   * @param registerDataOptions Optional search options
-   * @returns The data items for the search ID
-   */
-  function registerData(searchId: SearchId, registerDataOptions?: SearchOptions<Document, unknown>) {
-    if (!cachedData.has(searchId)) {
-      const cachedItem: CachedItem<Document> = {
-        items: [],
-        options: registerDataOptions,
-        keys: new Set(),
-        wasInitialized: false,
-      }
-      cachedData.set(searchId, cachedItem)
-    }
-    const cachedItem = cachedData.get(searchId)!
-
-    if (registerDataOptions) {
-      cachedItem.options = registerDataOptions
-    }
-    return cachedItem
-  }
-
-  const state: SyncTable<Document> = {
-    load(searchId: SearchId) {
-      const cachedItem = cachedData.get(searchId)
-      if (!cachedItem) return
-      if (!cachedItem.wasInitialized) {
-        cachedItem.wasInitialized = true
-        const scheduleId = getScheduleId(searchId)
-        STATE_SCHEDULER.schedule(scheduleId, { searchId })
+      for (const listener of listeners) {
+        listener(merged)
       }
     },
-    clear(searchId: SearchId) {
-      cachedData.delete(searchId)
+  })
+
+  /**
+   * Notify all subscribers of changes
+   * @param item The mutation items to notify subscribers about
+   */
+  function handleChanges(item: MutationItems) {
+    STATE_SCHEDULER.schedule(id, item)
+  }
+
+  const listeners = new Set<(mutation: MutationItems) => void>()
+
+  const state: SyncTable<Document> = {
+    subscribe(listener) {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    },
+    clear() {
+      cachedTable?.clear()
+      handleChanges({ removedAll: true })
     },
     async set(document) {
       const table = await getTable()
       const changes = await table.set(document)
-      await handleChanges([changes])
+      handleChanges({ mutations: [changes] })
       return changes
     },
     async batchSet(documents) {
       const table = await getTable()
       const changes = await table.batchSet(documents)
-      await handleChanges(changes)
+      handleChanges({ mutations: changes })
       return changes
     },
     async delete(key) {
       const table = await getTable()
       const changes = await table.delete(key)
       if (changes) {
-        await handleChanges([changes])
+        handleChanges({ mutations: [changes] })
       }
       return changes
     },
     async deleteBy(where) {
       const table = await getTable()
       const changes = await table.deleteBy(where)
-      await handleChanges(changes)
+      handleChanges({ mutations: changes })
       return changes
     },
     async get(key, selector) {
@@ -299,65 +130,6 @@ export function createSqliteState<Document extends DocType>(options: CreateSqlit
     async count(countOptions) {
       const table = await getTable()
       return await table.count(countOptions)
-    },
-
-    updateSearchOptions(searchId, updateSearchOptions) {
-      const data = registerData(searchId, updateSearchOptions)
-      data.options = updateSearchOptions
-      const scheduleId = getScheduleId(searchId)
-      STATE_SCHEDULER.schedule(scheduleId, { searchId })
-    },
-
-    subscribe(searchId, componentId, listener) {
-      const scheduleId = getScheduleId(searchId)
-      const clearScheduler = STATE_SCHEDULER.add(scheduleId, {
-        onScheduleDone() {
-          refresh(searchId)
-        },
-      })
-      // console.log('Subscribing to searchId:', searchId)
-      this.load(searchId)
-      clearSchedulers.add(clearScheduler)
-
-      if (!listeners.has(searchId)) {
-        listeners.set(searchId, new Map())
-      }
-      const searchListeners = listeners.get(searchId)!
-      searchListeners.set(componentId, listener)
-
-      return () => {
-        searchListeners.delete(componentId)
-        if (searchListeners.size === 0) {
-          listeners.delete(searchId)
-        }
-        clearScheduler()
-      }
-    },
-    getSnapshot(searchId) {
-      const data = registerData(searchId)
-      return data.items
-    },
-    refresh,
-    destroy() {
-      for (const clear of clearSchedulers) clear()
-      cachedData.clear()
-      listeners.clear()
-    },
-    async next(searchId) {
-      const data = cachedData.get(searchId)
-      if (data) {
-        const hasNext = await getNext(searchId, data, false)
-        if (hasNext.isOk) {
-          data.items = hasNext.newItems
-          notifyListeners(searchId)
-        }
-        return hasNext.isDone ?? false
-      }
-      return false
-    },
-
-    select(compute) {
-      return selectSql(state, compute)
     },
   }
 

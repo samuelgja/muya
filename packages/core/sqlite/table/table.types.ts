@@ -1,4 +1,3 @@
-import type { SqlSeachOptions } from '../select-sql'
 import type { Backend } from './backend'
 import type { FtsTokenizerOptions } from './tokenizer'
 import type { Where } from './where'
@@ -6,6 +5,15 @@ import type { Where } from './where'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type DocType = { [key: string]: any }
 export type KeyTypeAvailable = 'string' | 'number'
+
+export interface SqlSeachOptions<Document extends DocType> {
+  readonly sortBy?: DotPath<Document>
+  readonly order?: 'asc' | 'desc'
+  readonly limit?: number
+  readonly offset?: number
+  readonly where?: Where<Document>
+  readonly pageSize?: number
+}
 
 // Expand all nested keys into dot-paths
 export type DotPrefix<T extends string> = T extends '' ? '' : `.${T}`

@@ -1,21 +1,22 @@
-import { useCallback, useDebugValue, useEffect, useId, useLayoutEffect, useMemo, type DependencyList } from 'react'
+/* eslint-disable sonarjs/cognitive-complexity */
+import { useCallback, useLayoutEffect, useReducer, useRef, type DependencyList } from 'react'
 import type { SyncTable } from './create-sqlite'
-import type { DocType } from './table/table.types'
-import { isError, isPromise } from '../utils/is'
-import { useSyncExternalStoreWithSelector } from 'use-sync-external-store/shim/with-selector'
-import type { SqlSeachOptions } from './select-sql'
+import type { DocType, Key, SqlSeachOptions } from './table/table.types'
+import { DEFAULT_PAGE_SIZE } from './table'
+const MAX_ITERATIONS = 10_000
 
 export interface SqLiteActions {
   /**
    * Load the next page of results and return if isDone to show more results.
    * @returns isDone: boolean
    */
-  readonly next: () => Promise<boolean>
+  readonly nextPage: () => Promise<boolean>
   /**
    * Reset the pagination and load the first page of results.
    * @returns void
    */
   readonly reset: () => Promise<void>
+  readonly keysIndex: Map<Key, number>
 }
 
 export interface UseSearchOptions<Document extends DocType, Selected = Document> extends SqlSeachOptions<Document> {
@@ -26,102 +27,160 @@ export interface UseSearchOptions<Document extends DocType, Selected = Document>
 }
 
 /**
- * Generate a cache key based on the search options to uniquely identify the query
- * @param options The search options to generate the key from
- * @returns A string representing the unique cache key for the given search options
- */
-function generateCacheKey(options: UseSearchOptions<DocType, unknown>): string {
-  const { limit, offset, order, sortBy, where, stepSize, select } = options
-  let key = ''
-  if (limit !== undefined) {
-    key += `l${limit}`
-  }
-  if (offset !== undefined) {
-    key += `o${offset}`
-  }
-  if (order !== undefined) {
-    key += `r${order}`
-  }
-  if (sortBy !== undefined) {
-    key += `s${sortBy}`
-  }
-  if (where !== undefined) {
-    key += `w${JSON.stringify(where)}`
-  }
-  if (stepSize !== undefined) {
-    key += `t${stepSize}`
-  }
-  if (select !== undefined) {
-    key += `f${select.toString()}`
-  }
-  return key
-}
-
-/**
- * React hook to subscribe to a SyncTable and get its current snapshot, with optional search options and selector for derived state
- * @param state The SyncTable to subscribe to
- * @param options Optional search options to filter and sort the documents
- * @param deps Dependency list to control when to update the search options
- * @returns A tuple containing the current array of documents (or selected documents) and an object with actions to interact with the SyncTable
- * @throws If the value is a Promise or an Error, it will be thrown to be handled by an error boundary or suspense
+ * A React hook to perform paginated searches on a SyncTable and reactively update the results.
+ * It supports pagination, resetting the search, and selecting specific fields from the documents.
+ * @param state The SyncTable instance to perform searches on.
+ * @param options Options to customize the search behavior, including pagination size and selection function.
+ * @param deps Dependency list to control when to re-run the search and reset the iterator.
+ * @returns A tuple containing the current list of results and an object with actions to manage pagination and resetting.
  */
 export function useSqliteValue<Document extends DocType, Selected = Document>(
   state: SyncTable<Document>,
   options: UseSearchOptions<Document, Selected> = {},
   deps: DependencyList = [],
-): [undefined extends Selected ? Document[] : Selected[], SqLiteActions] {
-  const { select } = options
+): [(undefined extends Selected ? Document[] : Selected[]) | undefined, SqLiteActions] {
+  const { select, pageSize = DEFAULT_PAGE_SIZE } = options
 
-  const searchId = useMemo(() => generateCacheKey({ ...options, select: undefined }), [options])
-  const componentId = useId()
+  const itemsRef = useRef<undefined | (Document | Selected)[]>()
+  const [, rerender] = useReducer((c: number) => c + 1, 0)
+  const keysIndex = useRef(new Map<Key, number>())
+  const iteratorRef = useRef<AsyncIterableIterator<{ doc: Document; meta: { key: Key } }>>()
 
-  useLayoutEffect(() => {
-    state.updateSearchOptions(searchId, { ...options, select: undefined })
+  const updateIterator = useCallback(() => {
+    // eslint-disable-next-line sonarjs/no-unused-vars
+    const { select: _ignore, ...resetOptions } = options
+    iteratorRef.current = state.search({ select: (doc, meta) => ({ doc, meta }), ...resetOptions })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps)
+  }, [state, ...deps])
 
-  useEffect(() => {
-    // state.load(searchId)
-    return () => {
-      state.clear(searchId)
+  const reset = useCallback(() => {
+    itemsRef.current = []
+    keysIndex.current.clear()
+    updateIterator()
+  }, [updateIterator])
+
+  const fillNextPage = useCallback(async (shouldReset: boolean) => {
+    if (itemsRef.current === undefined) {
+      itemsRef.current = []
     }
+    if (shouldReset === true) {
+      reset()
+    }
+
+    const { current: iterator } = iteratorRef
+    if (!iterator) {
+      return true
+    }
+    let isDone = false
+    for (let index = 0; index < pageSize; index++) {
+      const result = await iterator.next()
+      if (result.done) {
+        iteratorRef.current = undefined
+        isDone = true
+        break
+      }
+      if (keysIndex.current.has(result.value.meta.key)) {
+        // eslint-disable-next-line sonarjs/updated-loop-counter
+        index += -1
+        continue
+      }
+      itemsRef.current.push(select ? select(result.value.doc) : (result.value.doc as unknown as Selected))
+      keysIndex.current.set(result.value.meta.key, itemsRef.current.length - 1)
+    }
+    return isDone
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const selector = useCallback(
-    (documents: Document[]) => {
-      // eslint-disable-next-line unicorn/no-array-callback-reference
-      return select ? documents.map(select) : (documents as unknown as Selected[])
-    },
-    [select],
-  )
+  const nextPage = useCallback(async () => {
+    const isDone = await fillNextPage(false)
+    rerender()
+    return isDone
+  }, [fillNextPage])
 
-  const subscribe = useCallback(
-    (onStorageChange: () => void) => {
-      return state.subscribe(searchId, componentId, onStorageChange)
-    },
-    [state, searchId, componentId],
-  )
+  useLayoutEffect(() => {
+    const unsubscribe = state.subscribe(async (item) => {
+      const { mutations, removedAll } = item
+      if (removedAll) {
+        reset()
+      }
+      if (!mutations) {
+        return
+      }
 
-  const getSnapshot = useCallback(() => {
-    return state.getSnapshot(searchId)
-  }, [state, searchId])
+      const oldLength = itemsRef.current?.length ?? 0
+      let newLength = oldLength
+      let hasUpdate = false
+      for (const mutation of mutations) {
+        const { key, op } = mutation
+        switch (op) {
+          case 'insert': {
+            newLength += 1
+            break
+          }
+          case 'delete': {
+            if (itemsRef.current && keysIndex.current.has(key)) {
+              const index = keysIndex.current.get(key)
+              if (index === undefined) break
+              itemsRef.current.splice(index, 1)
+              keysIndex.current.delete(key)
+              hasUpdate = true
+            }
+            break
+          }
+          case 'update': {
+            if (itemsRef.current && keysIndex.current.has(key)) {
+              const index = keysIndex.current.get(key)
+              if (index === undefined) break
+              itemsRef.current[index] = (await state.get(key, select)) as Selected
+              hasUpdate = true
+            }
+            break
+          }
+        }
+      }
 
-  const value = useSyncExternalStoreWithSelector<Document[], Selected[]>(subscribe, getSnapshot, getSnapshot, selector)
+      const isLengthChanged = oldLength !== newLength
+      const isChanged = isLengthChanged || hasUpdate
+      if (!isChanged) return
+      if (isLengthChanged) {
+        await fillNextPage(true)
 
-  useDebugValue(value)
-  if (isPromise(value)) {
-    throw value
-  }
-  if (isError(value)) {
-    throw value
-  }
+        // here we ensure that if the length changed, we fill the next page
 
-  const actions = useMemo((): SqLiteActions => {
-    return {
-      next: () => state.next(searchId),
-      reset: () => state.refresh(searchId),
+        let iterations = 0
+        while ((itemsRef.current?.length ?? 0) < newLength && iterations < MAX_ITERATIONS) {
+          await fillNextPage(false)
+          iterations++
+        }
+        if (iterations === MAX_ITERATIONS) {
+          // Optionally log a warning to help with debugging
+          // eslint-disable-next-line no-console
+          console.warn('Reached maximum iterations in fillNextPage loop. Possible duplicate or data issue.')
+        }
+      }
+      rerender()
+    })
+    return () => {
+      unsubscribe()
     }
-  }, [searchId, state])
-  return [value as undefined extends Selected ? Document[] : Selected[], actions]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state])
+
+  useLayoutEffect(() => {
+    updateIterator()
+    itemsRef.current = undefined
+    keysIndex.current.clear()
+    nextPage()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps)
+
+  const resetCb = useCallback(async () => {
+    reset()
+    await nextPage()
+  }, [nextPage, reset])
+
+  return [itemsRef.current, { nextPage, reset: resetCb, keysIndex: keysIndex.current }] as [
+    (undefined extends Selected ? Document[] : Selected[]) | undefined,
+    SqLiteActions,
+  ]
 }

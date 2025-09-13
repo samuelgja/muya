@@ -10,7 +10,7 @@ interface GlobalSchedulerItem<T> {
 
 export interface SchedulerOptions<T> {
   readonly onResolveItem?: (item: T) => void
-  readonly onScheduleDone: () => void | Promise<void>
+  readonly onScheduleDone: (values?: unknown[]) => void | Promise<void>
 }
 
 /**
@@ -59,6 +59,7 @@ export function createScheduler() {
     }
 
     const effectedListeners = new Set<ScheduleId>()
+    const valuesMap = new Map<ScheduleId, unknown[]>()
     for (const value of batches) {
       if (listeners.has(value.id)) {
         effectedListeners.add(value.id)
@@ -66,6 +67,10 @@ export function createScheduler() {
         if (onResolveItem) {
           onResolveItem(value.value)
         }
+        if (!valuesMap.has(value.id)) {
+          valuesMap.set(value.id, [])
+        }
+        valuesMap.get(value.id)!.push(value.value)
       }
       batches.delete(value)
     }
@@ -76,7 +81,8 @@ export function createScheduler() {
     }
 
     for (const id of effectedListeners) {
-      listeners.get(id)?.onScheduleDone()
+      const values = valuesMap.get(id)
+      listeners.get(id)?.onScheduleDone(values)
     }
   }
 
