@@ -17,6 +17,7 @@ export interface SqLiteActions {
    */
   readonly reset: () => Promise<void>
   readonly keysIndex: Map<Key, number>
+  readonly isResetting?: boolean
 }
 
 export interface UseSearchOptions<Document extends DocType, Selected = Document> extends SqlSeachOptions<Document> {
@@ -123,6 +124,7 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
               if (index === undefined) break
               itemsRef.current.splice(index, 1)
               keysIndex.current.delete(key)
+              itemsRef.current = [...itemsRef.current]
               hasUpdate = true
             }
             break
@@ -132,6 +134,7 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
               const index = keysIndex.current.get(key)
               if (index === undefined) break
               itemsRef.current[index] = (await state.get(key, select)) as Selected
+              itemsRef.current = [...itemsRef.current]
               hasUpdate = true
             }
             break
@@ -167,9 +170,7 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
   }, [state])
 
   useLayoutEffect(() => {
-    updateIterator()
-    itemsRef.current = undefined
-    keysIndex.current.clear()
+    reset()
     nextPage()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps)
