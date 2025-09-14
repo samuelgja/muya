@@ -42,10 +42,10 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
 ): [(undefined extends Selected ? Document[] : Selected[]) | undefined, SqLiteActions] {
   const { select, pageSize = DEFAULT_PAGE_SIZE } = options
 
-  const itemsRef = useRef<undefined | (Document | Selected)[]>()
+  const itemsRef = useRef<null | (Document | Selected)[]>(null)
   const [, rerender] = useReducer((c: number) => c + 1, 0)
   const keysIndex = useRef(new Map<Key, number>())
-  const iteratorRef = useRef<AsyncIterableIterator<{ doc: Document; meta: { key: Key } }>>()
+  const iteratorRef = useRef<AsyncIterableIterator<{ doc: Document; meta: { key: Key } }> | null>(null)
 
   const updateIterator = useCallback(() => {
     // eslint-disable-next-line sonarjs/no-unused-vars
@@ -61,7 +61,7 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
   }, [updateIterator])
 
   const fillNextPage = useCallback(async (shouldReset: boolean) => {
-    if (itemsRef.current === undefined) {
+    if (itemsRef.current === null) {
       itemsRef.current = []
     }
     if (shouldReset === true) {
@@ -77,7 +77,7 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
     for (let index = 0; index < pageSize; index++) {
       const result = await iterator.next()
       if (result.done) {
-        iteratorRef.current = undefined
+        iteratorRef.current = null
         isDone = true
         break
       }
