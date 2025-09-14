@@ -6,7 +6,7 @@ import { AbortError, canUpdate, handleAsyncUpdate } from './utils/common'
 import { isPromise, isUndefined } from './utils/is'
 
 type StateDependencies<T extends Array<unknown>> = {
-  [K in keyof T]: GetState<T[K]>
+  [K in keyof T]: GetState<T[K], boolean>
 }
 
 type AwaitedArray<T extends Array<unknown>> = {
