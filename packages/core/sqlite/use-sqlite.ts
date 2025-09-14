@@ -39,7 +39,7 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
   state: SyncTable<Document>,
   options: UseSearchOptions<Document, Selected> = {},
   deps: DependencyList = [],
-): [(undefined extends Selected ? Document[] : Selected[]) | undefined, SqLiteActions] {
+): [(undefined extends Selected ? Document[] : Selected[]) | null, SqLiteActions] {
   const { select, pageSize = DEFAULT_PAGE_SIZE } = options
 
   const itemsRef = useRef<null | (Document | Selected)[]>(null)
@@ -204,7 +204,7 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
   }, [nextPage, reset])
 
   return [itemsRef.current, { nextPage, reset: resetCb, keysIndex: keysIndex.current }] as [
-    (undefined extends Selected ? Document[] : Selected[]) | undefined,
+    (undefined extends Selected ? Document[] : Selected[]) | null,
     SqLiteActions,
   ]
 }
