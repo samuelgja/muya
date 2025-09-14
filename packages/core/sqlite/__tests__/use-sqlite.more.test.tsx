@@ -4,6 +4,7 @@ import { useSqliteValue } from '../use-sqlite'
 import { waitFor } from '@testing-library/react'
 import { bunMemoryBackend } from '../table/bun-backend'
 import { StrictMode, Suspense } from 'react'
+import type { Key } from '../table'
 
 const backend = bunMemoryBackend()
 
@@ -427,5 +428,210 @@ describe('use-sqlite edge cases', () => {
         { id: '3', name: 'Carol', age: 40 },
       ])
     })
+  })
+
+  it('should handle rapid consecutive updates without losing state', async () => {
+    const sql = createSqliteState<Person>({ backend, tableName: 'RaceState', key: 'id' })
+
+    // Insert initial document
+    await sql.set({ id: '1', name: 'Alice', age: 30 })
+
+    const { result } = renderHook(() => useSqliteValue(sql, {}, []))
+
+    await waitFor(() => {
+      expect(result.current[0]).toEqual([{ id: '1', name: 'Alice', age: 30 }])
+    })
+
+    // Now simulate fast consecutive updates to the same key
+    // These will hit the subscription handler while it's still awaiting `state.get`
+    await Promise.all([
+      sql.set({ id: '1', name: 'AliceV2', age: 31 }),
+      sql.set({ id: '1', name: 'AliceV3', age: 32 }),
+      sql.set({ id: '1', name: 'AliceV4', age: 33 }),
+    ])
+
+    // Wait for hook to stabilize
+    await waitFor(() => {
+      // eslint-disable-next-line prefer-destructuring, unicorn/prevent-abbreviations
+      const docs = result.current[0]
+      expect(docs?.length).toBe(1)
+      // Expect the *latest* update to win
+      expect(docs?.[0]).toEqual({ id: '1', name: 'AliceV4', age: 33 })
+    })
+  })
+
+  it('should not overwrite newer updates with stale state.get results', async () => {
+    const sql = createSqliteState<Person>({ backend, tableName: 'RaceFailState', key: 'id' })
+    await sql.set({ id: '1', name: 'Initial', age: 20 })
+
+    // Delay the first get call artificially to simulate slow DB
+    let callCount = 0
+    const originalGet = sql.get
+    // @ts-expect-error - We mocking the get method for testing
+    sql.get = async (key: Key, selector: ((document: Person) => Person) | undefined) => {
+      callCount++
+      if (callCount === 1) {
+        // Simulate slow resolution for first update
+        await new Promise((resolve) => setTimeout(resolve, 50))
+      }
+      return originalGet(key, selector)
+    }
+
+    const { result } = renderHook(() => useSqliteValue(sql, {}, []))
+
+    await waitFor(() => {
+      expect(result.current[0]).toEqual([{ id: '1', name: 'Initial', age: 20 }])
+    })
+
+    // Trigger two consecutive updates
+    await sql.set({ id: '1', name: 'AliceV1', age: 21 })
+    await sql.set({ id: '1', name: 'AliceV2', age: 22 })
+
+    // Wait for hook to stabilize
+    await waitFor(() => {
+      // eslint-disable-next-line prefer-destructuring, unicorn/prevent-abbreviations
+      const docs = result.current[0]
+      expect(docs?.length).toBe(1)
+      // 🔥 Correct behavior: should end with the *latest* version (AliceV2)
+      // ❌ Buggy behavior: may still show AliceV1 because the delayed get resolves last
+      expect(docs?.[0]).toEqual({ id: '1', name: 'AliceV2', age: 22 })
+    })
+  })
+  it('should reset correctly during pagination', async () => {
+    const sql = createSqliteState<Person>({ backend, tableName: 'ResetMid', key: 'id' })
+    const people = Array.from({ length: 200 }, (_, index) => ({ id: `${index + 1}`, name: `P${index + 1}`, age: index }))
+    await sql.batchSet(people)
+
+    const { result } = renderHook(() => useSqliteValue(sql, { pageSize: 50 }, []))
+
+    await waitFor(() => {
+      expect(result.current[0]?.length).toBe(50)
+    })
+
+    // Load next page
+    await act(async () => {
+      await result.current[1].nextPage()
+    })
+    expect(result.current[0]?.length).toBe(100)
+
+    // Reset
+    await act(async () => {
+      await result.current[1].reset()
+    })
+    await waitFor(() => {
+      // Should go back to first page only
+      expect(result.current[0]?.length).toBe(50)
+      expect(result.current[0]?.[0]?.id).toBe('1')
+    })
+  })
+  it('should overwrite duplicate keys instead of duplicating items', async () => {
+    const sql = createSqliteState<Person>({ backend, tableName: 'DupTest', key: 'id' })
+    await sql.set({ id: '1', name: 'Alice', age: 30 })
+    await sql.set({ id: '1', name: 'Alice2', age: 35 }) // overwrite
+
+    const { result } = renderHook(() => useSqliteValue(sql, {}, []))
+
+    await waitFor(() => {
+      expect(result.current[0]).toEqual([{ id: '1', name: 'Alice2', age: 35 }])
+    })
+  })
+  it('should not update after unmount', async () => {
+    const sql = createSqliteState<Person>({ backend, tableName: 'UnmountTest', key: 'id' })
+    const { unmount, result } = renderHook(() => useSqliteValue(sql, {}, []))
+
+    unmount()
+    await sql.set({ id: '1', name: 'ShouldNotAppear', age: 99 })
+
+    // wait briefly to give subscription a chance
+    await new Promise((r) => setTimeout(r, 20))
+
+    expect(result.current[0]).toBeNull() // no state change after unmount
+  })
+  it('should restart iterator when sortBy changes', async () => {
+    const sql = createSqliteState<Person>({ backend, tableName: 'SortChange', key: 'id' })
+    await sql.batchSet([
+      { id: '1', name: 'A', age: 40 },
+      { id: '2', name: 'B', age: 20 },
+    ])
+
+    const { result, rerender } = renderHook(({ sortBy }) => useSqliteValue(sql, { sortBy }, [sortBy]), {
+      initialProps: { sortBy: 'age' as keyof Person },
+    })
+
+    await waitFor(() => {
+      expect(result.current[0]?.[0]?.age).toBe(20)
+    })
+
+    act(() => {
+      rerender({ sortBy: 'name' })
+    })
+
+    await waitFor(() => {
+      expect(result.current[0]?.[0]?.name).toBe('A') // sorted by name asc
+    })
+  })
+
+  it('should return done when nextPage is called on empty table', async () => {
+    const sql = createSqliteState<Person>({ backend, tableName: 'EmptyNext', key: 'id' })
+    const { result } = renderHook(() => useSqliteValue(sql, {}, []))
+
+    // @ts-expect-error - Testing internal method
+    const isDone = await act(result.current[1].nextPage)
+    expect(isDone).toBe(true)
+    expect(result.current[0]).toEqual([])
+  })
+
+  it('should handle deletion of non-visible item gracefully', async () => {
+    const sql = createSqliteState<Person>({ backend, tableName: 'DeleteNonVisible', key: 'id' })
+    const people = Array.from({ length: 200 }, (_, index) => ({ id: `${index + 1}`, name: `P${index + 1}`, age: index }))
+    await sql.batchSet(people)
+    let renderCount = 0
+    const { result } = renderHook(() => {
+      renderCount++
+      return useSqliteValue(sql, { pageSize: 50 }, [])
+    })
+    await waitFor(() => {
+      expect(renderCount).toBe(2) // initial + after load
+      expect(result.current[0]?.length).toBe(50)
+    })
+
+    // Delete item outside current page
+    await act(async () => {
+      await sql.delete('150')
+    })
+
+    await waitFor(() => {
+      expect(renderCount).toBe(2) // no re-render
+      expect(result.current[0]?.length).toBe(50) // unchanged page size
+    })
+  })
+  it('should not rerender when using select if the selected value does not change', async () => {
+    const sql = createSqliteState<Person>({ backend, tableName: 'SelectNoReRender', key: 'id' })
+    await sql.set({ id: '1', name: 'Alice', age: 30 })
+
+    let renders = 0
+    const { result } = renderHook(() => {
+      renders++
+      // Only project `name`
+      return useSqliteValue(sql, { select: (p) => p.name }, [])
+    })
+
+    await waitFor(() => {
+      expect(result.current[0]).toEqual(['Alice'])
+      expect(renders).toBe(2) // initial + after first load
+    })
+
+    // Update age (not part of select projection)
+    await act(async () => {
+      await sql.set({ id: '1', name: 'Alice', age: 31 })
+    })
+
+    // Wait a bit to let subscription flush
+    await new Promise((r) => setTimeout(r, 20))
+
+    // ❌ Buggy: renders increments again, even though "Alice" didn't change
+    // ✅ Expected: still 2 renders
+    expect(result.current[0]).toEqual(['Alice'])
+    expect(renders).toBe(2)
   })
 })

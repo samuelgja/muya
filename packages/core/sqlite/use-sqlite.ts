@@ -3,6 +3,7 @@ import { useCallback, useLayoutEffect, useReducer, useRef, type DependencyList }
 import type { SyncTable } from './create-sqlite'
 import type { DocType, Key, SqlSeachOptions } from './table/table.types'
 import { DEFAULT_PAGE_SIZE } from './table'
+import { shallow } from '../utils/shallow'
 const MAX_ITERATIONS = 10_000
 
 export interface SqLiteActions {
@@ -54,7 +55,7 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, ...deps])
 
-  const reset = useCallback(() => {
+  const resetDataAndUpdateIterator = useCallback(() => {
     itemsRef.current = []
     keysIndex.current.clear()
     updateIterator()
@@ -65,7 +66,7 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
       itemsRef.current = []
     }
     if (shouldReset === true) {
-      reset()
+      resetDataAndUpdateIterator()
     }
 
     const { current: iterator } = iteratorRef
@@ -82,8 +83,6 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
         break
       }
       if (keysIndex.current.has(result.value.meta.key)) {
-        // eslint-disable-next-line sonarjs/updated-loop-counter
-        index += -1
         continue
       }
       itemsRef.current.push(select ? select(result.value.doc) : (result.value.doc as unknown as Selected))
@@ -104,7 +103,7 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
     const unsubscribe = state.subscribe(async (item) => {
       const { mutations, removedAll } = item
       if (removedAll) {
-        reset()
+        resetDataAndUpdateIterator()
       }
       if (!mutations) {
         return
@@ -134,9 +133,15 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
             if (keysIndex.current.has(key)) {
               const index = keysIndex.current.get(key)
               if (index !== undefined && itemsRef.current) {
-                itemsRef.current[index] = (await state.get(key, select)) as Selected
-                itemsRef.current = [...itemsRef.current]
-                hasUpdate = true
+                const newItem = (await state.get(key, select)) as Selected
+                const previousItem = itemsRef.current[index]
+
+                // 🆕 Only update & rerender if shallow comparison fails
+                if (!shallow(previousItem, newItem)) {
+                  itemsRef.current[index] = newItem
+                  itemsRef.current = [...itemsRef.current]
+                  hasUpdate = true
+                }
               }
             } else {
               // Handle updates to non-visible items
@@ -193,15 +198,15 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
   }, [state])
 
   useLayoutEffect(() => {
-    reset()
+    resetDataAndUpdateIterator()
     nextPage()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps)
 
   const resetCb = useCallback(async () => {
-    reset()
+    resetDataAndUpdateIterator()
     await nextPage()
-  }, [nextPage, reset])
+  }, [nextPage, resetDataAndUpdateIterator])
 
   return [itemsRef.current, { nextPage, reset: resetCb, keysIndex: keysIndex.current }] as [
     (undefined extends Selected ? Document[] : Selected[]) | null,
