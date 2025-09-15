@@ -114,7 +114,7 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
       let hasUpdate = false
       const removeIndexes = new Set<number>()
       for (const mutation of mutations) {
-        const { key, op } = mutation
+        const { key, op, document } = mutation
         switch (op) {
           case 'insert': {
             newLength += 1
@@ -133,7 +133,7 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
             if (keysIndex.current.has(key)) {
               const index = keysIndex.current.get(key)
               if (index !== undefined && itemsRef.current) {
-                const newItem = (await state.get(key, select)) as Selected
+                const newItem = select ? select(document as Document) : (document as unknown as Selected)
                 const previousItem = itemsRef.current[index]
 
                 // 🆕 Only update & rerender if shallow comparison fails

@@ -67,20 +67,34 @@ interface DbNotGeneric {
 export type Key = string | number
 
 export type MutationOp = 'insert' | 'update' | 'delete'
-export interface MutationResult {
+
+interface MutationResultBase<T> {
   key: Key
   op: MutationOp
+  document?: T
+}
+interface MutationResultDelete<T> extends MutationResultBase<T> {
+  key: Key
+  op: 'delete'
 }
 
+interface MutationResultUpdateInsert<T> extends MutationResultBase<T> {
+  key: Key
+  op: 'update' | 'insert'
+  document: T
+}
+
+export type MutationResult<T> = MutationResultDelete<T> | MutationResultUpdateInsert<T>
+
 export interface Table<Document extends DocType> extends DbNotGeneric {
-  readonly set: (document: Document, backendOverride?: Backend) => Promise<MutationResult>
-  readonly batchSet: (documents: Document[]) => Promise<MutationResult[]>
+  readonly set: (document: Document, backendOverride?: Backend) => Promise<MutationResult<Document>>
+  readonly batchSet: (documents: Document[]) => Promise<MutationResult<Document>[]>
   readonly get: <Selected = Document>(key: Key, selector?: (document: Document) => Selected) => Promise<Selected | undefined>
 
-  readonly delete: (key: Key) => Promise<MutationResult | undefined>
+  readonly delete: (key: Key) => Promise<MutationResult<Document> | undefined>
   readonly search: <Selected = Document>(options?: SearchOptions<Document, Selected>) => AsyncIterableIterator<Selected>
   readonly count: (options?: { where?: Where<Document> }) => Promise<number>
-  readonly deleteBy: (where: Where<Document>) => Promise<MutationResult[]>
+  readonly deleteBy: (where: Where<Document>) => Promise<MutationResult<Document>[]>
   readonly clear: () => Promise<void>
 }
 
