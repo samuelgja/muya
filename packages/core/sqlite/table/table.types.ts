@@ -20,13 +20,15 @@ export type DotPrefix<T extends string> = T extends '' ? '' : `.${T}`
 
 type Previous = [never, 0, 1, 2, 3, 4, 5]
 
-export type DotPath<T, D extends number = 5> = [D] extends [never]
+type DotPathRaw<T, D extends number = 5> = [D] extends [never]
   ? never
   : T extends object
     ? {
-        [K in Extract<keyof T, string>]: T[K] extends object ? K | `${K}.${DotPath<T[K], Previous[D]>}` : K
+        [K in Extract<keyof T, string>]: T[K] extends object ? K | `${K}.${DotPathRaw<T[K], Previous[D]>}` : K
       }[Extract<keyof T, string>]
     : never
+
+export type DotPath<T> = DotPathRaw<MakeAllFieldAsRequired<T>>
 
 // Built-in FTS5 tokenizers
 export type FtsTokenizer =
@@ -80,4 +82,8 @@ export interface Table<Document extends DocType> extends DbNotGeneric {
   readonly count: (options?: { where?: Where<Document> }) => Promise<number>
   readonly deleteBy: (where: Where<Document>) => Promise<MutationResult[]>
   readonly clear: () => Promise<void>
+}
+
+export type MakeAllFieldAsRequired<T> = {
+  [K in keyof T]-?: T[K] extends object ? MakeAllFieldAsRequired<T[K]> : T[K]
 }
