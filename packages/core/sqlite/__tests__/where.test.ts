@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import { createTable } from '../table'
 import { bunMemoryBackend } from '../table/bun-backend'
 import { type Where } from '../table/where'
