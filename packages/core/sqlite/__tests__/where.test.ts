@@ -1,5 +1,7 @@
+/* eslint-disable no-console */
 import { createTable } from '../table'
 import { bunMemoryBackend } from '../table/bun-backend'
+import { type Where } from '../table/where'
 
 describe('where clauses', () => {
   const backend = bunMemoryBackend()
@@ -120,10 +122,114 @@ describe('where clauses', () => {
     const results: { id: string; value: number }[] = []
     for await (const doc of tableComplex.search({
       where: { value: { gt: 15, lt: 25 } },
+      sortBy: 'value',
     })) {
       results.push(doc)
     }
     expect(results.length).toBe(1)
     expect(results[0].id).toBe('2')
+  })
+
+  it('should handle NOT conditions', async () => {
+    const tableNot = await createTable<{ id: string; value: string }>({
+      backend,
+      tableName: 'TestTableNot',
+      key: 'id',
+      indexes: ['value'],
+    })
+
+    await tableNot.set({ id: '1', value: 'apple' })
+    await tableNot.set({ id: '2', value: 'banana' })
+    await tableNot.set({ id: '3', value: 'cherry' })
+
+    const results: { id: string; value: string }[] = []
+    for await (const doc of tableNot.search({
+      where: { NOT: { value: 'banana' } },
+    })) {
+      results.push(doc)
+    }
+    expect(results.length).toBe(2)
+    expect(results.map((doc) => doc.value)).toEqual(['apple', 'cherry'])
+  })
+
+  it('should handle AND conditions', async () => {
+    const tableAnd = await createTable<{ id: string; category: string; price: number }>({
+      backend,
+      tableName: 'TestTableAnd',
+      key: 'id',
+      indexes: ['category', 'price'],
+    })
+
+    await tableAnd.set({ id: '1', category: 'fruit', price: 10 })
+    await tableAnd.set({ id: '2', category: 'fruit', price: 20 })
+    await tableAnd.set({ id: '3', category: 'vegetable', price: 15 })
+
+    const results: { id: string; category: string; price: number }[] = []
+    for await (const doc of tableAnd.search({
+      where: { AND: [{ category: 'fruit' }, { price: { lt: 15 } }] },
+    })) {
+      results.push(doc)
+    }
+    expect(results.length).toBe(1)
+    expect(results[0].id).toBe('1')
+  })
+
+  it('should handle OR conditions', async () => {
+    const tableOr = await createTable<{ id: string; type: string }>({
+      backend,
+      tableName: 'TestTableOr',
+      key: 'id',
+      indexes: ['type'],
+    })
+
+    await tableOr.set({ id: '1', type: 'A' })
+    await tableOr.set({ id: '2', type: 'B' })
+    await tableOr.set({ id: '3', type: 'C' })
+
+    const results: { id: string; type: string }[] = []
+    for await (const doc of tableOr.search({
+      where: { OR: [{ type: 'A' }, { type: 'C' }] },
+    })) {
+      results.push(doc)
+    }
+    expect(results.length).toBe(2)
+    expect(results.map((doc) => doc.type)).toEqual(['A', 'C'])
+  })
+
+  it('should handle nested AND/OR/NOT conditions', async () => {
+    const tableNestedLogic = await createTable<{ id: string; category: string; price: number }>({
+      backend,
+      tableName: 'TestTableNestedLogic',
+      key: 'id',
+      indexes: ['category', 'price'],
+    })
+
+    await tableNestedLogic.set({ id: '1', category: 'fruit', price: 10 })
+    await tableNestedLogic.set({ id: '2', category: 'fruit', price: 20 })
+    await tableNestedLogic.set({ id: '3', category: 'fruit', price: 15 })
+
+    const whereClause: Where<{ category: string; price: number }> = {
+      AND: [
+        { category: { is: 'fruit' } },
+        {
+          OR: [{ price: { lt: 15 } }, { price: { is: 15 } }],
+        },
+      ],
+    }
+
+    const allData: { id: string; category: string; price: number }[] = []
+    for await (const doc of tableNestedLogic.search({})) {
+      allData.push(doc)
+    }
+    expect(allData.length).toBe(3)
+
+    const results: { id: string; category: string; price: number }[] = []
+    for await (const doc of tableNestedLogic.search({
+      where: whereClause,
+    })) {
+      results.push(doc)
+    }
+
+    expect(results.length).toBe(2)
   })
 })

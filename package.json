@@ -1,6 +1,6 @@
 {
   "name": "muya",
-  "version": "2.4.93",
+  "version": "2.4.94",
   "author": "samuel.gjabel@gmail.com",
   "repository": "https://github.com/samuelgjabel/muya",
   "main": "cjs/index.js",
