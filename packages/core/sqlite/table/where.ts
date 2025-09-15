@@ -4,6 +4,8 @@
 /* eslint-disable sonarjs/no-nested-conditional */
 /* eslint-disable sonarjs/cognitive-complexity */
 
+import type { MakeAllFieldAsRequired } from './table.types'
+
 // -------------------------------------------------------------
 // Condition operators for each field
 // -------------------------------------------------------------
@@ -20,21 +22,22 @@ interface Condition<T> {
   readonly fts?: string | string[] // 🔥 NEW
 }
 
-// -------------------------------------------------------------
-// Where type: recursive object with operators or nested fields
-// -------------------------------------------------------------
-export type Where<T extends Record<string, unknown>> =
+type WhereRaw<T extends Record<string, unknown>> =
   | {
       [K in keyof T]?: T[K] extends Record<string, unknown>
-        ? Where<T[K]> // nested object
+        ? WhereRaw<T[K]> // nested object
         : Condition<T[K]> | T[K] | T[K][]
     }
   | {
-      readonly AND?: Array<Where<T>>
-      readonly OR?: Array<Where<T>>
-      readonly NOT?: Where<T>
+      readonly AND?: Array<WhereRaw<T>>
+      readonly OR?: Array<WhereRaw<T>>
+      readonly NOT?: WhereRaw<T>
     }
 
+// -------------------------------------------------------------
+// Where type: recursive object with operators or nested fields
+// -------------------------------------------------------------
+export type Where<T extends Record<string, unknown>> = WhereRaw<MakeAllFieldAsRequired<T>>
 /**
  * Inline a value for SQL query, with proper escaping for strings
  * @param value The value to inline

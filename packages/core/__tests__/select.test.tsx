@@ -27,6 +27,25 @@ describe('select', () => {
     expect(selectedState.get()).toBe(5)
   })
 
+  it('should allow to select state from another selected state', async () => {
+    const state = create<Promise<number>>(new Promise((resolve) => setTimeout(() => resolve(1), 50)))
+    const selectedState = state.select((value) => value * 2)
+    const anotherState = create(1)
+
+    const anotherSelected = anotherState.select((value) => value * 2)
+    const selectedState2 = select([anotherSelected, selectedState], (a, b) => a + b)
+    const result = renderHook(
+      () => {
+        const value = selectedState2()
+        return value
+      },
+      { wrapper: ({ children }) => <Suspense fallback="loading">{children}</Suspense> },
+    )
+    await waitFor(() => {
+      expect(result.result.current).toBe(4)
+    })
+  })
+
   it('should notify listeners when derived state changes', async () => {
     const state = create(1)
     const selectedState = select([state], (value) => value * 2)

@@ -164,16 +164,6 @@ export async function createTable<Document extends DocType>(options: DbOptions<D
     return getByPath(document, String(key)) as Key | undefined
   }
 
-  /**
-   * Get the number of rows changed by the last operation on the given connection
-   * @param conn The database connection to check for changes
-   * @returns A promise that resolves to the number of changed rows
-   */
-  async function getChanges(conn: typeof backend): Promise<number> {
-    const r = await conn.select<Array<{ c: number }>>(`SELECT changes() AS c`)
-    return r[0]?.c ?? 0
-  }
-
   const table: Table<Document> = {
     backend,
 
@@ -187,16 +177,14 @@ export async function createTable<Document extends DocType>(options: DbOptions<D
           throw new Error(`Document is missing the configured key "${String(key)}".`)
         }
 
-        await db.execute(`UPDATE ${tableName} SET data = ? WHERE key = ?`, [json, id])
-        const updated = await getChanges(db)
-        if (updated === 1) return { key: id, op: 'update' }
+        const existing = await db.select<Array<{ key: string }>>(`SELECT key FROM ${tableName} WHERE key = ?`, [id])
 
-        try {
-          await db.execute(`INSERT INTO ${tableName} (key, data) VALUES (?, ?)`, [id, json])
-          return { key: id, op: 'insert' }
-        } catch {
+        if (existing.length > 0) {
           await db.execute(`UPDATE ${tableName} SET data = ? WHERE key = ?`, [json, id])
-          return { key: id, op: 'update' }
+          return { key: id, op: 'update', document }
+        } else {
+          await db.execute(`INSERT INTO ${tableName} (key, data) VALUES (?, ?)`, [id, json])
+          return { key: id, op: 'insert', document }
         }
       }
 
@@ -204,7 +192,7 @@ export async function createTable<Document extends DocType>(options: DbOptions<D
       const rows = await db.select<Array<{ id: number }>>(`SELECT last_insert_rowid() AS id`)
       const rowid = rows[0]?.id
       if (typeof rowid !== 'number') throw new Error('Failed to retrieve last_insert_rowid()')
-      return { key: rowid, op: 'insert' }
+      return { key: rowid, op: 'insert', document }
     },
 
     async get<Selected = Document>(
@@ -286,7 +274,7 @@ export async function createTable<Document extends DocType>(options: DbOptions<D
     async deleteBy(where: Where<Document>) {
       const whereSql = getWhereQuery<Document>(where, tableName)
       const keyCol = hasUserKey ? 'key' : 'rowid'
-      const results: MutationResult[] = []
+      const results: MutationResult<Document>[] = []
 
       await backend.transaction(async (tx) => {
         const rows = await tx.select<Array<{ k: Key }>>(`SELECT ${keyCol} AS k FROM ${tableName} ${whereSql}`)
@@ -299,7 +287,7 @@ export async function createTable<Document extends DocType>(options: DbOptions<D
           await tx.execute(`DELETE FROM ${tableName} WHERE ${keyCol} IN (${placeholders})`, chunk as unknown[])
         }
 
-        for (const k of allKeys) results.push({ key: k, op: 'delete' })
+        for (const k of allKeys) results.push({ key: k, op: 'delete', document: undefined })
       })
 
       return results
@@ -310,7 +298,7 @@ export async function createTable<Document extends DocType>(options: DbOptions<D
     },
 
     async batchSet(documents: Document[]) {
-      const mutations: MutationResult[] = []
+      const mutations: MutationResult<Document>[] = []
       await backend.transaction(async (tx) => {
         for (const document of documents) {
           const m = await table.set(document, tx)

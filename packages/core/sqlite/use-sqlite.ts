@@ -3,6 +3,7 @@ import { useCallback, useLayoutEffect, useReducer, useRef, type DependencyList }
 import type { SyncTable } from './create-sqlite'
 import type { DocType, Key, SqlSeachOptions } from './table/table.types'
 import { DEFAULT_PAGE_SIZE } from './table'
+import { shallow } from '../utils/shallow'
 const MAX_ITERATIONS = 10_000
 
 export interface SqLiteActions {
@@ -17,6 +18,7 @@ export interface SqLiteActions {
    */
   readonly reset: () => Promise<void>
   readonly keysIndex: Map<Key, number>
+  readonly isResetting?: boolean
 }
 
 export interface UseSearchOptions<Document extends DocType, Selected = Document> extends SqlSeachOptions<Document> {
@@ -38,13 +40,13 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
   state: SyncTable<Document>,
   options: UseSearchOptions<Document, Selected> = {},
   deps: DependencyList = [],
-): [(undefined extends Selected ? Document[] : Selected[]) | undefined, SqLiteActions] {
+): [(undefined extends Selected ? Document[] : Selected[]) | null, SqLiteActions] {
   const { select, pageSize = DEFAULT_PAGE_SIZE } = options
 
-  const itemsRef = useRef<undefined | (Document | Selected)[]>()
+  const itemsRef = useRef<null | (Document | Selected)[]>(null)
   const [, rerender] = useReducer((c: number) => c + 1, 0)
   const keysIndex = useRef(new Map<Key, number>())
-  const iteratorRef = useRef<AsyncIterableIterator<{ doc: Document; meta: { key: Key } }>>()
+  const iteratorRef = useRef<AsyncIterableIterator<{ doc: Document; meta: { key: Key } }> | null>(null)
 
   const updateIterator = useCallback(() => {
     // eslint-disable-next-line sonarjs/no-unused-vars
@@ -53,18 +55,18 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, ...deps])
 
-  const reset = useCallback(() => {
+  const resetDataAndUpdateIterator = useCallback(() => {
     itemsRef.current = []
     keysIndex.current.clear()
     updateIterator()
   }, [updateIterator])
 
   const fillNextPage = useCallback(async (shouldReset: boolean) => {
-    if (itemsRef.current === undefined) {
+    if (itemsRef.current === null) {
       itemsRef.current = []
     }
     if (shouldReset === true) {
-      reset()
+      resetDataAndUpdateIterator()
     }
 
     const { current: iterator } = iteratorRef
@@ -72,21 +74,21 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
       return true
     }
     let isDone = false
+
     for (let index = 0; index < pageSize; index++) {
       const result = await iterator.next()
       if (result.done) {
-        iteratorRef.current = undefined
+        iteratorRef.current = null
         isDone = true
         break
       }
       if (keysIndex.current.has(result.value.meta.key)) {
-        // eslint-disable-next-line sonarjs/updated-loop-counter
-        index += -1
         continue
       }
       itemsRef.current.push(select ? select(result.value.doc) : (result.value.doc as unknown as Selected))
       keysIndex.current.set(result.value.meta.key, itemsRef.current.length - 1)
     }
+    itemsRef.current = [...itemsRef.current]
     return isDone
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -101,7 +103,7 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
     const unsubscribe = state.subscribe(async (item) => {
       const { mutations, removedAll } = item
       if (removedAll) {
-        reset()
+        resetDataAndUpdateIterator()
       }
       if (!mutations) {
         return
@@ -110,33 +112,65 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
       const oldLength = itemsRef.current?.length ?? 0
       let newLength = oldLength
       let hasUpdate = false
+      const removeIndexes = new Set<number>()
       for (const mutation of mutations) {
-        const { key, op } = mutation
+        const { key, op, document } = mutation
         switch (op) {
           case 'insert': {
             newLength += 1
             break
           }
           case 'delete': {
-            if (itemsRef.current && keysIndex.current.has(key)) {
+            if (itemsRef.current && itemsRef.current.length > 0 && keysIndex.current.has(key)) {
               const index = keysIndex.current.get(key)
               if (index === undefined) break
-              itemsRef.current.splice(index, 1)
-              keysIndex.current.delete(key)
+              removeIndexes.add(index)
               hasUpdate = true
             }
             break
           }
           case 'update': {
-            if (itemsRef.current && keysIndex.current.has(key)) {
+            if (keysIndex.current.has(key)) {
               const index = keysIndex.current.get(key)
-              if (index === undefined) break
-              itemsRef.current[index] = (await state.get(key, select)) as Selected
-              hasUpdate = true
+              if (index !== undefined && itemsRef.current) {
+                const newItem = select ? select(document as Document) : (document as unknown as Selected)
+                const previousItem = itemsRef.current[index]
+
+                // 🆕 Only update & rerender if shallow comparison fails
+                if (!shallow(previousItem, newItem)) {
+                  itemsRef.current[index] = newItem
+                  itemsRef.current = [...itemsRef.current]
+                  hasUpdate = true
+                }
+              }
+            } else {
+              // Handle updates to non-visible items
+              const updatedItem = await state.get(key, select)
+              if (updatedItem) {
+                itemsRef.current = [...(itemsRef.current ?? []), updatedItem]
+                keysIndex.current.set(key, itemsRef.current.length - 1)
+                hasUpdate = true
+              }
             }
             break
           }
         }
+      }
+
+      if (removeIndexes.size > 0 && itemsRef.current && itemsRef.current.length > 0) {
+        const newIndex = new Map<Key, number>()
+        itemsRef.current = itemsRef.current?.filter((_, index) => {
+          return !removeIndexes.has(index)
+        })
+        let newIdx = 0
+        for (const [key, index] of keysIndex.current) {
+          if (removeIndexes.has(index)) {
+            continue
+          }
+          newIndex.set(key, newIdx)
+          newIdx++
+        }
+        keysIndex.current = newIndex
       }
 
       const isLengthChanged = oldLength !== newLength
@@ -144,9 +178,6 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
       if (!isChanged) return
       if (isLengthChanged) {
         await fillNextPage(true)
-
-        // here we ensure that if the length changed, we fill the next page
-
         let iterations = 0
         while ((itemsRef.current?.length ?? 0) < newLength && iterations < MAX_ITERATIONS) {
           await fillNextPage(false)
@@ -167,20 +198,18 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
   }, [state])
 
   useLayoutEffect(() => {
-    updateIterator()
-    itemsRef.current = undefined
-    keysIndex.current.clear()
+    resetDataAndUpdateIterator()
     nextPage()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps)
 
   const resetCb = useCallback(async () => {
-    reset()
+    resetDataAndUpdateIterator()
     await nextPage()
-  }, [nextPage, reset])
+  }, [nextPage, resetDataAndUpdateIterator])
 
   return [itemsRef.current, { nextPage, reset: resetCb, keysIndex: keysIndex.current }] as [
-    (undefined extends Selected ? Document[] : Selected[]) | undefined,
+    (undefined extends Selected ? Document[] : Selected[]) | null,
     SqLiteActions,
   ]
 }

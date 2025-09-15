@@ -9,22 +9,22 @@ export interface CreateSqliteOptions<Document extends DocType> extends Omit<DbOp
   readonly backend: Backend | Promise<Backend>
 }
 
-export interface MutationItems {
-  mutations?: MutationResult[]
+export interface MutationItems<Doc> {
+  mutations?: MutationResult<Doc>[]
   removedAll?: boolean
 }
 
 export interface SyncTable<Document extends DocType> {
-  readonly subscribe: (listener: (mutation: MutationItems) => void) => () => void
-  readonly set: (document: Document) => Promise<MutationResult>
-  readonly batchSet: (documents: Document[]) => Promise<MutationResult[]>
+  readonly subscribe: (listener: (mutation: MutationItems<Document>) => void) => () => void
+  readonly set: (document: Document) => Promise<MutationResult<Document>>
+  readonly batchSet: (documents: Document[]) => Promise<MutationResult<Document>[]>
   readonly get: <Selected = Document>(key: Key, selector?: (document: Document) => Selected) => Promise<Selected | undefined>
 
-  readonly delete: (key: Key) => Promise<MutationResult | undefined>
+  readonly delete: (key: Key) => Promise<MutationResult<Document> | undefined>
   readonly search: <Selected = Document>(options?: SearchOptions<Document, Selected>) => AsyncIterableIterator<Selected>
   readonly count: (options?: { where?: Where<Document> }) => Promise<number>
-  readonly deleteBy: (where: Where<Document>) => Promise<MutationResult[]>
-  readonly clear: () => void
+  readonly deleteBy: (where: Where<Document>) => Promise<MutationResult<Document>[]>
+  readonly clear: () => Promise<void>
 }
 
 /**
@@ -53,8 +53,8 @@ export function createSqliteState<Document extends DocType>(options: CreateSqlit
       if (!unknownItems) {
         return
       }
-      const items = unknownItems as MutationItems[]
-      const merged: MutationItems = {}
+      const items = unknownItems as MutationItems<Document>[]
+      const merged: MutationItems<Document> = {}
       for (const item of items) {
         if (item.removedAll) {
           merged.removedAll = true
@@ -76,20 +76,21 @@ export function createSqliteState<Document extends DocType>(options: CreateSqlit
    * Notify all subscribers of changes
    * @param item The mutation items to notify subscribers about
    */
-  function handleChanges(item: MutationItems) {
+  function handleChanges(item: MutationItems<Document>) {
     STATE_SCHEDULER.schedule(id, item)
   }
 
-  const listeners = new Set<(mutation: MutationItems) => void>()
+  const listeners = new Set<(mutation: MutationItems<Document>) => void>()
 
   const state: SyncTable<Document> = {
     subscribe(listener) {
       listeners.add(listener)
       return () => listeners.delete(listener)
     },
-    clear() {
-      cachedTable?.clear()
+    async clear() {
+      const table = await getTable()
       handleChanges({ removedAll: true })
+      return table.clear()
     },
     async set(document) {
       const table = await getTable()
