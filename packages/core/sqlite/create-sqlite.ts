@@ -18,6 +18,7 @@ export interface SyncTable<Document extends DocType> {
   readonly subscribe: (listener: (mutation: MutationItems<Document>) => void) => () => void
   readonly set: (document: Document) => Promise<MutationResult<Document>>
   readonly batchSet: (documents: Document[]) => Promise<MutationResult<Document>[]>
+  readonly batchDelete: (keys: Key[]) => Promise<MutationResult<Document>[]>
   readonly get: <Selected = Document>(key: Key, selector?: (document: Document) => Selected) => Promise<Selected | undefined>
 
   readonly delete: (key: Key) => Promise<MutationResult<Document> | undefined>
@@ -101,6 +102,12 @@ export function createSqliteState<Document extends DocType>(options: CreateSqlit
     async batchSet(documents) {
       const table = await getTable()
       const changes = await table.batchSet(documents)
+      handleChanges({ mutations: changes })
+      return changes
+    },
+    async batchDelete(keys) {
+      const table = await getTable()
+      const changes = await table.batchDelete(keys)
       handleChanges({ mutations: changes })
       return changes
     },

@@ -489,4 +489,35 @@ describe('use-sqlite-state', () => {
       expect(result.current[0]?.length).toBe(ITEMS_COUNT)
     })
   })
+  it("should test batch delete and its impact on the hook's results", async () => {
+    const sql = createSqliteState<Person>({ backend, tableName: 'BatchDeleteState', key: 'id' })
+    const people: Person[] = []
+    for (let index = 1; index <= 20; index++) {
+      people.push({ id: index.toString(), name: `Person${index}`, age: 20 + (index % 50) })
+    }
+    await sql.batchSet(people)
+
+    let reRenders = 0
+    const { result } = renderHook(() => {
+      reRenders++
+      return useSqliteValue(sql, {}, [])
+    })
+
+    await waitFor(() => {
+      expect(result.current[0]?.length).toBe(20)
+      expect(reRenders).toBe(2)
+    })
+
+    act(() => {
+      sql.batchDelete(['5', '10', '15'])
+    })
+
+    await waitFor(() => {
+      expect(result.current[0]?.length).toBe(17)
+      expect(result.current[0]?.find((p) => p.id === '5')).toBeUndefined()
+      expect(result.current[0]?.find((p) => p.id === '10')).toBeUndefined()
+      expect(result.current[0]?.find((p) => p.id === '15')).toBeUndefined()
+      expect(reRenders).toBe(3)
+    })
+  })
 })

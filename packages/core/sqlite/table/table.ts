@@ -3,6 +3,7 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 /* eslint-disable @typescript-eslint/no-shadow */
 /* eslint-disable no-shadow */
+import type { Backend } from './backend'
 import type { Table, DbOptions, DocType, Key, SearchOptions, MutationResult } from './table.types'
 import { unicodeTokenizer, type FtsTokenizerOptions } from './tokenizer'
 import type { Where } from './where'
@@ -211,9 +212,10 @@ export async function createTable<Document extends DocType>(options: DbOptions<D
       return selector(document, { rowId: rowid, key: logicalKey }) as Selected
     },
 
-    async delete(keyValue: Key) {
+    async delete(keyValue: Key, backendOverride?: Backend) {
+      const db = backendOverride ?? backend
       const whereKey = hasUserKey ? `key = ?` : `rowid = ?`
-      await backend.execute(`DELETE FROM ${tableName} WHERE ${whereKey}`, [keyValue])
+      await db.execute(`DELETE FROM ${tableName} WHERE ${whereKey}`, [keyValue])
       const changed = await backend.select<Array<{ c: number }>>(`SELECT changes() AS c`)
       if ((changed[0]?.c ?? 0) > 0) return { key: keyValue, op: 'delete' }
       return
@@ -303,6 +305,16 @@ export async function createTable<Document extends DocType>(options: DbOptions<D
         for (const document of documents) {
           const m = await table.set(document, tx)
           mutations.push(m)
+        }
+      })
+      return mutations
+    },
+    async batchDelete(keys: Key[]) {
+      const mutations: MutationResult<Document>[] = []
+      await backend.transaction(async (tx) => {
+        for (const key of keys) {
+          const m = await table.delete(key, tx)
+          if (m) mutations.push(m)
         }
       })
       return mutations
