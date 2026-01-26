@@ -41,18 +41,20 @@ bun run code-check
 
 ```
 packages/core/
-├── index.ts              # Public exports: create, select, useValue, shallow, types, is
-├── create.ts             # Core state factory - creates State<T> objects
-├── create-state.ts       # Internal state implementation with get/set/listen/select
-├── select.ts             # Derived state from multiple sources
-├── use-value.ts          # React hook for reading state with optional selector
-├── scheduler.ts          # STATE_SCHEDULER - batches multiple set() calls
-├── types.ts              # Core TypeScript types
+├── index.ts               # Public exports: create, select, useValue, useValueLoadable, shallow, types, is
+├── create.ts              # Core state factory - creates State<T> objects
+├── create-state.ts        # Internal state implementation with get/set/listen/select
+├── select.ts              # Derived state from multiple sources
+├── use-value.ts           # React hook for reading state with optional selector
+├── use-value-loadable.ts  # Hook for async states without Suspense (returns [value, isLoading, isError, error])
+├── scheduler.ts           # STATE_SCHEDULER - batches multiple set() calls
+├── types.ts               # Core TypeScript types
 ├── utils/
-│   ├── create-emitter.ts # Event subscription system for state listeners
-│   ├── common.ts         # Async/update handlers for lazy and Promise-based states
-│   ├── shallow.ts        # Shallow equality comparison
-│   └── is.ts             # Type guards (isFunction, isPromise, etc.)
+│   ├── create-emitter.ts  # Event subscription system for state listeners
+│   ├── common.ts          # Async/update handlers for lazy and Promise-based states
+│   ├── shallow.ts         # Shallow equality comparison
+│   ├── is.ts              # Type guards (isFunction, isPromise, etc.)
+│   └── id.ts              # Unique ID generation for state instances
 ├── debug/
 │   └── development-tools.ts  # Redux DevTools integration
 └── sqlite/               # Optional SQLite companion module
@@ -72,7 +74,7 @@ packages/core/
 - ESLint flat config with React Hooks, Unicorn, SonarJS rules
 - Prettier: no semicolons, single quotes, trailing commas, 130 char width
 - JSDoc required for exports (via eslint-plugin-jsdoc)
-- Allowed abbreviations: idx, doc, props, param, ref, db, cb, ctx
+- Allowed abbreviations: idx, doc, props, param, params, ref, db, cb, ctx, args, vars, env, class
 
 ## Testing
 

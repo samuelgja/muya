@@ -1,10 +1,24 @@
 /* eslint-disable sonarjs/cognitive-complexity */
-import { useCallback, useLayoutEffect, useReducer, useRef, type DependencyList } from 'react'
+import { useCallback, useLayoutEffect, useReducer, useRef, useState, type DependencyList } from 'react'
 import type { SyncTable } from './create-sqlite'
 import type { DocType, Key, SqlSeachOptions } from './table/table.types'
 import { DEFAULT_PAGE_SIZE } from './table'
 import { shallow } from '../utils/shallow'
 const MAX_ITERATIONS = 10_000
+
+/**
+ * Shallow compare two dependency arrays
+ * @param previousDeps Previous deps array
+ * @param nextDeps Next deps array
+ * @returns True if arrays have same length and all items are strictly equal
+ */
+function shallowEqualDeps(previousDeps: DependencyList, nextDeps: DependencyList): boolean {
+  if (previousDeps.length !== nextDeps.length) return false
+  for (const [index, previousDep] of previousDeps.entries()) {
+    if (!Object.is(previousDep, nextDeps[index])) return false
+  }
+  return true
+}
 
 export interface SqLiteActions {
   /**
@@ -17,8 +31,15 @@ export interface SqLiteActions {
    * @returns void
    */
   readonly reset: () => Promise<void>
+  /**
+   * Map of document keys to their index in the results array.
+   */
   readonly keysIndex: Map<Key, number>
-  readonly isResetting?: boolean
+  /**
+   * True when deps changed but fresh data hasn't loaded yet.
+   * Use this to show stale/dimmed UI while new results are loading.
+   */
+  readonly isStale: boolean
 }
 
 export interface UseSearchOptions<Document extends DocType, Selected = Document> extends SqlSeachOptions<Document> {
@@ -47,6 +68,11 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
   const [, rerender] = useReducer((c: number) => c + 1, 0)
   const keysIndex = useRef(new Map<Key, number>())
   const iteratorRef = useRef<AsyncIterableIterator<{ doc: Document; meta: { key: Key } }> | null>(null)
+
+  // Track "settled" deps - the deps value when data last finished loading
+  // isStale is derived: true when current deps differ from settled deps
+  const [settledDeps, setSettledDeps] = useState<DependencyList | null>(null)
+  const isStale = settledDeps === null || !shallowEqualDeps(settledDeps, deps)
 
   const updateIterator = useCallback(() => {
     // eslint-disable-next-line sonarjs/no-unused-vars
@@ -198,17 +224,26 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
   }, [state])
 
   useLayoutEffect(() => {
+    // Capture current deps for this effect invocation
+    const currentDeps = deps
     resetDataAndUpdateIterator()
-    nextPage()
+    nextPage().then(() => {
+      // Mark these deps as settled when data finishes loading
+      setSettledDeps(currentDeps)
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps)
 
   const resetCb = useCallback(async () => {
+    // Set settledDeps to null to make isStale=true during reset
+    setSettledDeps(null)
     resetDataAndUpdateIterator()
     await nextPage()
-  }, [nextPage, resetDataAndUpdateIterator])
+    // After data loads, mark current deps as settled
+    setSettledDeps(deps)
+  }, [nextPage, resetDataAndUpdateIterator, deps])
 
-  return [itemsRef.current, { nextPage, reset: resetCb, keysIndex: keysIndex.current }] as [
+  return [itemsRef.current, { nextPage, reset: resetCb, keysIndex: keysIndex.current, isStale }] as [
     (undefined extends Selected ? Document[] : Selected[]) | null,
     SqLiteActions,
   ]

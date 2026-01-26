@@ -591,9 +591,9 @@ describe('use-sqlite edge cases', () => {
       return useSqliteValue(sql, { pageSize: 50 }, [])
     })
     await waitFor(() => {
-      expect(renderCount).toBe(2) // initial + after load
       expect(result.current[0]?.length).toBe(50)
     })
+    const initialRenders = renderCount
 
     // Delete item outside current page
     await act(async () => {
@@ -601,9 +601,10 @@ describe('use-sqlite edge cases', () => {
     })
 
     await waitFor(() => {
-      expect(renderCount).toBe(2) // no re-render
       expect(result.current[0]?.length).toBe(50) // unchanged page size
     })
+    // No re-render for non-visible item deletion
+    expect(renderCount).toBe(initialRenders)
   })
   it('should not rerender when using select if the selected value does not change', async () => {
     const sql = createSqliteState<Person>({ backend, tableName: 'SelectNoReRender', key: 'id' })
@@ -618,8 +619,8 @@ describe('use-sqlite edge cases', () => {
 
     await waitFor(() => {
       expect(result.current[0]).toEqual(['Alice'])
-      expect(renders).toBe(2) // initial + after first load
     })
+    const initialRenders = renders
 
     // Update age (not part of select projection)
     await act(async () => {
@@ -629,9 +630,8 @@ describe('use-sqlite edge cases', () => {
     // Wait a bit to let subscription flush
     await new Promise((r) => setTimeout(r, 20))
 
-    // ❌ Buggy: renders increments again, even though "Alice" didn't change
-    // ✅ Expected: still 2 renders
+    // No re-render since selected value "Alice" didn't change
     expect(result.current[0]).toEqual(['Alice'])
-    expect(renders).toBe(2)
+    expect(renders).toBe(initialRenders)
   })
 })
