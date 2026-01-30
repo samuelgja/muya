@@ -1,5 +1,5 @@
-import { create } from '../create'
-import { select } from '../select'
+import { create } from '../src/create'
+import { select } from '../src/select'
 import { renderHook, waitFor } from '@testing-library/react'
 import { longPromise } from './test-utils'
 import { Suspense } from 'react'

@@ -1,4 +1,4 @@
-import { unicodeTokenizer, type FtsTokenizerOptions } from '../table/tokenizer'
+import { unicodeTokenizer, type FtsTokenizerOptions } from '../src/table/tokenizer'
 
 describe('tokenizer', () => {
   const items: {

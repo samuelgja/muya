@@ -1,6 +1,6 @@
 import { renderHook, act } from '@testing-library/react'
-import { create } from '../create'
-import { useValue } from '../use-value'
+import { create } from '../src/create'
+import { useValue } from '../src/use-value'
 import { waitFor } from '@testing-library/react'
 import { longPromise } from './test-utils'
 

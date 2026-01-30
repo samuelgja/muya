@@ -1,7 +1,7 @@
 import { renderHook, act } from '@testing-library/react'
 import { waitFor } from '@testing-library/react'
-import { create } from '../create'
-import { useValueLoadable } from '../use-value-loadable'
+import { create } from '../src/create'
+import { useValueLoadable } from '../src/use-value-loadable'
 import { longPromise } from './test-utils'
 
 describe('useValueLoadable', () => {

@@ -3,7 +3,7 @@ import { useCallback, useLayoutEffect, useReducer, useRef, useState, type Depend
 import type { SyncTable } from './create-sqlite'
 import type { DocType, Key, SqlSeachOptions } from './table/table.types'
 import { DEFAULT_PAGE_SIZE } from './table'
-import { shallow } from '../utils/shallow'
+import { shallow } from 'muya'
 const MAX_ITERATIONS = 10_000
 
 /**

@@ -1,7 +1,7 @@
-import { create } from '../create'
+import { create } from '../src/create'
 import { waitFor } from '@testing-library/react'
 import { longPromise } from './test-utils'
-import { isPromise } from '../utils/is'
+import { isPromise } from '../src/utils/is'
 
 describe('create', () => {
   it('should get basic value states here', async () => {

@@ -1,5 +1,4 @@
-import { STATE_SCHEDULER } from '../create'
-import { getId } from '../utils/id'
+import { STATE_SCHEDULER, getId } from 'muya'
 import type { Backend } from './table'
 import { createTable } from './table/table'
 import type {
@@ -65,7 +64,7 @@ export function createSqliteState<Document extends DocType>(options: CreateSqlit
 
   const id = getId()
   STATE_SCHEDULER.add(id, {
-    onScheduleDone(unknownItems) {
+    onScheduleDone(unknownItems: unknown) {
       if (!unknownItems) {
         return
       }
