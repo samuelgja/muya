@@ -1,5 +1,5 @@
-import { create } from '../../create'
-import { AbortError } from '../common'
+import { create } from '../src/create'
+import { AbortError } from '../src/utils/common'
 import {
   isPromise,
   isFunction,
@@ -11,7 +11,7 @@ import {
   isUndefined,
   isState,
   isAbortError,
-} from '../is'
+} from '../src/utils/is'
 
 describe('isPromise', () => {
   it('should return true for a Promise', () => {

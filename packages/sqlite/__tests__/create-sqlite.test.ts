@@ -1,5 +1,5 @@
-import { createSqliteState } from '../create-sqlite'
-import { bunMemoryBackend } from '../table/bun-backend'
+import { createSqliteState } from '../src/create-sqlite'
+import { bunMemoryBackend } from '../src/table/bun-backend'
 
 const backend = bunMemoryBackend()
 interface Person {

@@ -1,6 +1,6 @@
-import { createTable } from '../table'
-import { bunMemoryBackend } from '../table/bun-backend'
-import { type Where } from '../table/where'
+import { createTable } from '../src/table'
+import { bunMemoryBackend } from '../src/table/bun-backend'
+import { type Where } from '../src/table/where'
 
 describe('where clauses', () => {
   const backend = bunMemoryBackend()

@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-shadow */
 /* eslint-disable no-shadow */
 /* eslint-disable sonarjs/pseudo-random */
-import { bunMemoryBackend } from '../table/bun-backend'
-import { createTable } from '../table/table'
+import { bunMemoryBackend } from '../src/table/bun-backend'
+import { createTable } from '../src/table/table'
 
 interface Person {
   name: string

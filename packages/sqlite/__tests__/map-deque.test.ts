@@ -1,4 +1,4 @@
-import { MapDeque } from '../table/map-deque'
+import { MapDeque } from '../src/table/map-deque'
 
 describe('MapDeque', () => {
   it('should throw if maxSize <= 0', () => {

@@ -1,4 +1,4 @@
-import { shallow } from '../shallow'
+import { shallow } from '../src/utils/shallow'
 
 describe('shallow', () => {
   it('should return true for identical primitive values', () => {

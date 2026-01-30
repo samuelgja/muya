@@ -1,5 +1,5 @@
 import { waitFor } from '@testing-library/react'
-import { createScheduler } from '../scheduler'
+import { createScheduler } from '../src/scheduler'
 
 describe('scheduler', () => {
   it('should test scheduler by id', async () => {

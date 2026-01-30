@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react'
-import { createSqliteState } from '../create-sqlite'
-import { useSqliteCount } from '../use-sqlite-count'
-import { bunMemoryBackend } from '../table/bun-backend'
+import { createSqliteState } from '../src/create-sqlite'
+import { useSqliteCount } from '../src/use-sqlite-count'
+import { bunMemoryBackend } from '../src/table/bun-backend'
 import { waitFor } from '@testing-library/react'
 
 const backend = bunMemoryBackend()

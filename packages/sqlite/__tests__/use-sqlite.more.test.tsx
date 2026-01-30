@@ -1,10 +1,10 @@
 import { act, renderHook } from '@testing-library/react'
-import { createSqliteState } from '../create-sqlite'
-import { useSqliteValue } from '../use-sqlite'
+import { createSqliteState } from '../src/create-sqlite'
+import { useSqliteValue } from '../src/use-sqlite'
 import { waitFor } from '@testing-library/react'
-import { bunMemoryBackend } from '../table/bun-backend'
+import { bunMemoryBackend } from '../src/table/bun-backend'
 import { StrictMode, Suspense } from 'react'
-import type { Key } from '../table'
+import type { Key } from '../src/table'
 
 const backend = bunMemoryBackend()
 

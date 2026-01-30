@@ -8,9 +8,9 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { useStore, create as zustand } from 'zustand'
 import { useEffect, useState } from 'react'
-import { useValue } from '../use-value'
+import { useValue } from '../src/use-value'
 import { atom, useAtom } from 'jotai'
-import { create } from '../create'
+import { create } from '../src/create'
 
 /**
  * Utility to render a hook and measure the time it takes to reach a certain state

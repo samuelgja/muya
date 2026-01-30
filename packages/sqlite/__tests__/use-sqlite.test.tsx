@@ -1,11 +1,11 @@
 /* eslint-disable jsdoc/require-jsdoc */
 import { act, renderHook } from '@testing-library/react'
-import { createSqliteState } from '../create-sqlite'
-import { useSqliteValue } from '../use-sqlite'
+import { createSqliteState } from '../src/create-sqlite'
+import { useSqliteValue } from '../src/use-sqlite'
 import { waitFor } from '@testing-library/react'
-import { bunMemoryBackend } from '../table/bun-backend'
+import { bunMemoryBackend } from '../src/table/bun-backend'
 import { StrictMode, Suspense, useState } from 'react'
-import { DEFAULT_PAGE_SIZE } from '../table/table'
+import { DEFAULT_PAGE_SIZE } from '../src/table/table'
 
 const backend = bunMemoryBackend()
 interface Person {

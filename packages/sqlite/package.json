@@ -1,0 +1,40 @@
+{
+  "name": "muya-sqlite",
+  "version": "0.0.1",
+  "author": "samuel.gjabel@gmail.com",
+  "repository": "https://github.com/samuelgjabel/muya",
+  "main": "dist/cjs/index.js",
+  "module": "dist/esm/index.js",
+  "types": "dist/types/index.d.ts",
+  "typescript": {
+    "main": "src/index.ts"
+  },
+  "react-native": "src/index.ts",
+  "description": "SQLite companion module for muya state management",
+  "homepage": "https://github.com/samuelgjabel/muya",
+  "keywords": [
+    "react",
+    "react-native",
+    "sqlite",
+    "state",
+    "muya"
+  ],
+  "license": "MIT",
+  "peerDependencies": {
+    "react": ">=18 <20"
+  },
+  "dependencies": {
+    "muya": ">=2.5.0"
+  },
+  "sideEffects": false,
+  "scripts": {
+    "build": "bun run build.ts"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js"
+    }
+  }
+}

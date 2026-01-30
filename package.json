@@ -72,10 +72,10 @@
   "react-native": "src/index.ts",
   "scripts": {
     "clean": "sudo rm -rf node_modules && sudo rm -rf packages/*/node_modules && bun install",
-    "build": "bun run build.ts",
+    "build": "bun run --cwd packages/core build && bun run --cwd packages/sqlite build",
     "code-check": "bun run typecheck && bun run lint && bun run test && bun run format",
     "typecheck": "tsc --noEmit",
-    "lint": "bun eslint \"packages/core/**/*.{ts,tsx}\" --fix",
+    "lint": "bun eslint \"packages/core/src/**/*.{ts,tsx}\" \"packages/core/__tests__/**/*.{ts,tsx}\" \"packages/sqlite/src/**/*.{ts,tsx}\" \"packages/sqlite/__tests__/**/*.{ts,tsx}\" --fix",
     "format": "prettier --write \"./**/*.{js,jsx,json,ts,tsx}\"",
     "test": "bun test ./packages/**",
     "pub": "bun run code-check && bun run build && cd lib && npm publish"

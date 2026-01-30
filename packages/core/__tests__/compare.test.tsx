@@ -1,5 +1,5 @@
 import { act, renderHook } from '@testing-library/react'
-import { create } from '../create'
+import { create } from '../src/create'
 import { longPromise } from './test-utils'
 import { waitFor } from '@testing-library/react'
 import { atom, useAtom, useSetAtom } from 'jotai'
