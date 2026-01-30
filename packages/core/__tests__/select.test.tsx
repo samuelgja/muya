@@ -211,8 +211,8 @@ describe('select', () => {
     await waitFor(() => {
       expect(result.current).toBe(false)
       expect(selectedState.get()).toBe(false)
-      // re-render twice, as it hit suspense, because value is not resolved yet
-      expect(render).toHaveBeenCalledTimes(2)
+      // re-render three times with React 19 suspense behavior
+      expect(render).toHaveBeenCalledTimes(3)
     })
 
     state.set(1)
@@ -221,7 +221,7 @@ describe('select', () => {
       expect(result.current).toBe(true)
       expect(selectedState.get()).toBe(true)
       // next time it re-render only once, as value is already resolved
-      expect(render).toHaveBeenCalledTimes(3)
+      expect(render).toHaveBeenCalledTimes(4)
     })
   })
 

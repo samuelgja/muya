@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react-hooks'
+import { act, renderHook } from '@testing-library/react'
 import { createSqliteState } from '../create-sqlite'
 import { useSqliteValue } from '../use-sqlite'
 import { waitFor } from '@testing-library/react'
@@ -575,7 +575,6 @@ describe('use-sqlite edge cases', () => {
     const sql = createSqliteState<Person>({ backend, tableName: 'EmptyNext', key: 'id' })
     const { result } = renderHook(() => useSqliteValue(sql, {}, []))
 
-    // @ts-expect-error - Testing internal method
     const isDone = await act(result.current[1].nextPage)
     expect(isDone).toBe(true)
     expect(result.current[0]).toEqual([])

@@ -1,4 +1,4 @@
-import { renderHook, act } from '@testing-library/react-hooks'
+import { renderHook, act } from '@testing-library/react'
 import { create } from '../create'
 import { useValue } from '../use-value'
 import { waitFor } from '@testing-library/react'
@@ -39,8 +39,8 @@ describe('useValue', () => {
     const state = create(() => {
       throw error
     })
-    const { result } = renderHook(() => useValue(state))
-    expect(result.error).toBe(error)
+    // In @testing-library/react, errors thrown in hooks propagate directly
+    expect(() => renderHook(() => useValue(state))).toThrow(error)
   })
 
   it('should handle promises returned from state suspense', async () => {
@@ -53,7 +53,7 @@ describe('useValue', () => {
     })
     await waitFor(() => {})
     expect(result.current).toBe(1)
-    expect(renders).toHaveBeenCalledTimes(2)
+    expect(renders).toHaveBeenCalledTimes(3)
   })
 
   it('should unsubscribe on unmount', async () => {
@@ -92,8 +92,8 @@ describe('useValue', () => {
 
     await waitFor(() => {
       expect(result.current).toBe(0)
-      // when it render, it will return a promise - hit the suspense, so it should be called twice
-      expect(render).toHaveBeenCalledTimes(2)
+      // when it render, it will return a promise - hit the suspense, React 19 renders 3 times
+      expect(render).toHaveBeenCalledTimes(3)
       // after the promise resolved, it will re-render again, this part should be called once
       expect(renderAfter).toHaveBeenCalledTimes(1)
     })

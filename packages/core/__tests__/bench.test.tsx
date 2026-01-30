@@ -5,7 +5,7 @@
 /* eslint-disable unicorn/consistent-function-scoping */
 /* eslint-disable no-console */
 
-import { act, renderHook } from '@testing-library/react-hooks'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import { useStore, create as zustand } from 'zustand'
 import { useEffect, useState } from 'react'
 import { useValue } from '../use-value'
@@ -25,7 +25,7 @@ function renderPerfHook<T>(hook: () => T, getValue: (data: T) => number, toBe: n
     onResolve = resolve
   })
   const start = performance.now()
-  const { result, waitFor } = renderHook(() => {
+  const { result } = renderHook(() => {
     const data = hook()
     const count = getValue(data)
     useEffect(() => {

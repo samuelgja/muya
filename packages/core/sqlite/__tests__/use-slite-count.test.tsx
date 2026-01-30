@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react-hooks'
+import { act, renderHook } from '@testing-library/react'
 import { createSqliteState } from '../create-sqlite'
 import { useSqliteCount } from '../use-sqlite-count'
 import { bunMemoryBackend } from '../table/bun-backend'

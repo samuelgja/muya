@@ -252,7 +252,7 @@ describe('where clauses', () => {
       results.push(doc)
     }
     expect(results.length).toBe(3)
-    expect(results.map((d) => d.id).sort((a, b) => a.localeCompare(b))).toEqual(['1', '2', '4'])
+    expect(results.map((d) => d.id).toSorted((a, b) => a.localeCompare(b))).toEqual(['1', '2', '4'])
   })
 
   it('should handle in operator with empty array (matches nothing)', async () => {
@@ -295,7 +295,7 @@ describe('where clauses', () => {
       results.push(doc)
     }
     expect(results.length).toBe(2)
-    expect(results.map((d) => d.id).sort((a, b) => a.localeCompare(b))).toEqual(['1', '3'])
+    expect(results.map((d) => d.id).toSorted((a, b) => a.localeCompare(b))).toEqual(['1', '3'])
   })
 
   it('should handle notIn operator', async () => {
