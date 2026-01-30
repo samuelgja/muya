@@ -2,7 +2,7 @@ import { canUpdate, handleAsyncUpdate } from './utils/common'
 import { isEqualBase, isFunction, isPromise, isSetValueFunction, isUndefined } from './utils/is'
 import type { DefaultValue, IsEqual, SetStateCb, SetValue, State } from './types'
 import { createScheduler } from './scheduler'
-import { subscribeToDevelopmentTools } from './debug/development-tools'
+import { sendToDevtools } from './debug/development-tools'
 import { createState } from './create-state'
 
 export const STATE_SCHEDULER = createScheduler()
@@ -89,6 +89,12 @@ export function create<T>(initialValue: DefaultValue<T>, isEqual: IsEqual<T> = i
         return
       }
       state.emitter.emit()
+      sendToDevtools({
+        name: state.stateName ?? `state(${state.id})`,
+        type: 'state',
+        value: state.cache.current,
+        message: 'update',
+      })
     },
     onResolveItem: setValue,
   })
@@ -97,6 +103,5 @@ export function create<T>(initialValue: DefaultValue<T>, isEqual: IsEqual<T> = i
     getValue()
   }
 
-  subscribeToDevelopmentTools(state)
   return state
 }

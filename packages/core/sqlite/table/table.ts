@@ -4,7 +4,18 @@
 /* eslint-disable @typescript-eslint/no-shadow */
 /* eslint-disable no-shadow */
 import type { Backend } from './backend'
-import type { Table, DbOptions, DocType, Key, SearchOptions, MutationResult } from './table.types'
+import type {
+  Table,
+  DbOptions,
+  DocType,
+  Key,
+  SearchOptions,
+  MutationResult,
+  GroupByResult,
+  GroupByOptions,
+  DotPath,
+  GetFieldType,
+} from './table.types'
 import { unicodeTokenizer, type FtsTokenizerOptions } from './tokenizer'
 import type { Where } from './where'
 import { getWhereQuery } from './where'
@@ -297,6 +308,23 @@ export async function createTable<Document extends DocType>(options: DbOptions<D
 
     async clear() {
       await backend.execute(`DELETE FROM ${tableName}`)
+    },
+
+    async groupBy<Field extends DotPath<Document>>(
+      field: Field,
+      options: GroupByOptions<Document> = {},
+    ): Promise<Array<GroupByResult<GetFieldType<Document, Field>>>> {
+      const whereSql = getWhereQuery<Document>(options.where, tableName)
+      const jsonPath = toJsonPath(String(field))
+      const query = `
+        SELECT json_extract(data, '${jsonPath}') AS groupKey, COUNT(*) AS count
+        FROM ${tableName}
+        ${whereSql}
+        GROUP BY groupKey
+      `
+      type FieldType = GetFieldType<Document, Field>
+      const results = await backend.select<Array<{ groupKey: FieldType; count: number }>>(query)
+      return results.map((row) => ({ key: row.groupKey, count: row.count }))
     },
 
     async batchSet(documents: Document[]) {

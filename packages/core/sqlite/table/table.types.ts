@@ -30,6 +30,18 @@ type DotPathRaw<T, D extends number = 5> = [D] extends [never]
 
 export type DotPath<T> = DotPathRaw<MakeAllFieldAsRequired<T>>
 
+/**
+ * Extract the value type at a given dot path
+ * e.g., GetFieldType<{ user: { name: string } }, 'user.name'> = string
+ */
+export type GetFieldType<T, Path extends string> = Path extends `${infer First}.${infer Rest}`
+  ? First extends keyof T
+    ? GetFieldType<T[First], Rest>
+    : never
+  : Path extends keyof T
+    ? T[Path]
+    : never
+
 // Built-in FTS5 tokenizers
 export type FtsTokenizer =
   | 'porter' // English stemming
@@ -86,6 +98,15 @@ interface MutationResultUpdateInsert<T> extends MutationResultBase<T> {
 
 export type MutationResult<T> = MutationResultDelete<T> | MutationResultUpdateInsert<T>
 
+export interface GroupByResult<K> {
+  readonly key: K
+  readonly count: number
+}
+
+export interface GroupByOptions<Document extends DocType> {
+  readonly where?: Where<Document>
+}
+
 export interface Table<Document extends DocType> extends DbNotGeneric {
   readonly set: (document: Document, backendOverride?: Backend) => Promise<MutationResult<Document>>
   readonly batchSet: (documents: Document[]) => Promise<MutationResult<Document>[]>
@@ -97,6 +118,10 @@ export interface Table<Document extends DocType> extends DbNotGeneric {
   readonly count: (options?: { where?: Where<Document> }) => Promise<number>
   readonly deleteBy: (where: Where<Document>) => Promise<MutationResult<Document>[]>
   readonly clear: () => Promise<void>
+  readonly groupBy: <Field extends DotPath<Document>>(
+    field: Field,
+    options?: GroupByOptions<Document>,
+  ) => Promise<Array<GroupByResult<GetFieldType<Document, Field>>>>
 }
 
 export type MakeAllFieldAsRequired<T> = {

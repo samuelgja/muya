@@ -2,7 +2,18 @@ import { STATE_SCHEDULER } from '../create'
 import { getId } from '../utils/id'
 import type { Backend } from './table'
 import { createTable } from './table/table'
-import type { DbOptions, DocType, Key, MutationResult, SearchOptions, Table } from './table/table.types'
+import type {
+  DbOptions,
+  DocType,
+  DotPath,
+  GetFieldType,
+  GroupByOptions,
+  GroupByResult,
+  Key,
+  MutationResult,
+  SearchOptions,
+  Table,
+} from './table/table.types'
 import type { Where } from './table/where'
 
 export interface CreateSqliteOptions<Document extends DocType> extends Omit<DbOptions<Document>, 'backend'> {
@@ -26,6 +37,10 @@ export interface SyncTable<Document extends DocType> {
   readonly count: (options?: { where?: Where<Document> }) => Promise<number>
   readonly deleteBy: (where: Where<Document>) => Promise<MutationResult<Document>[]>
   readonly clear: () => Promise<void>
+  readonly groupBy: <Field extends DotPath<Document>>(
+    field: Field,
+    options?: GroupByOptions<Document>,
+  ) => Promise<Array<GroupByResult<GetFieldType<Document, Field>>>>
 }
 
 /**
@@ -138,6 +153,10 @@ export function createSqliteState<Document extends DocType>(options: CreateSqlit
     async count(countOptions) {
       const table = await getTable()
       return await table.count(countOptions)
+    },
+    async groupBy(field, groupByOptions) {
+      const table = await getTable()
+      return await table.groupBy(field, groupByOptions)
     },
   }
 

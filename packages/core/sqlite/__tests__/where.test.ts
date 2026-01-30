@@ -231,4 +231,113 @@ describe('where clauses', () => {
 
     expect(results.length).toBe(2)
   })
+
+  it('should handle in operator with multiple values', async () => {
+    const tableIn = await createTable<{ id: string; status: string }>({
+      backend,
+      tableName: 'TestTableIn',
+      key: 'id',
+      indexes: ['status'],
+    })
+
+    await tableIn.set({ id: '1', status: 'active' })
+    await tableIn.set({ id: '2', status: 'pending' })
+    await tableIn.set({ id: '3', status: 'inactive' })
+    await tableIn.set({ id: '4', status: 'active' })
+
+    const results: { id: string; status: string }[] = []
+    for await (const doc of tableIn.search({
+      where: { status: { in: ['active', 'pending'] } },
+    })) {
+      results.push(doc)
+    }
+    expect(results.length).toBe(3)
+    expect(results.map((d) => d.id).sort((a, b) => a.localeCompare(b))).toEqual(['1', '2', '4'])
+  })
+
+  it('should handle in operator with empty array (matches nothing)', async () => {
+    const tableInEmpty = await createTable<{ id: string; status: string }>({
+      backend,
+      tableName: 'TestTableInEmpty',
+      key: 'id',
+      indexes: ['status'],
+    })
+
+    await tableInEmpty.set({ id: '1', status: 'active' })
+    await tableInEmpty.set({ id: '2', status: 'pending' })
+
+    const results: { id: string; status: string }[] = []
+    for await (const doc of tableInEmpty.search({
+      where: { status: { in: [] } },
+    })) {
+      results.push(doc)
+    }
+    expect(results.length).toBe(0)
+  })
+
+  it('should handle in operator on nested fields', async () => {
+    type NestedDoc = { id: string; document: { documentId: string; title: string } }
+    const tableNestedIn = await createTable<NestedDoc>({
+      backend,
+      tableName: 'TestTableNestedIn',
+      key: 'id',
+      indexes: ['document.documentId'],
+    })
+
+    await tableNestedIn.set({ id: '1', document: { documentId: 'doc-1', title: 'First' } })
+    await tableNestedIn.set({ id: '2', document: { documentId: 'doc-2', title: 'Second' } })
+    await tableNestedIn.set({ id: '3', document: { documentId: 'doc-3', title: 'Third' } })
+
+    const results: NestedDoc[] = []
+    for await (const doc of tableNestedIn.search({
+      where: { document: { documentId: { in: ['doc-1', 'doc-3'] } } },
+    })) {
+      results.push(doc)
+    }
+    expect(results.length).toBe(2)
+    expect(results.map((d) => d.id).sort((a, b) => a.localeCompare(b))).toEqual(['1', '3'])
+  })
+
+  it('should handle notIn operator', async () => {
+    const tableNotIn = await createTable<{ id: string; category: string }>({
+      backend,
+      tableName: 'TestTableNotIn',
+      key: 'id',
+      indexes: ['category'],
+    })
+
+    await tableNotIn.set({ id: '1', category: 'A' })
+    await tableNotIn.set({ id: '2', category: 'B' })
+    await tableNotIn.set({ id: '3', category: 'C' })
+
+    const results: { id: string; category: string }[] = []
+    for await (const doc of tableNotIn.search({
+      where: { category: { notIn: ['A', 'C'] } },
+    })) {
+      results.push(doc)
+    }
+    expect(results.length).toBe(1)
+    expect(results[0].category).toBe('B')
+  })
+
+  it('should handle notIn operator with empty array (matches everything)', async () => {
+    const tableNotInEmpty = await createTable<{ id: string; category: string }>({
+      backend,
+      tableName: 'TestTableNotInEmpty',
+      key: 'id',
+      indexes: ['category'],
+    })
+
+    await tableNotInEmpty.set({ id: '1', category: 'A' })
+    await tableNotInEmpty.set({ id: '2', category: 'B' })
+
+    const results: { id: string; category: string }[] = []
+    for await (const doc of tableNotInEmpty.search({
+      where: { category: { notIn: [] } },
+    })) {
+      results.push(doc)
+    }
+    // Empty notIn should match everything (nothing is excluded)
+    expect(results.length).toBe(2)
+  })
 })

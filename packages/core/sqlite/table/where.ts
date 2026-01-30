@@ -138,7 +138,16 @@ export function getWhere<T extends Record<string, unknown>>(where: Where<T>, tab
       if (opValue == null) continue
 
       const values = Array.isArray(opValue) ? opValue : [opValue]
-      if (values.length === 0) continue
+      if (values.length === 0) {
+        // Empty "in" array means nothing matches; empty "notIn" means everything matches (no filter)
+        if (opKey === 'in') {
+          // Add impossible condition: nothing can match an empty IN list
+          fieldClauses += (anyField ? ' AND ' : '') + '0 = 1'
+          anyField = true
+        }
+        // For other operators with empty arrays, skip (no effect)
+        continue
+      }
 
       if (opKey === 'fts') {
         if (!tableName) throw new Error('FTS requires tableName for JOIN reference')

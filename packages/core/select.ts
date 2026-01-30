@@ -1,6 +1,6 @@
 import { STATE_SCHEDULER } from './create'
 import { createState } from './create-state'
-import { subscribeToDevelopmentTools } from './debug/development-tools'
+import { sendToDevtools } from './debug/development-tools'
 import type { GetState, IsEqual } from './types'
 import { AbortError, canUpdate, handleAsyncUpdate } from './utils/common'
 import { isPromise, isUndefined } from './utils/is'
@@ -124,9 +124,14 @@ export function select<T = unknown, S extends Array<unknown> = []>(
         return
       }
       state.emitter.emit()
+      sendToDevtools({
+        name: state.stateName ?? `derived(${state.id})`,
+        type: 'derived',
+        value: state.cache.current,
+        message: 'update',
+      })
     },
   })
 
-  subscribeToDevelopmentTools(state)
   return state
 }
