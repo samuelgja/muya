@@ -1,5 +1,6 @@
 /* eslint-disable jsdoc/require-jsdoc */
-import { createSqliteState, type SyncTable } from '../src/create-sqlite'
+import { createSqliteState } from '../src/create-sqlite'
+import type { SyncTable } from '../src/types'
 import { bunMemoryBackend } from '../src/table/bun-backend'
 
 export interface Person {

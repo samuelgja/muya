@@ -2,9 +2,9 @@
 /* eslint-disable no-console */
 import { Bench } from 'tinybench'
 import { act, renderHook, type RenderHookResult } from '@testing-library/react'
-import { useSqliteValue, type UseSqliteResult } from '../src/use-sqlite'
+import { useSqliteValue } from '../src/use-sqlite'
+import type { SyncTable, UseSqliteResult } from '../src/types'
 import { makeSeededTable, type Person } from './shared'
-import type { SyncTable } from '../src/create-sqlite'
 
 type HookValue = UseSqliteResult<Person>
 

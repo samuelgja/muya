@@ -3,8 +3,6 @@ import { createTable } from './table/table'
 import type { DocType, Table } from './table/table.types'
 import type { CreateSqliteOptions, MutationItems, SyncTable } from './types'
 
-export type { CreateSqliteOptions, MutationItems, SyncTable } from './types'
-
 /**
  * Create a SyncTable that wraps a Table and provides reactive capabilities
  * @param options Options to create the SyncTable, including the backend and table name

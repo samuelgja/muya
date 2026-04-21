@@ -4,6 +4,7 @@ A tiny SQLite companion for [muya](https://github.com/samuelgjabel/muya) — rea
 
 - **Push-driven**: subscribes to mutations on the underlying table; views update automatically when anyone calls `set`/`delete`/`batchSet`.
 - **TanStack-style hook return**: `data`, `status`, `isLoading`, `isFetching`, `isStale`, `isError`, `error`, `hasNextPage`, `fetchNextPage`, `refetch`.
+- **Optional global cache**: opt in with `cacheKey`. Loaded data + the live subscription persist across mount/unmount cycles, so reopening a search screen is instant — and stays accurate (we keep listening for mutations even when no consumer is mounted).
 - **React 19 native**: built on `useSyncExternalStore`, concurrent-safe, no `QueryClientProvider` required.
 - **Zero peer dep weight**: only `muya` and `react`.
 
@@ -120,16 +121,49 @@ const result = useSqliteValue(state, options, deps)
 
 | Field | Type | Meaning |
 |---|---|---|
-| `data` | `readonly T[] \| null` | The current rows. `null` until first load completes. |
-| `status` | `'pending' \| 'success' \| 'error'` | Query status. |
-| `isLoading` | `boolean` | True only on initial load (`status === 'pending'` AND `data === null`). |
-| `isFetching` | `boolean` | True during any in-flight fetch (initial, `fetchNextPage`, `refetch`). |
-| `isStale` | `boolean` | True when `deps` changed but the new query hasn't finished yet. Useful for dimming the UI. |
+| `data` | `readonly T[] \| null` | Current rows. `null` until first load completes; then a stable array reference that changes on each (re)load and on visible mutations. |
+| `status` | `'pending' \| 'success' \| 'error'` | `'pending'` until the first load finishes, then never `'pending'` again. Use `isFetching`/`isStale` to detect refetches. |
+| `isLoading` | `boolean` | **True only on the very first load** (`status === 'pending' && data === null`). Use to gate full-page spinner / skeleton. |
+| `isFetching` | `boolean` | True during ANY in-flight IO (initial, `fetchNextPage`, `refetch`, deps-change refetch, mutation refill). |
+| `isStale` | `boolean` | **True when data is present but a refresh is in flight** (`isFetching && data !== null`). Use to dim the list. |
 | `isError` | `boolean` | Sugar for `status === 'error'`. |
 | `error` | `Error \| null` | The thrown error if any. |
-| `hasNextPage` | `boolean` | False once the iterator is exhausted (lookahead-accurate — no extra empty fetch needed). |
+| `hasNextPage` | `boolean` | False once the iterator is exhausted (lookahead-accurate — flips on the same call that loaded the final page, not on a follow-up empty fetch). |
 | `fetchNextPage` | `() => Promise<void>` | Pull and append the next page. Concurrent calls serialize into a queue. |
 | `refetch` | `() => Promise<void>` | Discard current results and re-run from scratch. |
+
+### Loading-state matrix
+
+Pick the right flag for each UX moment:
+
+| Phase | `data` | `status` | `isLoading` | `isFetching` | `isStale` |
+|---|---|---|---|---|---|
+| Initial mount, never loaded | `null` | `pending` | **true** | `true` | `false` |
+| First load complete | `[…]` | `success` | `false` | `false` | `false` |
+| Cache hit on remount (no refetch) | `[…]` | `success` | `false` | `false` | `false` |
+| Refetching (deps / `refetch` / `fetchNextPage`) | `[…]` | `success` | `false` | **true** | **true** |
+| Errored on first load | `null` | `error` | `false` | `false` | `false` |
+| Errored after had data | `[…]` | `error` | `false` | `false` | `false` |
+
+```tsx
+function MyList() {
+  const r = useSqliteValue(state, { cacheKey: 'list' })
+
+  if (r.isLoading) return <Spinner />              // first time only
+  if (r.isError) return <Error error={r.error} onRetry={r.refetch} />
+
+  return (
+    <ul style={{ opacity: r.isStale ? 0.5 : 1 }}>  // dim while refreshing
+      {r.data!.map((row) => <Row key={row.id} {...row} />)}
+      {r.hasNextPage && (
+        <button onClick={() => r.fetchNextPage()} disabled={r.isFetching}>
+          Load more
+        </button>
+      )}
+    </ul>
+  )
+}
+```
 
 ### `useSqliteCount<Document>(state, options?, deps?)`
 
@@ -138,6 +172,89 @@ Reactive row count. Returns `number`.
 ```ts
 const total = useSqliteCount(people, { where: { age: { gte: 18 } } }, [])
 ```
+
+`options` also accepts `cacheKey` and `gcTime` — same semantics as `useSqliteValue` (see Caching below).
+
+### `clearSqliteCache(state?, cacheKey?)`
+
+Drop cached engines.
+- `clearSqliteCache(state, cacheKey)` — drop one entry
+- `clearSqliteCache(state)` — drop every entry for this state
+- `clearSqliteCache()` — drop everything across all states
+
+### `setSqliteCacheMaxEntries(limit)`
+
+Override the per-`SyncTable` LRU cap (default 100). Pass `Infinity` to disable LRU eviction.
+
+## Caching
+
+By default the hook is **per-instance**: data is loaded on mount, kept on a ref, and discarded on unmount. Reopening the same screen reloads from scratch.
+
+Set `cacheKey` to share data across mount/unmount cycles:
+
+```tsx
+function SearchScreen() {
+  const result = useSqliteValue(
+    documents,
+    {
+      where: whereClause,
+      sortBy: 'createdAt',
+      pageSize: 50,
+      cacheKey: 'search',          // ← opt in
+      // gcTime: 10 * 60_000,      // optional, default 5 min
+    },
+    [whereClause],
+  )
+  // ...
+}
+```
+
+What this gives you:
+
+- **Instant remount**: closing the screen and reopening within `gcTime` (default 5 min) shows the same data immediately, no spinner.
+- **Always fresh**: while no consumer is mounted, the cached engine *keeps* its `state.subscribe` listener running. Mutations from anywhere else in the app (other tabs, background jobs, batch imports) update the cached snapshot continuously. On remount you see the latest data, **no refetch needed**. This is the muya-sqlite advantage — TanStack and SWR are pull-driven, so they always refetch on remount; we don't have to.
+- **Bounded memory**: LRU cap of 100 cached entries per `SyncTable` (configurable). Each cached entry self-disposes when its `gcTime` expires.
+
+### `cacheKey` semantics
+
+`cacheKey` is the **literal** identity of the cache entry. Deps changes do NOT create new cache entries — they just trigger `engine.refetch()` on the same entry, while keeping the old data visible (`isStale = true`) until the new data lands.
+
+```ts
+// Stable cacheKey: ONE entry that follows the latest filter.
+useSqliteValue(state, { cacheKey: 'search', where: whereClause }, [whereClause])
+//   filter A → loads, cached at 'search'
+//   filter B → SAME entry, refetches; old data stays visible during load
+//   close + reopen → instant (cache hit on 'search', latest data)
+
+// Per-deps cacheKey: ONE entry per unique filter (TanStack queryKey style).
+useSqliteValue(state, { cacheKey: `search:${filter}`, where: whereClause }, [whereClause])
+//   filter A → cached at 'search:A'
+//   filter B → cached at 'search:B' (separate entry)
+//   filter A again → instant cache hit on 'search:A'
+```
+
+Pick **stable** when you want "remember the latest". Pick **per-deps** when you want "instant switch between recent queries" — at the cost of more memory.
+
+### `gcTime` semantics
+
+| Value | Behavior |
+|---|---|
+| `5 * 60_000` (default) | Keep alive 5 min after last unmount, then dispose |
+| `0` | Dispose immediately on last unmount (still cached during remount races) |
+| `Infinity` | Never auto-expire; clear manually with `clearSqliteCache` |
+
+### Object-identity caveat in deps
+
+`hashDeps` keys object references by identity (WeakMap-backed). For your cache key to stay stable across renders, any object/array in your deps must come from a `useMemo` (or be a stable ref). If a parent rebuilds the array on every render, your cache hash changes every render and the cache misses.
+
+**Safest pattern** for complex inputs: build the `cacheKey` from primitives directly, not from object refs.
+
+```ts
+const cacheKey = `search:${searchText}:${dateStartMs}:${dateEndMs}:${categories.join(',')}`
+useSqliteValue(state, { cacheKey, where: whereClause }, [whereClause])
+```
+
+The `cacheKey` is now a content-based string; identity issues vanish.
 
 ## Recipes
 
