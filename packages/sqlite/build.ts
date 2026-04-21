@@ -51,15 +51,19 @@ await esbuild.build({
   external,
 })
 
-// ESM build (files as they are)
+// ESM build (single bundled file so Node/strict-ESM resolvers don't need extension rewriting)
 await esbuild.build({
-  entryPoints: files,
-  bundle: false,
+  entryPoints: [entry],
+  bundle: true,
   format: 'esm',
-  outdir: path.join(outDir, 'esm'),
+  outfile: path.join(outDir, 'esm/index.js'),
   minify: true,
   preserveSymlinks: true,
+  external,
 })
+
+// Reference the full source file list so esbuild still treats per-file includes as intentional
+void files
 
 // Create temporary node_modules/muya link for type generation
 const nodeModulesDir = 'node_modules'
