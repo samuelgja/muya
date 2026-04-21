@@ -53,7 +53,7 @@ describe('use-sqlite-state', () => {
 
     // Wait for initial data load
     await waitFor(() => {
-      expect(result.current[0]).toEqual([])
+      expect(result.current.data).toEqual([])
     })
     const initialRenders = reRenders
 
@@ -61,7 +61,7 @@ describe('use-sqlite-state', () => {
       sql.set({ id: '1', name: 'Alice', age: 30 })
     })
     await waitFor(() => {
-      expect(result.current[0]).toEqual([{ id: '1', name: 'Alice', age: 30 }])
+      expect(result.current.data).toEqual([{ id: '1', name: 'Alice', age: 30 }])
     })
     const afterFirstSet = reRenders
 
@@ -69,7 +69,7 @@ describe('use-sqlite-state', () => {
       sql.set({ id: '1', name: 'Alice2', age: 30 })
     })
     await waitFor(() => {
-      expect(result.current[0]).toEqual([{ id: '1', name: 'Alice2', age: 30 }])
+      expect(result.current.data).toEqual([{ id: '1', name: 'Alice2', age: 30 }])
     })
 
     // delete item
@@ -77,7 +77,7 @@ describe('use-sqlite-state', () => {
       sql.delete('1')
     })
     await waitFor(() => {
-      expect(result.current[0]).toEqual([])
+      expect(result.current.data).toEqual([])
     })
 
     // add two items
@@ -86,7 +86,7 @@ describe('use-sqlite-state', () => {
       sql.set({ id: '2', name: 'Bob', age: 25 })
     })
     await waitFor(() => {
-      expect(result.current[0]?.length).toBe(2)
+      expect(result.current.data?.length).toBe(2)
     })
 
     const beforeManualRerender = reRenders
@@ -96,7 +96,7 @@ describe('use-sqlite-state', () => {
     await waitFor(() => {
       // React 19 may have different render count due to strict mode changes
       expect(reRenders).toBeGreaterThanOrEqual(beforeManualRerender + 1)
-      expect(result.current[0]?.length).toBe(2)
+      expect(result.current.data?.length).toBe(2)
     })
 
     // Verify re-renders happened (at least initial + operations)
@@ -114,21 +114,21 @@ describe('use-sqlite-state', () => {
     const { result } = renderHook(() => {
       reRenders++
       const [minAge, setMinAge] = useState(20)
-      return [useSqliteValue(sql, { where: { age: { gt: minAge } }, sortBy: 'age' }, [minAge]), setMinAge] as const
+      return { ...useSqliteValue(sql, { where: { age: { gt: minAge } }, sortBy: 'age' }, [minAge]), setMinAge }
     })
 
     await waitFor(() => {
-      const names = result.current?.[0][0]?.map((p) => p.name)
+      const names = result.current.data?.map((p) => p.name)
       expect(names).toEqual(['Bob', 'Alice', 'Carol'])
     })
     const initialRenders = reRenders
 
     // change minAge to 29
     act(() => {
-      result.current[1](29)
+      result.current.setMinAge(29)
     })
     await waitFor(() => {
-      const names = result.current?.[0][0]?.map((p) => p.name)
+      const names = result.current.data?.map((p) => p.name)
       expect(names).toEqual(['Alice', 'Carol'])
     })
     // Deps change should trigger re-renders (stale + data load)
@@ -150,9 +150,9 @@ describe('use-sqlite-state', () => {
     const { result } = renderHook(() => {
       reRenders++
       const [filterAge, setFilterAge] = useState(20)
-      const [data, actions] = useSqliteValue(sql, { where: { age: { gt: filterAge } }, sortBy: 'age' }, [filterAge])
-      staleLog.push({ render: reRenders, isStale: actions.isStale, filterAge, dataLength: data?.length })
-      return { data, isStale: actions.isStale, setFilterAge }
+      const { data, isStale } = useSqliteValue(sql, { where: { age: { gt: filterAge } }, sortBy: 'age' }, [filterAge])
+      staleLog.push({ render: reRenders, isStale, filterAge, dataLength: data?.length })
+      return { data, isStale, setFilterAge }
     })
 
     await waitFor(() => {
@@ -206,8 +206,8 @@ describe('use-sqlite-state', () => {
     const { result } = renderHook(() => {
       reRenders++
       const [filterAge, setFilterAge] = useState(20)
-      const [data, actions] = useSqliteValue(sql, { where: { age: { gt: filterAge } }, sortBy: 'age' }, [filterAge])
-      return { data, isStale: actions.isStale, setFilterAge }
+      const { data, isStale } = useSqliteValue(sql, { where: { age: { gt: filterAge } }, sortBy: 'age' }, [filterAge])
+      return { data, isStale, setFilterAge }
     })
 
     await waitFor(() => {
@@ -268,13 +268,13 @@ describe('use-sqlite-state', () => {
       { initialProps: { like: '%Ali%' } },
     )
     await waitFor(() => {
-      expect(result.current?.[0]?.map((p) => p.name)).toEqual(['Alice', 'Alicia'])
+      expect(result.current.data?.map((p) => p.name)).toEqual(['Alice', 'Alicia'])
     })
     act(() => {
       rerender({ like: '%Bob%' })
     })
     await waitFor(() => {
-      expect(result.current?.[0]?.map((p) => p.name)).toEqual(['Bob'])
+      expect(result.current.data?.map((p) => p.name)).toEqual(['Bob'])
     })
     expect(reRenders).toBeGreaterThanOrEqual(2)
   })
@@ -291,19 +291,19 @@ describe('use-sqlite-state', () => {
       { initialProps: { order: 'asc' as 'asc' | 'desc', limit: 2 } },
     )
     await waitFor(() => {
-      expect(result.current?.[0]?.map((p) => p.name)).toEqual(['Bob', 'Alice'])
+      expect(result.current.data?.map((p) => p.name)).toEqual(['Bob', 'Alice'])
     })
     act(() => {
       rerender({ order: 'desc', limit: 2 })
     })
     await waitFor(() => {
-      expect(result.current?.[0]?.map((p) => p.name)).toEqual(['Carol', 'Alice'])
+      expect(result.current.data?.map((p) => p.name)).toEqual(['Carol', 'Alice'])
     })
     act(() => {
       rerender({ order: 'desc', limit: 1 })
     })
     await waitFor(() => {
-      expect(result.current?.[0]?.map((p) => p.name)).toEqual(['Carol'])
+      expect(result.current.data?.map((p) => p.name)).toEqual(['Carol'])
     })
   })
 
@@ -316,8 +316,8 @@ describe('use-sqlite-state', () => {
     const { result } = renderHook(() => useSqliteValue(sql, {}, []))
     // actions.next and actions.refresh should be functions
     await waitFor(() => {
-      expect(typeof result.current[1].nextPage).toBe('function')
-      expect(typeof result.current[1].reset).toBe('function')
+      expect(typeof result.current.fetchNextPage).toBe('function')
+      expect(typeof result.current.refetch).toBe('function')
     })
   })
   it('should handle thousands of records Here', async () => {
@@ -330,24 +330,24 @@ describe('use-sqlite-state', () => {
     await sql.batchSet(people)
     const { result } = renderHook(() => useSqliteValue(sql, {}, []))
     await waitFor(() => {
-      expect(result.current?.[0]?.length ?? 0).toBe(DEFAULT_PAGE_SIZE)
+      expect(result.current.data?.length ?? 0).toBe(DEFAULT_PAGE_SIZE)
     })
 
     // // loop until we have all ITEMS_COUNT items
     for (let index = 0; index < ITEMS_COUNT / DEFAULT_PAGE_SIZE; index++) {
       act(() => {
-        result.current[1].nextPage()
+        result.current.fetchNextPage()
       })
       await waitFor(() => {
-        expect(result.current?.[0]?.length).toBe(Math.min(DEFAULT_PAGE_SIZE * (index + 2), ITEMS_COUNT))
+        expect(result.current.data?.length).toBe(Math.min(DEFAULT_PAGE_SIZE * (index + 2), ITEMS_COUNT))
       })
     }
 
     act(() => {
-      result.current[1].reset()
+      result.current.refetch()
     })
     await waitFor(() => {
-      expect(result.current?.[0]?.length).toBe(DEFAULT_PAGE_SIZE)
+      expect(result.current.data?.length).toBe(DEFAULT_PAGE_SIZE)
     })
   })
 
@@ -366,26 +366,26 @@ describe('use-sqlite-state', () => {
       return useSqliteValue(sql, { pageSize }, [])
     })
     await waitFor(() => {
-      expect(result.current?.[0]?.length).toBe(pageSize)
+      expect(result.current.data?.length).toBe(pageSize)
     })
     const initialRenders = reRenders
 
     act(() => {
       for (let index = 0; index < (ITEMS_COUNT - pageSize) / pageSize; index++) {
-        result.current[1].nextPage()
+        result.current.fetchNextPage()
       }
     })
 
     await waitFor(() => {
-      expect(result.current?.[0]?.length).toBe(ITEMS_COUNT)
+      expect(result.current.data?.length).toBe(ITEMS_COUNT)
     })
     const afterPagination = reRenders
 
     act(() => {
-      result.current[1].reset()
+      result.current.refetch()
     })
     await waitFor(() => {
-      expect(result.current?.[0]?.length).toBe(pageSize)
+      expect(result.current.data?.length).toBe(pageSize)
     })
 
     // Verify pagination and reset caused re-renders
@@ -403,13 +403,13 @@ describe('use-sqlite-state', () => {
       initialProps: { order: 'asc' as 'asc' | 'desc' },
     })
     await waitFor(() => {
-      expect(result.current?.[0]?.[0]?.age).toBe(20)
+      expect(result.current.data?.[0]?.age).toBe(20)
     })
     act(() => {
       rerender({ order: 'desc' })
     })
     await waitFor(() => {
-      expect(result.current?.[0]?.[0]?.age).toBe(69)
+      expect(result.current.data?.[0]?.age).toBe(69)
     })
   })
 
@@ -431,7 +431,7 @@ describe('use-sqlite-state', () => {
       ),
     )
     await waitFor(() => {
-      expect(result.current[0]).toEqual(['Bob', 'Alice', 'Carol'])
+      expect(result.current.data).toEqual(['Bob', 'Alice', 'Carol'])
     })
   })
   it('should add 50 documents and then load with another hook', async () => {
@@ -450,7 +450,7 @@ describe('use-sqlite-state', () => {
     })
     await waitFor(() => {
       // Initially empty
-      expect(result1.current?.[0]?.length ?? 0).toBeLessThanOrEqual(1)
+      expect(result1.current.data?.length ?? 0).toBeLessThanOrEqual(1)
     })
     const initialRenders = reRenders
 
@@ -460,14 +460,14 @@ describe('use-sqlite-state', () => {
     }
     await sql.batchSet(people)
     await waitFor(() => {
-      expect(result1.current?.[0]?.length).toBe(50)
+      expect(result1.current.data?.length).toBe(50)
     })
     // Data load should trigger re-renders
     expect(reRenders).toBeGreaterThan(initialRenders)
 
     const { result: result2 } = renderHook(() => useSqliteValue(sql, {}, []))
     await waitFor(() => {
-      expect(result2.current?.[0]?.length).toBe(50)
+      expect(result2.current.data?.length).toBe(50)
     })
   })
 
@@ -487,7 +487,7 @@ describe('use-sqlite-state', () => {
     })
 
     await waitFor(() => {
-      expect(result.current?.[0]?.length).toBe(0)
+      expect(result.current.data?.length).toBe(0)
     })
     const initialRenders = reRenders
 
@@ -495,7 +495,7 @@ describe('use-sqlite-state', () => {
       sql.set({ person: { id: 'some_id', name: 'Alice', age: 30 } })
     })
     await waitFor(() => {
-      expect(result.current[0]).toEqual([{ person: { id: 'some_id', name: 'Alice', age: 30 } }])
+      expect(result.current.data).toEqual([{ person: { id: 'some_id', name: 'Alice', age: 30 } }])
     })
     const afterFirstSet = reRenders
 
@@ -504,7 +504,7 @@ describe('use-sqlite-state', () => {
       sql.set({ person: { id: 'some_id', name: 'Alice', age: 31 } })
     })
     await waitFor(() => {
-      expect(result.current[0]).toEqual([{ person: { id: 'some_id', name: 'Alice', age: 31 } }])
+      expect(result.current.data).toEqual([{ person: { id: 'some_id', name: 'Alice', age: 31 } }])
     })
 
     // Each set should trigger re-renders
@@ -517,7 +517,7 @@ describe('use-sqlite-state', () => {
     })
     // should not re-render
     await waitFor(() => {
-      expect(result.current[0]).toEqual([{ person: { id: 'some_id', name: 'Alice', age: 31 } }])
+      expect(result.current.data).toEqual([{ person: { id: 'some_id', name: 'Alice', age: 31 } }])
     })
 
     // add another item
@@ -535,7 +535,7 @@ describe('use-sqlite-state', () => {
     })
 
     await waitFor(() => {
-      expect(result.current?.[0]?.length).toBe(1)
+      expect(result.current.data?.length).toBe(1)
     })
     const initialRenders = reRenders
 
@@ -543,15 +543,15 @@ describe('use-sqlite-state', () => {
       sql.set({ id: '1', name: 'Alice', age: 30 })
     })
     await waitFor(() => {
-      expect(result.current?.[0]?.length).toBe(2)
+      expect(result.current.data?.length).toBe(2)
     })
     const afterSet = reRenders
 
     act(() => {
-      result.current[1].reset()
+      result.current.refetch()
     })
     await waitFor(() => {
-      expect(result.current?.[0]?.length).toBe(2)
+      expect(result.current.data?.length).toBe(2)
     })
 
     // Set and reset should trigger re-renders
@@ -564,7 +564,7 @@ describe('use-sqlite-state', () => {
     const { result } = renderHook(() => useSqliteValue(sql, {}, []))
 
     await waitFor(() => {
-      expect(result.current[0]).toEqual([])
+      expect(result.current.data).toEqual([])
     })
   })
 
@@ -578,7 +578,7 @@ describe('use-sqlite-state', () => {
     const { result } = renderHook(() => useSqliteValue(sql, {}, []))
 
     await waitFor(() => {
-      expect(result.current[0]).toEqual([
+      expect(result.current.data).toEqual([
         { id: '1', name: 'Alice', age: 30 },
         { id: '2', name: 'Bob', age: 25 },
       ])
@@ -597,7 +597,7 @@ describe('use-sqlite-state', () => {
     const { result } = renderHook(() => useSqliteValue(sql, {}, []))
 
     await waitFor(() => {
-      expect(result.current[0]?.length).toBe(DEFAULT_PAGE_SIZE)
+      expect(result.current.data?.length).toBe(DEFAULT_PAGE_SIZE)
     })
   })
 
@@ -617,17 +617,17 @@ describe('use-sqlite-state', () => {
     })
 
     await waitFor(() => {
-      expect(result.current[0]?.length).toBe(100)
+      expect(result.current.data?.length).toBe(100)
     })
     const initialRenders = reRenders
 
     act(() => {
       for (let index = 0; index < (ITEMS_COUNT - 100) / 100; index++) {
-        result.current[1].nextPage()
+        result.current.fetchNextPage()
       }
     })
     await waitFor(() => {
-      expect(result.current[0]?.length).toBe(ITEMS_COUNT)
+      expect(result.current.data?.length).toBe(ITEMS_COUNT)
     })
     const afterPagination = reRenders
 
@@ -636,9 +636,9 @@ describe('use-sqlite-state', () => {
     })
 
     await waitFor(() => {
-      const updated = result.current[0]?.find((p) => p.id === '500')
+      const updated = result.current.data?.find((p) => p.id === '500')
       expect(updated).toEqual({ id: '500', name: 'UpdatedPerson500', age: 99 })
-      expect(result.current[0]?.length).toBe(ITEMS_COUNT)
+      expect(result.current.data?.length).toBe(ITEMS_COUNT)
     })
 
     // Pagination and update should cause re-renders
@@ -660,7 +660,7 @@ describe('use-sqlite-state', () => {
     })
 
     await waitFor(() => {
-      expect(result.current[0]?.length).toBe(20)
+      expect(result.current.data?.length).toBe(20)
     })
     const initialRenders = reRenders
 
@@ -669,10 +669,10 @@ describe('use-sqlite-state', () => {
     })
 
     await waitFor(() => {
-      expect(result.current[0]?.length).toBe(17)
-      expect(result.current[0]?.find((p) => p.id === '5')).toBeUndefined()
-      expect(result.current[0]?.find((p) => p.id === '10')).toBeUndefined()
-      expect(result.current[0]?.find((p) => p.id === '15')).toBeUndefined()
+      expect(result.current.data?.length).toBe(17)
+      expect(result.current.data?.find((p) => p.id === '5')).toBeUndefined()
+      expect(result.current.data?.find((p) => p.id === '10')).toBeUndefined()
+      expect(result.current.data?.find((p) => p.id === '15')).toBeUndefined()
     })
     // Batch delete should trigger re-render
     expect(reRenders).toBeGreaterThan(initialRenders)
@@ -691,7 +691,7 @@ describe('use-sqlite-state performance benchmarks', () => {
       const { result } = renderHook(() => useSqliteValue(sql, { pageSize: 100 }, []))
 
       await waitFor(() => {
-        expect(result.current[0]?.length).toBe(100)
+        expect(result.current.data?.length).toBe(100)
       })
 
       const duration = performance.now() - start
@@ -708,7 +708,7 @@ describe('use-sqlite-state performance benchmarks', () => {
       const { result } = renderHook(() => useSqliteValue(sql, { pageSize: 1000 }, []))
 
       await waitFor(() => {
-        expect(result.current[0]?.length).toBe(1000)
+        expect(result.current.data?.length).toBe(1000)
       })
 
       const duration = performance.now() - start
@@ -725,7 +725,7 @@ describe('use-sqlite-state performance benchmarks', () => {
       const { result } = renderHook(() => useSqliteValue(sql, { pageSize: 5000 }, []))
 
       await waitFor(() => {
-        expect(result.current[0]?.length).toBe(5000)
+        expect(result.current.data?.length).toBe(5000)
       })
 
       const duration = performance.now() - start
@@ -742,11 +742,11 @@ describe('use-sqlite-state performance benchmarks', () => {
       const { result } = renderHook(() => useSqliteValue(sql, { where: { age: { gte: 50 } }, pageSize: 5000 }, []))
 
       await waitFor(() => {
-        expect(result.current[0]?.length).toBeGreaterThan(0)
+        expect(result.current.data?.length).toBeGreaterThan(0)
       })
 
       const duration = performance.now() - start
-      console.log('📊 5000 items WHERE filter:', duration.toFixed(2), 'ms', '| matched:', result.current[0]?.length)
+      console.log('📊 5000 items WHERE filter:', duration.toFixed(2), 'ms', '| matched:', result.current.data?.length)
       expect(duration).toBeLessThan(2000)
     })
 
@@ -758,7 +758,7 @@ describe('use-sqlite-state performance benchmarks', () => {
       const { result } = renderHook(() => useSqliteValue(sql, { pageSize: 200 }, []))
 
       await waitFor(() => {
-        expect(result.current[0]?.length).toBe(100)
+        expect(result.current.data?.length).toBe(100)
       })
 
       const updateCount = 50
@@ -771,7 +771,7 @@ describe('use-sqlite-state performance benchmarks', () => {
       }
 
       await waitFor(() => {
-        expect(result.current[0]?.length).toBe(150)
+        expect(result.current.data?.length).toBe(150)
       })
 
       const duration = performance.now() - start
@@ -798,7 +798,7 @@ describe('use-sqlite-state performance benchmarks', () => {
       const { result } = renderHook(() => useSqliteValue(sql, { pageSize }, []))
 
       await waitFor(() => {
-        expect(result.current[0]?.length).toBe(pageSize)
+        expect(result.current.data?.length).toBe(pageSize)
       })
 
       const start = performance.now()
@@ -806,12 +806,12 @@ describe('use-sqlite-state performance benchmarks', () => {
 
       for (let page = 0; page < totalPages; page++) {
         await act(async () => {
-          await result.current[1].nextPage()
+          await result.current.fetchNextPage()
         })
       }
 
       await waitFor(() => {
-        expect(result.current[0]?.length).toBe(totalItems)
+        expect(result.current.data?.length).toBe(totalItems)
       })
 
       const duration = performance.now() - start
@@ -842,11 +842,12 @@ describe('use-sqlite-state performance benchmarks', () => {
       })
 
       await waitFor(() => {
-        expect(result.current[0]?.length).toBe(50)
+        expect(result.current.data?.length).toBe(50)
       })
 
       console.log('🔄 Initial load renders:', renderCount)
-      expect(renderCount).toBeLessThanOrEqual(3)
+      // useTransition adds one pending-state render on initial load.
+      expect(renderCount).toBeLessThanOrEqual(4)
     })
 
     it('analyze: re-renders on single insert', async () => {
@@ -861,7 +862,7 @@ describe('use-sqlite-state performance benchmarks', () => {
       })
 
       await waitFor(() => {
-        expect(result.current[0]?.length).toBe(10)
+        expect(result.current.data?.length).toBe(10)
       })
 
       const rendersBefore = renderCount
@@ -871,7 +872,7 @@ describe('use-sqlite-state performance benchmarks', () => {
       })
 
       await waitFor(() => {
-        expect(result.current[0]?.length).toBe(11)
+        expect(result.current.data?.length).toBe(11)
       })
 
       const rendersForInsert = renderCount - rendersBefore
@@ -891,7 +892,7 @@ describe('use-sqlite-state performance benchmarks', () => {
       })
 
       await waitFor(() => {
-        expect(result.current[0]?.length).toBe(1)
+        expect(result.current.data?.length).toBe(1)
       })
 
       const rendersBefore = renderCount
@@ -921,7 +922,7 @@ describe('use-sqlite-state performance benchmarks', () => {
       })
 
       await waitFor(() => {
-        expect(result.current[0]?.[0]?.name).toBe('Original')
+        expect(result.current.data?.[0]?.name).toBe('Original')
       })
 
       const rendersBefore = renderCount
@@ -931,7 +932,7 @@ describe('use-sqlite-state performance benchmarks', () => {
       })
 
       await waitFor(() => {
-        expect(result.current[0]?.[0]?.name).toBe('Updated')
+        expect(result.current.data?.[0]?.name).toBe('Updated')
       })
 
       const rendersForUpdate = renderCount - rendersBefore
@@ -951,7 +952,7 @@ describe('use-sqlite-state performance benchmarks', () => {
       })
 
       await waitFor(() => {
-        expect(result.current[0]?.length).toBe(20)
+        expect(result.current.data?.length).toBe(20)
       })
 
       const rendersBefore = renderCount
@@ -962,7 +963,7 @@ describe('use-sqlite-state performance benchmarks', () => {
       })
 
       await waitFor(() => {
-        expect(result.current[0]?.length).toBe(15)
+        expect(result.current.data?.length).toBe(15)
       })
 
       const rendersForBatchDelete = renderCount - rendersBefore
@@ -986,7 +987,7 @@ describe('use-sqlite-state performance benchmarks', () => {
       )
 
       await waitFor(() => {
-        expect(result.current[0]?.length).toBeGreaterThan(0)
+        expect(result.current.data?.length).toBeGreaterThan(0)
       })
 
       const rendersBefore = renderCount
@@ -996,13 +997,14 @@ describe('use-sqlite-state performance benchmarks', () => {
       })
 
       await waitFor(() => {
-        const minAgeInResults = Math.min(...(result.current[0]?.map((p) => p.age) ?? [0]))
+        const minAgeInResults = Math.min(...(result.current.data?.map((p) => p.age) ?? [0]))
         expect(minAgeInResults).toBeGreaterThanOrEqual(60)
       })
 
       const rendersForDepsChange = renderCount - rendersBefore
       console.log('🔄 Deps change renders:', rendersForDepsChange)
-      expect(rendersForDepsChange).toBeLessThanOrEqual(3)
+      // useTransition adds one pending-state render on deps change.
+      expect(rendersForDepsChange).toBeLessThanOrEqual(4)
     })
   })
 })

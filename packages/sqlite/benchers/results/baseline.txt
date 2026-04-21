@@ -1,0 +1,23 @@
+$ bun run benchers/run.ts
+muya-sqlite benchmarks  (runtime: bun 1.3.12)
+Date: 2026-04-21T07:51:26.276Z
+
+=== iterator (drain N rows via state.search) ===
+
+  drain    100: mean 0.11ms  p99 0.16ms  (4701 samples)
+  drain   1000: mean 1.25ms  p99 1.73ms  (401 samples)
+  drain  10000: mean 15.12ms  p99 17.11ms  (64 samples)
+
+=== hook: initial load (mount → first non-null) ===
+
+     100 items: mean 0.21ms  p99 1.37ms  longest sync frame 0.00ms  (2419 samples)
+    1000 items: mean 1.29ms  p99 3.76ms  longest sync frame 1.36ms  (389 samples)
+   10000 items: mean 13.32ms  p99 29.30ms  longest sync frame 11.25ms  (64 samples)
+
+=== hook: nextPage() walking 10k rows ===
+
+  pageSize= 100: avg 3.11ms/page  longest page 5.79ms  longest sync frame 5.79ms
+  pageSize= 500: avg 3.87ms/page  longest page 7.98ms  longest sync frame 7.98ms
+  pageSize=1000: avg 4.26ms/page  longest page 6.26ms  longest sync frame 6.26ms
+
+Done.

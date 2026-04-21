@@ -39,16 +39,10 @@ describe('use-sqlite edge cases', () => {
     const { result } = renderHook(() => useSqliteValue(sql, {}, []), { wrapper: Wrapper })
 
     await waitFor(() => {
-      expect(result.current[0]).toEqual([
+      expect(result.current.data).toEqual([
         { id: '1', name: 'Alice', age: 30 },
         { id: '2', name: 'Bob', age: 25 },
       ])
-      expect(result.current[1].keysIndex).toEqual(
-        new Map([
-          ['1', 0],
-          ['2', 1],
-        ]),
-      )
     })
 
     act(() => {
@@ -56,8 +50,7 @@ describe('use-sqlite edge cases', () => {
     })
 
     await waitFor(() => {
-      expect(result.current[0]).toEqual([{ id: '2', name: 'Bob', age: 25 }])
-      expect(result.current[1].keysIndex).toEqual(new Map([['2', 0]]))
+      expect(result.current.data).toEqual([{ id: '2', name: 'Bob', age: 25 }])
     })
 
     act(() => {
@@ -65,7 +58,7 @@ describe('use-sqlite edge cases', () => {
     })
 
     await waitFor(() => {
-      expect(result.current[0]).toEqual([])
+      expect(result.current.data).toEqual([])
     })
   })
   it('should handle deleting a non-existent item gracefully', async () => {
@@ -78,7 +71,7 @@ describe('use-sqlite edge cases', () => {
     const { result } = renderHook(() => useSqliteValue(sql, {}, []), { wrapper: Wrapper })
 
     await waitFor(() => {
-      expect(result.current[0]).toEqual([
+      expect(result.current.data).toEqual([
         { id: '1', name: 'Alice', age: 30 },
         { id: '2', name: 'Bob', age: 25 },
       ])
@@ -89,7 +82,7 @@ describe('use-sqlite edge cases', () => {
     })
 
     await waitFor(() => {
-      expect(result.current[0]).toEqual([
+      expect(result.current.data).toEqual([
         { id: '1', name: 'Alice', age: 30 },
         { id: '2', name: 'Bob', age: 25 },
       ]) // State should remain unchanged
@@ -106,7 +99,7 @@ describe('use-sqlite edge cases', () => {
     const { result } = renderHook(() => useSqliteValue(sql, {}, []), { wrapper: Wrapper })
 
     await waitFor(() => {
-      expect(result.current[0]).toEqual([
+      expect(result.current.data).toEqual([
         { id: '1', name: 'Alice', age: 30 },
         { id: '2', name: 'Bob', age: 25 },
       ])
@@ -118,7 +111,7 @@ describe('use-sqlite edge cases', () => {
     })
 
     await waitFor(() => {
-      expect(result.current[0]).toEqual([]) // All items should be removed
+      expect(result.current.data).toEqual([]) // All items should be removed
     })
   })
 
@@ -132,7 +125,7 @@ describe('use-sqlite edge cases', () => {
     const { result } = renderHook(() => useSqliteValue(sql, {}, []), { wrapper: Wrapper })
 
     await waitFor(() => {
-      expect(result.current[0]).toEqual([
+      expect(result.current.data).toEqual([
         { id: '1', name: 'Alice', age: 30 },
         { id: '2', name: 'Bob', age: 25 },
       ])
@@ -144,7 +137,7 @@ describe('use-sqlite edge cases', () => {
     })
 
     await waitFor(() => {
-      expect(result.current[0]).toEqual([
+      expect(result.current.data).toEqual([
         { id: '2', name: 'Bob', age: 25 },
         { id: '3', name: 'Carol', age: 40 },
       ]) // State should reflect both operations
@@ -163,7 +156,7 @@ describe('use-sqlite edge cases', () => {
     const { result } = renderHook(() => useSqliteValue(sql, {}, []), { wrapper: Wrapper })
 
     await waitFor(() => {
-      expect(result.current[0]).toEqual([
+      expect(result.current.data).toEqual([
         { id: '1', name: 'Alice', age: 30 },
         { id: '2', name: 'Bob', age: 25 },
       ])
@@ -177,11 +170,11 @@ describe('use-sqlite edge cases', () => {
         sql.set({ id: '2', name: `Updated Bob ${index}`, age: 25 + index }) // Update an existing item
       }
       // fetch next
-      result.current[1].nextPage()
+      result.current.fetchNextPage()
     })
 
     await waitFor(() => {
-      expect(result.current[0]).toEqual([
+      expect(result.current.data).toEqual([
         { id: '2', name: 'Updated Bob 9', age: 34 },
         { id: 'new-0', name: 'Person 0', age: 20 },
         { id: 'new-1', name: 'Person 1', age: 21 },
@@ -206,7 +199,7 @@ describe('use-sqlite edge cases', () => {
     const { result } = renderHook(() => useSqliteValue(sql, {}, []), { wrapper: Wrapper })
 
     await waitFor(() => {
-      expect(result.current[0]).toEqual([
+      expect(result.current.data).toEqual([
         { id: '1', name: 'Alice', age: 30 },
         { id: '2', name: 'Bob', age: 25 },
       ])
@@ -218,7 +211,7 @@ describe('use-sqlite edge cases', () => {
     })
 
     await waitFor(() => {
-      expect(result.current[0]).toEqual([
+      expect(result.current.data).toEqual([
         { id: '2', name: 'Bob', age: 25 },
         { id: '3', name: 'Carol', age: 40 },
       ])
@@ -232,15 +225,15 @@ describe('use-sqlite edge cases', () => {
     const { result } = renderHook(() => useSqliteValue(sql, {}, []), { wrapper: Wrapper })
 
     await waitFor(() => {
-      expect(result.current[0]).toEqual([])
+      expect(result.current.data).toEqual([])
     })
 
     act(() => {
-      result.current[1].nextPage()
+      result.current.fetchNextPage()
     })
 
     await waitFor(() => {
-      expect(result.current[0]).toEqual([]) // Still empty
+      expect(result.current.data).toEqual([]) // Still empty
     })
   })
 
@@ -251,7 +244,7 @@ describe('use-sqlite edge cases', () => {
     const { result } = renderHook(() => useSqliteValue(sql, {}, []), { wrapper: Wrapper })
 
     await waitFor(() => {
-      expect(result.current[0]).toEqual([{ id: '1', name: 'Alice', age: 30 }])
+      expect(result.current.data).toEqual([{ id: '1', name: 'Alice', age: 30 }])
     })
 
     act(() => {
@@ -259,7 +252,7 @@ describe('use-sqlite edge cases', () => {
     })
 
     await waitFor(() => {
-      expect(result.current[0]).toEqual([{ id: '1', name: 'Updated Alice', age: 35 }])
+      expect(result.current.data).toEqual([{ id: '1', name: 'Updated Alice', age: 35 }])
     })
   })
 
@@ -273,19 +266,19 @@ describe('use-sqlite edge cases', () => {
     const { result } = renderHook(() => useSqliteValue(sql, {}, []), { wrapper: Wrapper })
 
     await waitFor(() => {
-      expect(result.current[0]).toEqual([
+      expect(result.current.data).toEqual([
         { id: '1', name: 'Alice', age: 30 },
         { id: '2', name: 'Bob', age: 25 },
       ])
     })
 
     act(() => {
-      result.current[1].reset()
-      result.current[1].nextPage()
+      result.current.refetch()
+      result.current.fetchNextPage()
     })
 
     await waitFor(() => {
-      expect(result.current[0]).toEqual([
+      expect(result.current.data).toEqual([
         { id: '1', name: 'Alice', age: 30 },
         { id: '2', name: 'Bob', age: 25 },
       ])
@@ -302,7 +295,7 @@ describe('use-sqlite edge cases', () => {
     const { result } = renderHook(() => useSqliteValue(sql, {}, []), { wrapper: Wrapper })
 
     await waitFor(() => {
-      expect(result.current[0]).toEqual([
+      expect(result.current.data).toEqual([
         { id: '1', name: 'Alice', age: 30 },
         { id: '2', name: 'Bob', age: 25 },
       ])
@@ -313,7 +306,7 @@ describe('use-sqlite edge cases', () => {
     })
 
     await waitFor(() => {
-      expect(result.current[0]).toEqual([
+      expect(result.current.data).toEqual([
         { id: '1', name: 'Alice', age: 30 },
         { id: '2', name: 'Bob', age: 25 },
       ])
@@ -329,7 +322,7 @@ describe('use-sqlite edge cases', () => {
     const { result } = renderHook(() => useSqliteValue(sql, {}, []), { wrapper: Wrapper })
 
     await waitFor(() => {
-      expect(result.current[0]).toEqual([
+      expect(result.current.data).toEqual([
         { id: '1', name: 'Alice', age: 30 },
         { id: '2', name: 'Bob', age: 25 },
       ])
@@ -340,7 +333,7 @@ describe('use-sqlite edge cases', () => {
     })
 
     await waitFor(() => {
-      expect(result.current[0]).toEqual([
+      expect(result.current.data).toEqual([
         { id: '1', name: 'Updated Alice', age: 35 },
         { id: '2', name: 'Bob', age: 25 },
       ])
@@ -358,7 +351,7 @@ describe('use-sqlite edge cases', () => {
     const { result } = renderHook(() => useSqliteValue(sql, { pageSize: 2 }, []), { wrapper: Wrapper })
 
     await waitFor(() => {
-      expect(result.current[0]).toEqual([
+      expect(result.current.data).toEqual([
         { id: '1', name: 'Alice', age: 30 },
         { id: '2', name: 'Bob', age: 25 },
       ])
@@ -369,18 +362,18 @@ describe('use-sqlite edge cases', () => {
     })
 
     await waitFor(() => {
-      expect(result.current[0]).toEqual([
+      expect(result.current.data).toEqual([
         { id: '1', name: 'Alice', age: 30 },
         { id: '2', name: 'Bob', age: 25 },
       ]) // No change in visible items
     })
 
     act(() => {
-      result.current[1].nextPage()
+      result.current.fetchNextPage()
     })
 
     await waitFor(() => {
-      expect(result.current[0]).toEqual([
+      expect(result.current.data).toEqual([
         { id: '1', name: 'Alice', age: 30 },
         { id: '2', name: 'Bob', age: 25 },
         { id: '3', name: 'Updated Carol', age: 45 },
@@ -399,18 +392,18 @@ describe('use-sqlite edge cases', () => {
     const { result } = renderHook(() => useSqliteValue(sql, { pageSize: 2 }, []), { wrapper: Wrapper })
 
     await waitFor(() => {
-      expect(result.current[0]).toEqual([
+      expect(result.current.data).toEqual([
         { id: '1', name: 'Alice', age: 30 },
         { id: '2', name: 'Bob', age: 25 },
       ])
     })
 
     act(() => {
-      result.current[1].nextPage()
+      result.current.fetchNextPage()
     })
 
     await waitFor(() => {
-      expect(result.current[0]).toEqual([
+      expect(result.current.data).toEqual([
         { id: '1', name: 'Alice', age: 30 },
         { id: '2', name: 'Bob', age: 25 },
         { id: '3', name: 'Carol', age: 40 },
@@ -422,7 +415,7 @@ describe('use-sqlite edge cases', () => {
     })
 
     await waitFor(() => {
-      expect(result.current[0]).toEqual([
+      expect(result.current.data).toEqual([
         { id: '1', name: 'Alice', age: 30 },
         { id: '2', name: 'Updated Bob', age: 35 },
         { id: '3', name: 'Carol', age: 40 },
@@ -439,7 +432,7 @@ describe('use-sqlite edge cases', () => {
     const { result } = renderHook(() => useSqliteValue(sql, {}, []))
 
     await waitFor(() => {
-      expect(result.current[0]).toEqual([{ id: '1', name: 'Alice', age: 30 }])
+      expect(result.current.data).toEqual([{ id: '1', name: 'Alice', age: 30 }])
     })
 
     // Now simulate fast consecutive updates to the same key
@@ -452,8 +445,8 @@ describe('use-sqlite edge cases', () => {
 
     // Wait for hook to stabilize
     await waitFor(() => {
-      // eslint-disable-next-line prefer-destructuring, unicorn/prevent-abbreviations
-      const docs = result.current[0]
+      // eslint-disable-next-line unicorn/prevent-abbreviations
+      const docs = result.current.data
       expect(docs?.length).toBe(1)
       // Expect the *latest* update to win
       expect(docs?.[0]).toEqual({ id: '1', name: 'AliceV4', age: 33 })
@@ -480,7 +473,7 @@ describe('use-sqlite edge cases', () => {
     const { result } = renderHook(() => useSqliteValue(sql, {}, []))
 
     await waitFor(() => {
-      expect(result.current[0]).toEqual([{ id: '1', name: 'Initial', age: 20 }])
+      expect(result.current.data).toEqual([{ id: '1', name: 'Initial', age: 20 }])
     })
 
     // Trigger two consecutive updates
@@ -489,8 +482,8 @@ describe('use-sqlite edge cases', () => {
 
     // Wait for hook to stabilize
     await waitFor(() => {
-      // eslint-disable-next-line prefer-destructuring, unicorn/prevent-abbreviations
-      const docs = result.current[0]
+      // eslint-disable-next-line unicorn/prevent-abbreviations
+      const docs = result.current.data
       expect(docs?.length).toBe(1)
       // 🔥 Correct behavior: should end with the *latest* version (AliceV2)
       // ❌ Buggy behavior: may still show AliceV1 because the delayed get resolves last
@@ -505,23 +498,23 @@ describe('use-sqlite edge cases', () => {
     const { result } = renderHook(() => useSqliteValue(sql, { pageSize: 50 }, []))
 
     await waitFor(() => {
-      expect(result.current[0]?.length).toBe(50)
+      expect(result.current.data?.length).toBe(50)
     })
 
     // Load next page
     await act(async () => {
-      await result.current[1].nextPage()
+      await result.current.fetchNextPage()
     })
-    expect(result.current[0]?.length).toBe(100)
+    expect(result.current.data?.length).toBe(100)
 
     // Reset
     await act(async () => {
-      await result.current[1].reset()
+      await result.current.refetch()
     })
     await waitFor(() => {
       // Should go back to first page only
-      expect(result.current[0]?.length).toBe(50)
-      expect(result.current[0]?.[0]?.id).toBe('1')
+      expect(result.current.data?.length).toBe(50)
+      expect(result.current.data?.[0]?.id).toBe('1')
     })
   })
   it('should overwrite duplicate keys instead of duplicating items', async () => {
@@ -532,7 +525,7 @@ describe('use-sqlite edge cases', () => {
     const { result } = renderHook(() => useSqliteValue(sql, {}, []))
 
     await waitFor(() => {
-      expect(result.current[0]).toEqual([{ id: '1', name: 'Alice2', age: 35 }])
+      expect(result.current.data).toEqual([{ id: '1', name: 'Alice2', age: 35 }])
     })
   })
   it('should not update after unmount', async () => {
@@ -545,7 +538,7 @@ describe('use-sqlite edge cases', () => {
     // wait briefly to give subscription a chance
     await new Promise((r) => setTimeout(r, 20))
 
-    expect(result.current[0]).toBeNull() // no state change after unmount
+    expect(result.current.data).toBeNull() // no state change after unmount
   })
   it('should restart iterator when sortBy changes', async () => {
     const sql = createSqliteState<Person>({ backend, tableName: 'SortChange', key: 'id' })
@@ -559,7 +552,7 @@ describe('use-sqlite edge cases', () => {
     })
 
     await waitFor(() => {
-      expect(result.current[0]?.[0]?.age).toBe(20)
+      expect(result.current.data?.[0]?.age).toBe(20)
     })
 
     act(() => {
@@ -567,17 +560,22 @@ describe('use-sqlite edge cases', () => {
     })
 
     await waitFor(() => {
-      expect(result.current[0]?.[0]?.name).toBe('A') // sorted by name asc
+      expect(result.current.data?.[0]?.name).toBe('A') // sorted by name asc
     })
   })
 
-  it('should return done when nextPage is called on empty table', async () => {
+  it('should expose hasNextPage=false after fetchNextPage on empty table', async () => {
     const sql = createSqliteState<Person>({ backend, tableName: 'EmptyNext', key: 'id' })
     const { result } = renderHook(() => useSqliteValue(sql, {}, []))
 
-    const isDone = await act(result.current[1].nextPage)
-    expect(isDone).toBe(true)
-    expect(result.current[0]).toEqual([])
+    await waitFor(() => {
+      expect(result.current.data).toEqual([])
+    })
+    await act(async () => {
+      await result.current.fetchNextPage()
+    })
+    expect(result.current.hasNextPage).toBe(false)
+    expect(result.current.data).toEqual([])
   })
 
   it('should handle deletion of non-visible item gracefully', async () => {
@@ -590,7 +588,7 @@ describe('use-sqlite edge cases', () => {
       return useSqliteValue(sql, { pageSize: 50 }, [])
     })
     await waitFor(() => {
-      expect(result.current[0]?.length).toBe(50)
+      expect(result.current.data?.length).toBe(50)
     })
     const initialRenders = renderCount
 
@@ -600,7 +598,7 @@ describe('use-sqlite edge cases', () => {
     })
 
     await waitFor(() => {
-      expect(result.current[0]?.length).toBe(50) // unchanged page size
+      expect(result.current.data?.length).toBe(50) // unchanged page size
     })
     // No re-render for non-visible item deletion
     expect(renderCount).toBe(initialRenders)
@@ -617,7 +615,7 @@ describe('use-sqlite edge cases', () => {
     })
 
     await waitFor(() => {
-      expect(result.current[0]).toEqual(['Alice'])
+      expect(result.current.data).toEqual(['Alice'])
     })
     const initialRenders = renders
 
@@ -630,7 +628,117 @@ describe('use-sqlite edge cases', () => {
     await new Promise((r) => setTimeout(r, 20))
 
     // No re-render since selected value "Alice" didn't change
-    expect(result.current[0]).toEqual(['Alice'])
+    expect(result.current.data).toEqual(['Alice'])
     expect(renders).toBe(initialRenders)
+  })
+
+  it('should stay consistent when external mutations land after 10 pages are loaded', async () => {
+    const sql = createSqliteState<Person>({
+      backend,
+      tableName: 'TenPagesExternalMutation',
+      key: 'id',
+      indexes: ['age'],
+    })
+    const PAGE_SIZE = 50
+    const PAGES = 10
+    const TOTAL = PAGE_SIZE * PAGES // 500
+
+    const seed: Person[] = []
+    for (let index = 0; index < TOTAL; index++) {
+      seed.push({ id: `seed-${index}`, name: `Seed ${index}`, age: 20 + (index % 60) })
+    }
+    await sql.batchSet(seed)
+
+    const { result } = renderHook(() => useSqliteValue(sql, { sortBy: 'age', pageSize: PAGE_SIZE }, []))
+
+    // Load all 10 pages.
+    await waitFor(() => {
+      expect(result.current.data?.length).toBe(PAGE_SIZE)
+    })
+    for (let page = 0; page < PAGES - 1; page++) {
+      await act(async () => {
+        await result.current.fetchNextPage()
+      })
+    }
+    await waitFor(() => {
+      expect(result.current.data?.length).toBe(TOTAL)
+      expect(result.current.hasNextPage).toBe(false)
+    })
+
+    // External insert: someone else writes to the same table.
+    await act(async () => {
+      await sql.set({ id: 'external-insert', name: 'External Insert', age: 25 })
+    })
+
+    await waitFor(() => {
+      const found = result.current.data?.find((p) => p.id === 'external-insert')
+      expect(found).toBeDefined()
+      expect(result.current.data?.length).toBe(TOTAL + 1)
+    })
+
+    // External update of a visible row.
+    await act(async () => {
+      await sql.set({ id: 'seed-100', name: 'Externally Updated', age: 99 })
+    })
+
+    await waitFor(() => {
+      const found = result.current.data?.find((p) => p.id === 'seed-100')
+      expect(found?.name).toBe('Externally Updated')
+      expect(found?.age).toBe(99)
+    })
+
+    // External batch delete.
+    await act(async () => {
+      await sql.batchDelete(['seed-0', 'seed-1', 'seed-2', 'seed-3', 'seed-4'])
+    })
+
+    await waitFor(() => {
+      expect(result.current.data?.find((p) => p.id === 'seed-0')).toBeUndefined()
+      expect(result.current.data?.find((p) => p.id === 'seed-4')).toBeUndefined()
+    })
+
+    // hasNextPage should still be false (we held all rows; deletes shrink the set).
+    expect(result.current.hasNextPage).toBe(false)
+    expect(result.current.isError).toBe(false)
+    expect(result.current.status).toBe('success')
+  })
+
+  it('should stay consistent when external mutations land DURING pagination', async () => {
+    const sql = createSqliteState<Person>({
+      backend,
+      tableName: 'PaginatingDuringExternalMutation',
+      key: 'id',
+      indexes: ['age'],
+    })
+    const seed: Person[] = []
+    for (let index = 0; index < 300; index++) {
+      seed.push({ id: `r-${index}`, name: `R${index}`, age: index })
+    }
+    await sql.batchSet(seed)
+
+    const { result } = renderHook(() => useSqliteValue(sql, { sortBy: 'age', pageSize: 50 }, []))
+
+    await waitFor(() => {
+      expect(result.current.data?.length).toBe(50)
+    })
+
+    // Race a fetchNextPage against an external mutation. The hook's epoch
+    // cancellation must keep the snapshot coherent (no torn writes).
+    await act(async () => {
+      const pageProm = result.current.fetchNextPage()
+      await sql.set({ id: 'racy', name: 'Racy', age: 5 })
+      await pageProm
+    })
+
+    await waitFor(() => {
+      // We should converge on a length that includes the racy insert plus
+      // the rows actually visible. Exact count depends on the refill loop,
+      // but it must contain 'racy' and must not double-list any seed row.
+      expect(result.current.data?.find((p) => p.id === 'racy')).toBeDefined()
+      const ids = (result.current.data ?? []).map((p) => p.id)
+      expect(new Set(ids).size).toBe(ids.length) // no duplicates
+    })
+
+    expect(result.current.isError).toBe(false)
   })
 })

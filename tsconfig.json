@@ -14,6 +14,7 @@
     "forceConsistentCasingInFileNames": true,
     "noFallthroughCasesInSwitch": true,
     "moduleResolution": "node",
+    "types": ["node", "jest", "bun-types"],
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "react-jsx",
@@ -24,5 +25,11 @@
       "muya": ["packages/core/src/index.ts"]
     }
   },
-  "include": ["packages/core/src", "packages/core/__tests__", "packages/sqlite/src", "packages/sqlite/__tests__"]
+  "include": [
+    "packages/core/src",
+    "packages/core/__tests__",
+    "packages/sqlite/src",
+    "packages/sqlite/__tests__",
+    "packages/sqlite/benchers"
+  ]
 }

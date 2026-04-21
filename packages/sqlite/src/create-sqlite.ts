@@ -1,46 +1,9 @@
 import { STATE_SCHEDULER, getId } from 'muya'
-import type { Backend } from './table'
 import { createTable } from './table/table'
-import type {
-  DbOptions,
-  DocType,
-  DotPath,
-  GetFieldType,
-  GroupByOptions,
-  GroupByResult,
-  Key,
-  MutationResult,
-  SearchOptions,
-  Table,
-} from './table/table.types'
-import type { Where } from './table/where'
+import type { DocType, Table } from './table/table.types'
+import type { CreateSqliteOptions, MutationItems, SyncTable } from './types'
 
-export interface CreateSqliteOptions<Document extends DocType> extends Omit<DbOptions<Document>, 'backend'> {
-  readonly backend: Backend | Promise<Backend>
-}
-
-export interface MutationItems<Doc> {
-  mutations?: MutationResult<Doc>[]
-  removedAll?: boolean
-}
-
-export interface SyncTable<Document extends DocType> {
-  readonly subscribe: (listener: (mutation: MutationItems<Document>) => void) => () => void
-  readonly set: (document: Document) => Promise<MutationResult<Document>>
-  readonly batchSet: (documents: Document[]) => Promise<MutationResult<Document>[]>
-  readonly batchDelete: (keys: Key[]) => Promise<MutationResult<Document>[]>
-  readonly get: <Selected = Document>(key: Key, selector?: (document: Document) => Selected) => Promise<Selected | undefined>
-
-  readonly delete: (key: Key) => Promise<MutationResult<Document> | undefined>
-  readonly search: <Selected = Document>(options?: SearchOptions<Document, Selected>) => AsyncIterableIterator<Selected>
-  readonly count: (options?: { where?: Where<Document> }) => Promise<number>
-  readonly deleteBy: (where: Where<Document>) => Promise<MutationResult<Document>[]>
-  readonly clear: () => Promise<void>
-  readonly groupBy: <Field extends DotPath<Document>>(
-    field: Field,
-    options?: GroupByOptions<Document>,
-  ) => Promise<Array<GroupByResult<GetFieldType<Document, Field>>>>
-}
+export type { CreateSqliteOptions, MutationItems, SyncTable } from './types'
 
 /**
  * Create a SyncTable that wraps a Table and provides reactive capabilities
