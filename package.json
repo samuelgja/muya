@@ -1,10 +1,8 @@
 {
-  "name": "muya",
-  "version": "2.5.5",
+  "name": "muya-monorepo",
+  "version": "0.0.0",
   "author": "samuel.gjabel@gmail.com",
   "repository": "https://github.com/samuelgjabel/muya",
-  "main": "cjs/index.js",
-  "module": "esm/index.js",
   "devDependencies": {
     "@eslint-react/eslint-plugin": "2.8.1",
     "@eslint/compat": "^2.0.2",
@@ -64,12 +62,7 @@
     "zustand"
   ],
   "license": "MIT",
-  "peerDependencies": {
-    "react": ">=18 <20",
-    "use-sync-external-store": ">=1.6.0"
-  },
   "private": true,
-  "react-native": "src/index.ts",
   "scripts": {
     "clean": "sudo rm -rf node_modules && sudo rm -rf packages/*/node_modules && bun install",
     "build": "bun run --cwd packages/core build && bun run --cwd packages/sqlite build",
@@ -80,8 +73,6 @@
     "test": "bun test ./packages/**",
     "pub": "bun run code-check && bun run build && cd lib && npm publish"
   },
-  "sideEffects": false,
-  "types": "types/index.d.ts",
   "workspaces": [
     "packages/*"
   ]

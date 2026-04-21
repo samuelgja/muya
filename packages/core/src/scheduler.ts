@@ -1,101 +1,93 @@
-export const THRESHOLD = 0.2
-export const THRESHOLD_ITEMS = 10
-export const RESCHEDULE_COUNT = 0
-
 type ScheduleId = string | number | symbol
-interface GlobalSchedulerItem<T> {
-  value: T
-  id: ScheduleId
-}
 
+/**
+ * Options for scheduler listeners
+ */
 export interface SchedulerOptions<T> {
   readonly onResolveItem?: (item: T) => void
-  readonly onScheduleDone: (values?: unknown[]) => void | Promise<void>
+  readonly onScheduleDone: (values?: T[]) => void
 }
 
 /**
- * A simple scheduler to batch updates and avoid blocking the main thread
- * It uses a combination of time-based and count-based strategies to determine when to flush the queue.
- * - Time-based: If the time taken to process the current batch is less than a threshold (THRESHOLD), it continues processing.
- * - Count-based: If the ScheduleId of items in the batch exceeds a certain limit (THRESHOLD_ITEMS), it defers processing to the next microtask.
- * @returns An object with methods to add listeners and schedule tasks.
+ * Public interface for the scheduler
  */
-export function createScheduler() {
+export interface Scheduler {
+  add: <T>(id: ScheduleId, options: SchedulerOptions<T>) => () => void
+  schedule: <T>(id: ScheduleId, value: T) => void
+}
+
+/**
+ * Create a microtask-batched scheduler. Works in any JS runtime (browser, Node,
+ * React Native, Bun) because it only relies on `queueMicrotask`.
+ *
+ * Updates scheduled during a flush are drained in the same microtask so React
+ * sees them as a single batched update instead of cascading renders.
+ * @returns A scheduler with add and schedule methods
+ */
+export function createScheduler(): Scheduler {
   const listeners = new Map<ScheduleId, SchedulerOptions<unknown>>()
-  const batches = new Set<GlobalSchedulerItem<unknown>>()
-
-  let frame = performance.now()
-  let scheduled = false
-
-  /**
-   * Schedule the next flush based on time and item count thresholds
-   */
-  function schedule() {
-    const startFrame = performance.now()
-    const frameSizeDiffIn = startFrame - frame
-    const { size } = batches
-    if (frameSizeDiffIn < THRESHOLD && size > 0 && size < THRESHOLD_ITEMS) {
-      frame = startFrame
-      flush()
-      return
-    }
-
-    if (!scheduled) {
-      scheduled = true
-      Promise.resolve().then(() => {
-        scheduled = false
-        frame = performance.now()
-        flush()
-      })
-    }
-  }
+  const batches = new Map<ScheduleId, unknown[]>()
+  let isScheduled = false
+  let isFlushing = false
 
   /**
-   * Flush the current batch of scheduled items
+   * Drain all batched updates, including any scheduled during this flush.
    */
-  function flush() {
-    if (batches.size === 0) {
-      return
-    }
+  function flush(): void {
+    isScheduled = false
+    isFlushing = true
 
-    const effectedListeners = new Set<ScheduleId>()
-    const valuesMap = new Map<ScheduleId, unknown[]>()
-    for (const value of batches) {
-      if (listeners.has(value.id)) {
-        effectedListeners.add(value.id)
-        const { onResolveItem } = listeners.get(value.id)!
-        if (onResolveItem) {
-          onResolveItem(value.value)
+    while (batches.size > 0) {
+      const pending = new Map(batches)
+      batches.clear()
+
+      for (const [id, values] of pending) {
+        const listener = listeners.get(id)
+        if (!listener) {
+          continue
         }
-        if (!valuesMap.has(value.id)) {
-          valuesMap.set(value.id, [])
+
+        for (const value of values) {
+          listener.onResolveItem?.(value)
         }
-        valuesMap.get(value.id)!.push(value.value)
+
+        listener.onScheduleDone(values)
       }
-      batches.delete(value)
     }
 
-    if (batches.size > RESCHEDULE_COUNT) {
-      schedule()
-      return
-    }
-
-    for (const id of effectedListeners) {
-      const values = valuesMap.get(id)
-      listeners.get(id)?.onScheduleDone(values)
-    }
+    isFlushing = false
   }
 
   return {
-    add<T>(id: ScheduleId, option: SchedulerOptions<T>) {
-      listeners.set(id, option as SchedulerOptions<unknown>)
+    /**
+     * Register a listener for a specific state ID
+     * @param id Unique identifier for the state
+     * @param options Callbacks for resolving items and flush completion
+     * @returns Cleanup function to unregister the listener
+     */
+    add<T>(id: ScheduleId, options: SchedulerOptions<T>): () => void {
+      listeners.set(id, options as SchedulerOptions<unknown>)
       return () => {
         listeners.delete(id)
       }
     },
-    schedule<T>(id: ScheduleId, value: T) {
-      batches.add({ value, id })
-      schedule()
+
+    /**
+     * Schedule a value update for a specific state
+     * @param id State identifier
+     * @param value Value to schedule
+     */
+    schedule<T>(id: ScheduleId, value: T): void {
+      const existing = batches.get(id) ?? []
+      existing.push(value)
+      batches.set(id, existing)
+
+      if (isScheduled || isFlushing) {
+        return
+      }
+
+      isScheduled = true
+      queueMicrotask(flush)
     },
   }
 }
