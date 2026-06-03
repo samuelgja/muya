@@ -1,5 +1,5 @@
 import { useDebugValue } from 'react'
-import { EMPTY_SELECTOR, type GetState } from './types'
+import { EMPTY_SELECTOR, type AnyState } from './types'
 import { isError, isPromise } from './utils/is'
 import { useSyncExternalStoreWithSelector } from 'use-sync-external-store/shim/with-selector'
 
@@ -11,7 +11,7 @@ import { useSyncExternalStoreWithSelector } from 'use-sync-external-store/shim/w
  * @throws {Promise | Error} If the value is a Promise or an Error, it will be thrown to be handled by an error boundary or suspense
  */
 export function useValue<T, S>(
-  state: GetState<T>,
+  state: AnyState<T>,
   selector: (stateValue: Awaited<T>) => S = EMPTY_SELECTOR,
 ): undefined extends S ? Awaited<T> : S {
   const { emitter } = state

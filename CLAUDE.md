@@ -64,7 +64,7 @@ packages/core/
 ```
 
 **Key Patterns:**
-- States are callable hooks: `const count = counter()` in components
+- States are read via the `useValue` hook: `const count = useValue(counter)` in components (states are plain objects, never called directly — keeps them React Compiler-safe)
 - Lazy initialization: `create(() => value)` defers computation until first read
 - Async states suspend on first read, then update synchronously
 - `set(prev => next)` waits for pending promises; `set(value)` overrides immediately

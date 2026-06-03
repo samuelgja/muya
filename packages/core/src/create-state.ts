@@ -1,6 +1,5 @@
 import { select } from './select'
 import type { GetState, SetValue, State, Cache } from './types'
-import { useValue } from './use-value'
 import { createEmitter } from './utils/create-emitter'
 import { getId } from './utils/id'
 import { isEqualBase, isPromise } from './utils/is'
@@ -22,10 +21,9 @@ export function createState<T>(options: GetStateOptions<T>): FullState<T> {
   const { get, destroy, set, getSnapshot } = options
   const isSet = !!set
   const cache: Cache<T> = {}
-  const state: FullState<T> = function (selector) {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    return useValue(state, selector)
-  }
+  // States are plain objects read via the `useValue` hook — never called directly — so React Compiler
+  // can't mistake `state()` for a pure call and memoize a stale value.
+  const state = {} as unknown as FullState<T>
   state.isSet = isSet as true
   state.id = getId()
   state.emitter = createEmitter<T>(getSnapshot)

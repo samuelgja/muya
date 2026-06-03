@@ -1,5 +1,5 @@
 import { useDebugValue, useSyncExternalStore } from 'react'
-import { EMPTY_SELECTOR, type GetState } from './types'
+import { EMPTY_SELECTOR, type AnyState } from './types'
 import { isError, isPromise } from './utils/is'
 
 type LoadableLoading = [undefined, true, false, undefined]
@@ -16,7 +16,7 @@ export type LoadableResult<T> = LoadableLoading | LoadableSuccess<T> | LoadableE
  * @returns Tuple of [value, isLoading, isError, error] with discriminated union types
  */
 export function useValueLoadable<T, S = undefined>(
-  state: GetState<T>,
+  state: AnyState<T>,
   selector: (stateValue: Awaited<T>) => S = EMPTY_SELECTOR,
 ): LoadableResult<undefined extends S ? Awaited<T> : S> {
   const { emitter } = state

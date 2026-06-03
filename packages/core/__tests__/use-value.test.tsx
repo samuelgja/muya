@@ -11,10 +11,10 @@ describe('useValue', () => {
     expect(result.current).toBe(1)
   })
 
-  it('should get the initial state value', () => {
+  it('is not callable — a state must be read via useValue (React Compiler safety)', () => {
     const state = create(1)
-    const { result } = renderHook(() => state())
-    expect(result.current).toBe(1)
+    expect(typeof state).toBe('object')
+    expect(() => (state as unknown as () => number)()).toThrow(TypeError)
   })
 
   it('should update when the state changes', async () => {
@@ -51,8 +51,9 @@ describe('useValue', () => {
       renders()
       return useValue(state)
     })
-    await waitFor(() => {})
-    expect(result.current).toBe(1)
+    await waitFor(() => {
+      expect(result.current).toBe(1)
+    })
     expect(renders).toHaveBeenCalledTimes(3)
   })
 
@@ -85,7 +86,7 @@ describe('useValue', () => {
 
     const { result } = renderHook(() => {
       render()
-      const stateResult = state()
+      const stateResult = useValue(state)
       renderAfter()
       return stateResult
     })

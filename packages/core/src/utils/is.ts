@@ -46,5 +46,7 @@ export function isUndefined(value: unknown): value is undefined {
 }
 
 export function isState<T>(value: unknown): value is State<T> {
-  return isFunction(value) && 'get' in value && 'set' in value && 'isSet' in value && value.isSet === true
+  return (
+    typeof value === 'object' && value !== null && 'get' in value && 'set' in value && 'isSet' in value && value.isSet === true
+  )
 }

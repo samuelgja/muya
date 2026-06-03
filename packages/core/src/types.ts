@@ -13,8 +13,14 @@ export interface Cache<T> {
 
 export const EMPTY_SELECTOR = <T, S>(stateValue: T) => stateValue as unknown as S
 
+/**
+ * A state accepted by the read hooks (`useValue` / `useValueLoadable`), regardless of whether its
+ * value resolves synchronously or from a promise. Lets both `GetState<T>` and async-derived
+ * `GetState<T, true>` states be read without a cast.
+ */
+export type AnyState<T> = GetState<T, false> | GetState<T, true>
+
 export interface GetState<T, IsFroMPromise extends boolean = false> {
-  <S>(selector?: (stateValue: Awaited<T>) => S): undefined extends S ? Awaited<T> : S
   /**
    * Get the cached state value.
    */

@@ -38,12 +38,12 @@ yarn add muya
 ## Quick Start
 
 ```tsx
-import { create } from 'muya'
+import { create, useValue } from 'muya'
 
 const counter = create(0)
 
 function Counter() {
-  const count = counter() // state is a hook
+  const count = useValue(counter) // read the state with the useValue hook
   return <button onClick={() => counter.set((n) => n + 1)}>Count: {count}</button>
 }
 ```
@@ -94,10 +94,12 @@ function Counter() {
 **After** (Muya):
 
 ```tsx
+import { create, useValue } from 'muya'
+
 const counter = create(0)
 
 function Counter() {
-  const count = counter()
+  const count = useValue(counter)
   return <button onClick={() => counter.set((n) => n + 1)}>{count}</button>
 }
 ```
@@ -124,12 +126,12 @@ function Counter() {
 **Muya**:
 
 ```tsx
-import { create } from 'muya'
+import { create, useValue } from 'muya'
 
 const counter = create(0)
 
 function Counter() {
-  const count = counter()
+  const count = useValue(counter)
   return <button onClick={() => counter.set((n) => n + 1)}>{count}</button>
 }
 ```
@@ -140,7 +142,7 @@ function Counter() {
 
 ### `create(initial, isEqual?)`
 
-Create a state. The state itself is a hook.
+Create a state. Read it inside components with the `useValue` hook.
 
 ```tsx
 // Simple value
@@ -190,7 +192,7 @@ counter.destroy()
 Derive state from multiple sources.
 
 ```tsx
-import { create, select } from 'muya'
+import { create, select, useValue } from 'muya'
 
 const firstName = create('Ada')
 const lastName = create('Lovelace')
@@ -198,7 +200,7 @@ const lastName = create('Lovelace')
 const fullName = select([firstName, lastName], (first, last) => `${first} ${last}`)
 
 function Greeting() {
-  const name = fullName() // 'Ada Lovelace'
+  const name = useValue(fullName) // 'Ada Lovelace'
   return <h1>Hello, {name}</h1>
 }
 ```
@@ -275,7 +277,7 @@ const userDetails = userId.select(async (id) => {
 
 // Suspends on first read
 function UserProfile() {
-  const details = userDetails()
+  const details = useValue(userDetails)
   return <Profile {...details} />
 }
 ```
@@ -294,7 +296,7 @@ function App() {
 }
 
 function DataView() {
-  const value = data() // suspends until resolved
+  const value = useValue(data) // suspends until resolved
   return <div>{value}</div>
 }
 ```
@@ -517,6 +519,9 @@ Yes. Async states suspend on first read. Use `useValueLoadable` if you prefer lo
 
 **Does it work with React Native?**
 Yes, Muya has no DOM dependencies.
+
+**Does it work with the React Compiler?**
+Yes. Always read state through the `useValue` / `useValueLoadable` hooks. States are plain objects, not callable, so the compiler never treats a read as a pure value and memoizes a stale snapshot.
 
 ---
 

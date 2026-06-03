@@ -1,5 +1,6 @@
 import { create } from '../src/create'
 import { select } from '../src/select'
+import { useValue } from '../src/use-value'
 import { renderHook, waitFor } from '@testing-library/react'
 import { longPromise } from './test-utils'
 import { Suspense } from 'react'
@@ -36,7 +37,7 @@ describe('select', () => {
     const selectedState2 = select([anotherSelected, selectedState], (a, b) => a + b)
     const result = renderHook(
       () => {
-        const value = selectedState2()
+        const value = useValue(selectedState2)
         return value
       },
       { wrapper: ({ children }) => <Suspense fallback="loading">{children}</Suspense> },
@@ -202,7 +203,7 @@ describe('select', () => {
     const { result } = renderHook(
       () => {
         render()
-        const value = selectedState()
+        const value = useValue(selectedState)
         return value
       },
       { wrapper: ({ children }) => <Suspense fallback="loading">{children}</Suspense> },
