@@ -21,7 +21,8 @@ export function useValueLoadable<T, S = undefined>(
 ): LoadableResult<undefined extends S ? Awaited<T> : S> {
   const { emitter } = state
 
-  const rawValue = useSyncExternalStore(emitter.subscribe, emitter.getSnapshot, emitter.getInitialSnapshot)
+  // Server snapshot falls back to getSnapshot (values are synchronous) so SSR does not throw "Missing getServerSnapshot".
+  const rawValue = useSyncExternalStore(emitter.subscribe, emitter.getSnapshot, emitter.getInitialSnapshot ?? emitter.getSnapshot)
 
   useDebugValue(rawValue)
 

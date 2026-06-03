@@ -18,7 +18,9 @@ export function useValue<T, S>(
   const value = useSyncExternalStoreWithSelector<T, S>(
     state.emitter.subscribe,
     emitter.getSnapshot,
-    emitter.getInitialSnapshot,
+    // Server snapshot: muya computes values synchronously, so reuse getSnapshot when no dedicated
+    // initial snapshot exists. Without this, useSyncExternalStore throws "Missing getServerSnapshot" on SSR.
+    emitter.getInitialSnapshot ?? emitter.getSnapshot,
     selector as (stateValue: T) => S,
   )
   useDebugValue(value)
