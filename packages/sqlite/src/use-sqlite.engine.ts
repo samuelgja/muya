@@ -107,10 +107,22 @@ export class QueryEngine<Document extends DocType, Out> {
   }
 
   /**
-   * External-store snapshot getter. Same reference until something changes.
+   * Client external-store snapshot getter. Lazily starts the engine on first read so the
+   * subscription + initial load happen only on the client (React calls this, not on the server).
+   * Same reference until something changes. `start()` is idempotent.
    * @returns The current immutable snapshot
    */
-  getSnapshot = (): Snapshot<Out> => this.snapshotValue
+  getSnapshot = (): Snapshot<Out> => {
+    this.start()
+    return this.snapshotValue
+  }
+
+  /**
+   * Server external-store snapshot getter for SSR. Never starts the engine, so server rendering
+   * does not subscribe to the table or kick off async loads (no leaks, no DB work on the server).
+   * @returns The current immutable snapshot
+   */
+  getServerSnapshot = (): Snapshot<Out> => this.snapshotValue
 
   /**
    * Replace per-render options without touching iterator state. Async work
@@ -512,10 +524,20 @@ export class CountEngine<Document extends DocType> {
   }
 
   /**
-   * External-store snapshot getter.
+   * Client external-store snapshot getter. Lazily starts the engine on first read so the
+   * subscription + initial count happen only on the client. `start()` is idempotent.
    * @returns The current count snapshot
    */
-  getSnapshot = (): CountSnapshot => this.snapshotValue
+  getSnapshot = (): CountSnapshot => {
+    this.start()
+    return this.snapshotValue
+  }
+
+  /**
+   * Server external-store snapshot getter for SSR. Never starts the engine.
+   * @returns The current count snapshot
+   */
+  getServerSnapshot = (): CountSnapshot => this.snapshotValue
 
   /**
    * Replace per-render options without restarting the subscription.
@@ -695,9 +717,8 @@ export function getOrCreateEngine<Document extends DocType, Out>(
   fullKey: string | null,
 ): QueryEngine<Document, Out> {
   if (fullKey === null) {
-    const engine = new QueryEngine<Document, Out>(state, options, null, null)
-    engine.start()
-    return engine
+    // start() is deferred to the first client getSnapshot() so SSR never subscribes/loads.
+    return new QueryEngine<Document, Out>(state, options, null, null)
   }
   const namespacedKey = 'q:' + fullKey
   const bucket = getBucket(state)
@@ -712,7 +733,6 @@ export function getOrCreateEngine<Document extends DocType, Out>(
   const engine = new QueryEngine<Document, Out>(state, options, bucket, namespacedKey)
   bucket.set(namespacedKey, engine)
   allEngines.add(engine)
-  engine.start()
   return engine
 }
 
@@ -729,9 +749,8 @@ export function getOrCreateCountEngine<Document extends DocType>(
   fullKey: string | null,
 ): CountEngine<Document> {
   if (fullKey === null) {
-    const engine = new CountEngine<Document>(state, options, null, null)
-    engine.start()
-    return engine
+    // start() is deferred to the first client getSnapshot() so SSR never subscribes/loads.
+    return new CountEngine<Document>(state, options, null, null)
   }
   const namespacedKey = 'c:' + fullKey
   const bucket = getBucket(state)
@@ -746,7 +765,6 @@ export function getOrCreateCountEngine<Document extends DocType>(
   const engine = new CountEngine<Document>(state, options, bucket, namespacedKey)
   bucket.set(namespacedKey, engine)
   allEngines.add(engine)
-  engine.start()
   return engine
 }
 

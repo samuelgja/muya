@@ -67,6 +67,6 @@ export function useSqliteCount<Document extends DocType>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [engine, ...deps])
 
-  const snapshot = useSyncExternalStore(engine.subscribe, engine.getSnapshot, engine.getSnapshot)
+  const snapshot = useSyncExternalStore(engine.subscribe, engine.getSnapshot, engine.getServerSnapshot)
   return snapshot.count ?? 0
 }

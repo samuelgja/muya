@@ -70,7 +70,7 @@ export function useSqliteValue<Document extends DocType, Selected = Document>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [engine, ...deps])
 
-  const snapshot = useSyncExternalStore(engine.subscribe, engine.getSnapshot, engine.getSnapshot)
+  const snapshot = useSyncExternalStore(engine.subscribe, engine.getSnapshot, engine.getServerSnapshot)
 
   // Stale = "we have data but a fetch is in flight". Covers refetches
   // triggered by deps change AND by external refetch() calls.
