@@ -1,4 +1,3 @@
-import { STATE_SCHEDULER } from './create'
 import { createState } from './create-state'
 import { sendToDevtools } from './debug/development-tools'
 import type { GetState, IsEqual } from './types'
@@ -95,12 +94,33 @@ export function select<T = unknown, S extends Array<unknown> = []>(
     return state.cache.current
   }
 
+  /**
+   * Recompute the derived value from its dependencies and emit when it changed.
+   * Runs synchronously on every dependency change (no microtask batching).
+   */
+  function recompute(): void {
+    const newValue = computedValue()
+    const resolved = handleAsyncUpdate(state, newValue)
+    // Seed previous with the last-read value so isEqual is honored on the first change.
+    if (isUndefined(state.cache.previous)) {
+      state.cache.previous = state.cache.current
+    }
+    state.cache.current = resolved
+    if (!canUpdate(state.cache, isEqual)) {
+      return
+    }
+    state.emitter.emit()
+    sendToDevtools({
+      name: state.stateName ?? `derived(${state.id})`,
+      type: 'derived',
+      value: state.cache.current,
+      message: 'update',
+    })
+  }
+
   const cleanups: Array<() => void> = []
   for (const dependencyState of states) {
-    const clean = dependencyState.emitter.subscribe(() => {
-      STATE_SCHEDULER.schedule(state.id, null)
-    })
-    cleanups.push(clean)
+    cleanups.push(dependencyState.emitter.subscribe(recompute))
   }
 
   const state = createState<T>({
@@ -108,29 +128,11 @@ export function select<T = unknown, S extends Array<unknown> = []>(
       for (const cleanup of cleanups) {
         cleanup()
       }
-      clearScheduler()
       state.emitter.clear()
       state.cache.current = undefined
     },
     get: getValue,
     getSnapshot,
-  })
-
-  const clearScheduler = STATE_SCHEDULER.add(state.id, {
-    onScheduleDone() {
-      const newValue = computedValue()
-      state.cache.current = handleAsyncUpdate(state, newValue)
-      if (!canUpdate(state.cache, isEqual)) {
-        return
-      }
-      state.emitter.emit()
-      sendToDevtools({
-        name: state.stateName ?? `derived(${state.id})`,
-        type: 'derived',
-        value: state.cache.current,
-        message: 'update',
-      })
-    },
   })
 
   return state

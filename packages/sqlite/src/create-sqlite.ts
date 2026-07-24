@@ -1,4 +1,3 @@
-import { STATE_SCHEDULER, getId } from 'muya'
 import { createTable } from './table/table'
 import type { DocType, Table } from './table/table.types'
 import type { CreateSqliteOptions, MutationItems, SyncTable } from './types'
@@ -23,40 +22,17 @@ export function createSqliteState<Document extends DocType>(options: CreateSqlit
     return cachedTable
   }
 
-  const id = getId()
-  STATE_SCHEDULER.add(id, {
-    onScheduleDone(unknownItems: unknown) {
-      if (!unknownItems) {
-        return
-      }
-      const items = unknownItems as MutationItems<Document>[]
-      const merged: MutationItems<Document> = {}
-      for (const item of items) {
-        if (item.removedAll) {
-          merged.removedAll = true
-        }
-        if (item.mutations) {
-          if (!merged.mutations) {
-            merged.mutations = []
-          }
-          merged.mutations.push(...item.mutations)
-        }
-      }
-      for (const listener of listeners) {
-        listener(merged)
-      }
-    },
-  })
+  const listeners = new Set<(mutation: MutationItems<Document>) => void>()
 
   /**
-   * Notify all subscribers of changes
+   * Notify all subscribers of changes synchronously.
    * @param item The mutation items to notify subscribers about
    */
   function handleChanges(item: MutationItems<Document>) {
-    STATE_SCHEDULER.schedule(id, item)
+    for (const listener of listeners) {
+      listener(item)
+    }
   }
-
-  const listeners = new Set<(mutation: MutationItems<Document>) => void>()
 
   const state: SyncTable<Document> = {
     subscribe(listener) {

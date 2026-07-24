@@ -66,6 +66,8 @@ describe('select', () => {
       (value) => value * 2,
       () => true,
     )
+    // Read once so isEqual has a baseline to compare the first change against.
+    expect(selectedState.get()).toBe(2)
     const listener = jest.fn()
     selectedState.listen(listener)
     state.set(2)

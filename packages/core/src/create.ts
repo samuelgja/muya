@@ -1,11 +1,8 @@
 import { canUpdate, handleAsyncUpdate } from './utils/common'
 import { isEqualBase, isFunction, isPromise, isSetValueFunction, isUndefined } from './utils/is'
 import type { DefaultValue, IsEqual, SetStateCb, SetValue, State } from './types'
-import { createScheduler } from './scheduler'
 import { sendToDevtools } from './debug/development-tools'
 import { createState } from './create-state'
-
-export const STATE_SCHEDULER = createScheduler()
 
 /**
  * Create a new state with an initial value and optional equality check
@@ -14,6 +11,7 @@ export const STATE_SCHEDULER = createScheduler()
  * @returns A State<T> object
  */
 export function create<T>(initialValue: DefaultValue<T>, isEqual: IsEqual<T> = isEqualBase): State<T> {
+  let isDestroyed = false
   /**
    * Get the current value of the state, initializing it if necessary.
    * @returns The current value of the state
@@ -72,19 +70,21 @@ export function create<T>(initialValue: DefaultValue<T>, isEqual: IsEqual<T> = i
     get: getValue,
     destroy() {
       getValue()
-      clearScheduler()
+      isDestroyed = true
       state.emitter.clear()
       state.cache.current = undefined
     },
+    // Apply and emit synchronously. A microtask-deferred set updates controlled
+    // inputs a tick late, which resets the cursor to the end of the field.
     set(value: SetValue<T>) {
-      STATE_SCHEDULER.schedule(state.id, value)
-    },
-    getSnapshot: getValue,
-  })
-
-  const clearScheduler = STATE_SCHEDULER.add(state.id, {
-    onScheduleDone() {
-      state.cache.current = getValue()
+      if (isDestroyed) {
+        return
+      }
+      // Seed previous with the pre-set value so isEqual is honored on the first set.
+      if (isUndefined(state.cache.previous)) {
+        state.cache.previous = getValue()
+      }
+      setValue(value)
       if (!canUpdate(state.cache, isEqual)) {
         return
       }
@@ -96,7 +96,7 @@ export function create<T>(initialValue: DefaultValue<T>, isEqual: IsEqual<T> = i
         message: 'update',
       })
     },
-    onResolveItem: setValue,
+    getSnapshot: getValue,
   })
 
   if (!isFunction(initialValue)) {
